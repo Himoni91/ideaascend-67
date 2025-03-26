@@ -75,8 +75,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error("Error fetching profile:", error);
-      } else {
-        setProfile(data);
+      } else if (data) {
+        // Create a complete ProfileType object with default values for missing fields
+        const completeProfile: ProfileType = {
+          ...data,
+          // Add default values for the new required fields
+          level: 1,
+          xp: 0,
+          badges: [
+            { name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true },
+          ],
+          stats: {
+            followers: 0,
+            following: 0,
+            ideas: 0,
+            mentorSessions: 0,
+            posts: 0
+          }
+        };
+        setProfile(completeProfile);
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
