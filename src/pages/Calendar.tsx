@@ -116,7 +116,7 @@ const Calendar = () => {
                       mode="single"
                       selected={date}
                       onSelect={setDate}
-                      className="rounded-md border shadow-sm"
+                      className="rounded-md border shadow-sm p-3 pointer-events-auto"
                     />
                   </TabsContent>
                   <TabsContent value="week" className="m-0">
@@ -193,7 +193,7 @@ const Calendar = () => {
                 ) : (
                   <Card>
                     <CardContent className="p-6 text-center">
-                      <Calendar className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
+                      <CalendarIcon className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
                       <h3 className="text-lg font-medium mb-1">No upcoming sessions</h3>
                       <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
                         You don't have any scheduled mentorship sessions. Book a session with a mentor.

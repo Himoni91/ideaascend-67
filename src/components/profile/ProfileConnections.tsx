@@ -10,10 +10,47 @@ import { Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { Json } from "@/integrations/supabase/types";
 
 interface ProfileConnectionsProps {
   profile: ProfileType;
 }
+
+// Helper function to convert Supabase response to ProfileType
+const convertToProfileType = (profile: any): ProfileType => {
+  return {
+    id: profile.id,
+    username: profile.username || '',
+    full_name: profile.full_name || '',
+    avatar_url: profile.avatar_url || null,
+    bio: profile.bio || null,
+    location: profile.location || null,
+    website: profile.website || null,
+    linkedin_url: profile.linkedin_url || null,
+    twitter_url: profile.twitter_url || null,
+    company: profile.company || null,
+    position: profile.position || null,
+    expertise: profile.expertise || [],
+    is_mentor: profile.is_mentor || false,
+    is_verified: profile.is_verified || false,
+    created_at: profile.created_at || '',
+    updated_at: profile.updated_at || '',
+    level: profile.level || 1,
+    xp: profile.xp || 0,
+    badges: Array.isArray(profile.badges) 
+      ? profile.badges 
+      : [{ name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true }],
+    stats: typeof profile.stats === 'object' && profile.stats !== null
+      ? profile.stats
+      : {
+          followers: 0,
+          following: 0,
+          ideas: 0,
+          mentorSessions: 0,
+          posts: 0
+        }
+  };
+};
 
 export default function ProfileConnections({ profile }: ProfileConnectionsProps) {
   const [activeTab, setActiveTab] = useState("followers");
@@ -47,8 +84,13 @@ export default function ProfileConnections({ profile }: ProfileConnectionsProps)
       
       if (followingError) throw followingError;
       
-      setFollowers(followerData.map(item => item.follower));
-      setFollowing(followingData.map(item => item.following));
+      // Convert followers data to ProfileType
+      const convertedFollowers = followerData.map(item => convertToProfileType(item.follower));
+      setFollowers(convertedFollowers);
+      
+      // Convert following data to ProfileType
+      const convertedFollowing = followingData.map(item => convertToProfileType(item.following));
+      setFollowing(convertedFollowing);
     } catch (error) {
       console.error("Error fetching connections:", error);
     } finally {

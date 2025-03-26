@@ -1,8 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProfileType } from "@/types/profile";
 import { useToast } from "@/hooks/use-toast";
+import { Json } from "@/integrations/supabase/types";
 
 export function useProfile(profileId?: string) {
   const { user, profile: authProfile } = useAuth();
@@ -46,16 +48,30 @@ export function useProfile(profileId?: string) {
             ...data,
             level: data.level || 1,
             xp: data.xp || 0,
-            badges: data.badges || [
-              { name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true },
-            ],
-            stats: data.stats || {
-              followers: 0,
-              following: 0,
-              ideas: 0,
-              mentorSessions: 0,
-              posts: 0
-            }
+            badges: Array.isArray(data.badges) 
+              ? (data.badges as any[]).map(badge => ({
+                  name: badge.name || '',
+                  icon: badge.icon || '',
+                  description: badge.description || '',
+                  earned: badge.earned || false
+                }))
+              : [{ name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true }],
+            stats: typeof data.stats === 'object' && data.stats !== null
+              ? {
+                  followers: (data.stats as any).followers || 0,
+                  following: (data.stats as any).following || 0,
+                  ideas: (data.stats as any).ideas || 0,
+                  mentorSessions: (data.stats as any).mentorSessions || 0,
+                  posts: (data.stats as any).posts || 0,
+                  rank: (data.stats as any).rank || undefined
+                }
+              : {
+                  followers: 0,
+                  following: 0,
+                  ideas: 0,
+                  mentorSessions: 0,
+                  posts: 0
+                }
           };
           setProfile(completeProfile);
         }
@@ -79,7 +95,25 @@ export function useProfile(profileId?: string) {
               if (!prevProfile) return null;
               return {
                 ...prevProfile,
-                ...updatedData
+                ...updatedData,
+                badges: Array.isArray(updatedData.badges) 
+                  ? updatedData.badges.map((badge: any) => ({
+                      name: badge.name || '',
+                      icon: badge.icon || '',
+                      description: badge.description || '',
+                      earned: badge.earned || false
+                    }))
+                  : prevProfile.badges,
+                stats: typeof updatedData.stats === 'object' && updatedData.stats !== null
+                  ? {
+                      followers: (updatedData.stats as any).followers || prevProfile.stats.followers,
+                      following: (updatedData.stats as any).following || prevProfile.stats.following,
+                      ideas: (updatedData.stats as any).ideas || prevProfile.stats.ideas,
+                      mentorSessions: (updatedData.stats as any).mentorSessions || prevProfile.stats.mentorSessions,
+                      posts: (updatedData.stats as any).posts || prevProfile.stats.posts,
+                      rank: (updatedData.stats as any).rank || prevProfile.stats.rank
+                    }
+                  : prevProfile.stats
               };
             });
           }
