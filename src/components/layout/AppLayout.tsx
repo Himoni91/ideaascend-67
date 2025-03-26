@@ -39,20 +39,20 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Left Sidebar - Hidden on mobile */}
       <Sidebar />
       
       {/* Main Content */}
       <AnimatePresence mode="wait">
         <motion.main 
-          className="flex-1 transition-all duration-300"
+          className="flex-1 transition-all duration-300 overflow-x-hidden"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="container mx-auto px-4 py-6 max-w-7xl">
+          <div className={`container mx-auto px-4 py-6 max-w-7xl ${isMobile ? 'pb-20' : ''}`}>
             {children}
           </div>
           

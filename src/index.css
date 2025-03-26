@@ -72,8 +72,14 @@
     @apply border-border;
   }
 
+  html, body {
+    @apply antialiased overflow-x-hidden touch-manipulation overscroll-none;
+    -webkit-overflow-scrolling: touch;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
-    @apply bg-background text-foreground font-sans overflow-x-hidden min-h-screen;
+    @apply bg-background text-foreground font-sans min-h-screen;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
   }
 
@@ -88,7 +94,7 @@
 
   /* Card hover effects */
   .card-hover {
-    @apply transition-all duration-300 hover:shadow-md hover:-translate-y-1;
+    @apply transition-all duration-300 hover:shadow-md active:scale-98;
   }
 
   /* Button animations */
@@ -102,6 +108,11 @@
   
   .btn-pulse:hover::after {
     @apply scale-x-100;
+  }
+
+  /* Button tap animation for mobile */
+  .tap-highlight {
+    @apply active:bg-primary/10 transition-colors duration-200;
   }
 
   /* Navigation active link */
@@ -124,7 +135,38 @@
 
   /* Mobile safari bottom padding fix */
   .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0);
+  }
+}
+
+/* Mobile specific styles */
+@layer utilities {
+  .active-scale {
+    @apply active:scale-95 transition-transform duration-200;
+  }
+
+  .no-tap-highlight {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .overscroll-none {
+    overscroll-behavior: none;
+  }
+  
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+  
+  .scale-98 {
+    scale: 0.98;
   }
 }
 
@@ -159,4 +201,114 @@
   .text-balance {
     text-wrap: balance;
   }
+  
+  /* Mobile pull-to-refresh animation */
+  .pull-to-refresh {
+    @apply relative overflow-hidden;
+  }
+  
+  .pull-to-refresh::before {
+    @apply content-[''] absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-background to-transparent opacity-0 pointer-events-none transition-opacity;
+  }
+  
+  .pull-to-refresh.refreshing::before {
+    @apply opacity-100;
+  }
 }
+
+/* Mobile animation utilities */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 30px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.3s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out forwards;
+}
+
+/* Mobile navigation specific */
+.mobile-nav-item {
+  @apply flex items-center p-2 rounded-md active:bg-primary/10 transition-colors;
+}
+
+/* Animation staggering for lists */
+.stagger-item {
+  opacity: 0;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0.1s; }
+.stagger-item:nth-child(2) { animation-delay: 0.2s; }
+.stagger-item:nth-child(3) { animation-delay: 0.3s; }
+.stagger-item:nth-child(4) { animation-delay: 0.4s; }
+.stagger-item:nth-child(5) { animation-delay: 0.5s; }
+.stagger-item:nth-child(6) { animation-delay: 0.6s; }
+.stagger-item:nth-child(7) { animation-delay: 0.7s; }
+.stagger-item:nth-child(8) { animation-delay: 0.8s; }
+.stagger-item:nth-child(9) { animation-delay: 0.9s; }
+.stagger-item:nth-child(10) { animation-delay: 1s; }
+
+/* Native-like form inputs */
+.native-input {
+  @apply appearance-none w-full p-3 rounded-lg bg-gray-100 dark:bg-gray-800 border-none focus:ring-2 focus:ring-primary transition-shadow;
+}
+
+/* Native-like buttons */
+.native-button {
+  @apply flex items-center justify-center rounded-lg py-3 px-4 font-medium transition-all active:scale-98 focus:outline-none focus:ring-2 focus:ring-primary;
+}
+
+.native-button-primary {
+  @apply bg-primary text-primary-foreground shadow-sm hover:bg-primary/90;
+}
+
+.native-button-secondary {
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+}
+
