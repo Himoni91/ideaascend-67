@@ -1,17 +1,23 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import CategoryTabs from "@/components/ui/CategoryTabs";
 import FeedFilter from "@/components/ui/FeedFilter";
 import PostCard from "@/components/ui/PostCard";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
+  const { user, profile } = useAuth();
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeFilter, setActiveFilter] = useState("all");
-
+  const [posts, setPosts] = useState([]);
+  
   const categories = ["All", "Funding", "Startup News", "Tech Trends", "Growth", "Marketing"];
 
-  const posts = [
+  // In a real app, we would fetch posts from Supabase here
+  // This is just mock data for now
+  const mockPosts = [
     {
       id: 1,
       author: {
@@ -74,6 +80,11 @@ const Index = () => {
     },
   ];
 
+  useEffect(() => {
+    // Set the mock posts
+    setPosts(mockPosts);
+  }, []);
+
   const filteredPosts = posts.filter(post => {
     if (activeCategory !== "All" && post.category !== activeCategory) {
       return false;
@@ -88,12 +99,20 @@ const Index = () => {
     return true;
   });
 
+  // Greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
   return (
     <AppLayout>
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-idolyst-blue to-idolyst-indigo bg-clip-text text-transparent">
-            Launchpad
+            {getGreeting()}, {profile?.full_name?.split(' ')[0] || 'there'}!
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
             Discover insights, connect with mentors, and stay updated on the startup ecosystem

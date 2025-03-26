@@ -4,19 +4,38 @@ import BottomNav from "./BottomNav";
 import Sidebar from "./Sidebar";
 import RightSidebar from "./RightSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface AppLayoutProps {
   children: ReactNode;
 }
 
 const AppLayout = ({ children }: AppLayoutProps) => {
+  const { user, isLoading } = useAuth();
   const isMobile = useIsMobile();
   const [showRightSidebar, setShowRightSidebar] = useState(false);
+  const navigate = useNavigate();
   
   // Close right sidebar on mobile by default
   useEffect(() => {
     setShowRightSidebar(!isMobile);
   }, [isMobile]);
+
+  // Redirect to sign in if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate("/auth/sign-in");
+    }
+  }, [user, isLoading, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -53,6 +72,6 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       )}
     </div>
   );
-};
+}
 
 export default AppLayout;
