@@ -3,8 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { motion } from "framer-motion";
-import { useCategories } from "@/hooks/use-categories";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface FeedTabsProps {
   categories: { id: string; name: string; icon: string | null; color: string | null }[];
@@ -20,6 +19,7 @@ export default function FeedTabs({
   const tabsRef = useRef<HTMLDivElement>(null);
   const [showLeftScroll, setShowLeftScroll] = useState(false);
   const [showRightScroll, setShowRightScroll] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   // Check if we need scroll buttons
   const checkScrollButtons = () => {
@@ -61,6 +61,14 @@ export default function FeedTabs({
     };
   }, [categories]);
 
+  // Find active index for animation
+  useEffect(() => {
+    const index = ['All', ...categories.map(cat => cat.name)].findIndex(
+      name => name === activeCategory
+    );
+    setActiveIndex(index >= 0 ? index : 0);
+  }, [activeCategory, categories]);
+
   // All Categories button plus category tabs
   const allCategories = { id: 'all', name: 'All Posts', icon: null, color: null };
   const tabsWithAll = [allCategories, ...categories];
@@ -69,56 +77,89 @@ export default function FeedTabs({
     <div className="relative mb-6">
       <div className="flex items-center">
         {/* Left scroll button */}
-        {showLeftScroll && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0 rounded-full absolute left-0 z-10 bg-background/80 backdrop-blur-sm shadow-sm"
-            onClick={() => scrollTabs('left')}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        )}
-        
-        {/* Scrollable tabs */}
-        <div
-          ref={tabsRef}
-          className="flex space-x-2 overflow-x-auto scrollbar-none pb-1 px-1 mx-auto"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {tabsWithAll.map((category) => (
-            <Button
-              key={category.id}
-              onClick={() => onChange(category.id === 'all' ? 'All' : category.name)}
-              className={cn(
-                "rounded-full whitespace-nowrap transition-all flex items-center gap-1",
-                activeCategory === (category.id === 'all' ? 'All' : category.name)
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted hover:bg-muted/80"
-              )}
-              style={
-                category.id !== 'all' && activeCategory === category.name && category.color
-                  ? { backgroundColor: category.color }
-                  : undefined
-              }
+        <AnimatePresence>
+          {showLeftScroll && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
             >
-              {category.icon && <span>{category.icon}</span>}
-              <span>{category.name}</span>
-            </Button>
-          ))}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 rounded-full absolute left-0 z-10 bg-background/80 backdrop-blur-sm shadow-sm"
+                onClick={() => scrollTabs('left')}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Tabs container */}
+        <div className="w-full relative">
+          {/* Active tab indicator */}
+          <div className="absolute bottom-1 left-0 h-0.5 z-0 hidden md:block">
+            <motion.div
+              className="h-full bg-primary rounded-full"
+              animate={{ 
+                left: `${activeIndex * (100 / tabsWithAll.length)}%`,
+                width: `${100 / tabsWithAll.length}%`
+              }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            />
+          </div>
+          
+          {/* Scrollable tabs */}
+          <div
+            ref={tabsRef}
+            className="flex space-x-2 overflow-x-auto scrollbar-none pb-1 px-1 mx-auto"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {tabsWithAll.map((category, index) => (
+              <Button
+                key={category.id}
+                onClick={() => onChange(category.id === 'all' ? 'All' : category.name)}
+                className={cn(
+                  "rounded-full whitespace-nowrap transition-all flex items-center gap-1",
+                  activeCategory === (category.id === 'all' ? 'All' : category.name)
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-muted/80"
+                )}
+                style={
+                  category.id !== 'all' && activeCategory === category.name && category.color
+                    ? { backgroundColor: category.color }
+                    : undefined
+                }
+              >
+                {category.icon && <span>{category.icon}</span>}
+                <span>{category.name}</span>
+              </Button>
+            ))}
+          </div>
         </div>
         
         {/* Right scroll button */}
-        {showRightScroll && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0 rounded-full absolute right-0 z-10 bg-background/80 backdrop-blur-sm shadow-sm"
-            onClick={() => scrollTabs('right')}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        )}
+        <AnimatePresence>
+          {showRightScroll && (
+            <motion.div
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 rounded-full absolute right-0 z-10 bg-background/80 backdrop-blur-sm shadow-sm"
+                onClick={() => scrollTabs('right')}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -1,26 +1,24 @@
 
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import AppLayout from "@/components/layout/AppLayout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import AppLayout from "@/components/layout/AppLayout";
 import EnhancedPostCard from "@/components/post/EnhancedPostCard";
 import PostComments from "@/components/post/PostComments";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
-import { Post } from "@/types/post";
+import { SlideUp, FadeIn } from "@/components/ui/page-transition";
 
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  // Fetch the post with author and categories
   const {
     data: post,
     isLoading,
-    error
+    error,
   } = useQuery({
     queryKey: ["post", id],
     queryFn: async () => {
@@ -40,95 +38,80 @@ export default function PostDetailPage() {
 
       if (error) throw error;
 
-      // Transform the data to flatten the nested structure
+      // Transform the data to match our expected format
       const categories = data.categories.map((pc: any) => pc.category);
       return {
         ...data,
-        author: data.author,
         categories,
-        isTrending: data.trending_score > 50
-      } as Post;
+        isTrending: data.trending_score > 50, // Arbitrary threshold
+      };
     },
-    retry: 1,
     meta: {
-      // Use meta to handle additional options
-      onError: (error: any) => {
+      onError: (error: Error) => {
         toast.error(`Error loading post: ${error.message}`);
+        navigate("/");
       }
     }
   });
 
-  // Increment view count
-  useEffect(() => {
-    if (post?.id) {
-      const incrementViewCount = async () => {
-        await supabase
-          .from("posts")
-          .update({ view_count: (post.view_count || 0) + 1 })
-          .eq("id", post.id);
-      };
-      
-      incrementViewCount();
-    }
-  }, [post?.id]);
-  
-  // Show an error UI if the query failed
-  useEffect(() => {
-    if (error) {
-      toast.error(`Error loading post: ${(error as Error).message}`);
-    }
-  }, [error]);
-  
-  if (error) {
-    return (
-      <AppLayout>
-        <div className="max-w-2xl mx-auto px-4 py-10 text-center">
-          <h1 className="text-2xl font-bold mb-4">Post not found</h1>
-          <p className="text-muted-foreground mb-6">
-            The post you're looking for doesn't exist or has been removed.
-          </p>
-          <Button onClick={() => navigate("/")} variant="default">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
-          </Button>
-        </div>
-      </AppLayout>
-    );
-  }
+  const handleGoBack = () => {
+    navigate(-1);
+  };
+
+  // Update view count
+  useQuery({
+    queryKey: ["post-view", id],
+    queryFn: async () => {
+      if (!id) return null;
+
+      // Increment view count
+      await supabase
+        .rpc("increment_view_count", { post_id: id })
+        .catch(error => console.error("Failed to increment view count:", error));
+
+      return null;
+    },
+    enabled: !!id && !isLoading && !error,
+  });
 
   return (
     <AppLayout>
       <div className="max-w-2xl mx-auto px-4 sm:px-0">
-        <Button
-          variant="ghost"
-          onClick={() => navigate(-1)}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
+        <FadeIn className="mb-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex items-center text-muted-foreground mb-4"
+            onClick={handleGoBack}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+        </FadeIn>
 
         {isLoading ? (
           <div className="space-y-4">
+            <Skeleton className="h-[300px] w-full rounded-xl" />
             <Skeleton className="h-[200px] w-full rounded-xl" />
-            <Skeleton className="h-10 w-1/3" />
-            <Skeleton className="h-5 w-full" />
-            <Skeleton className="h-5 w-full" />
-            <Skeleton className="h-5 w-2/3" />
+          </div>
+        ) : error ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground mb-4">
+              Sorry, we couldn't load this post.
+            </p>
+            <Button onClick={() => navigate("/")}>Return to Home</Button>
           </div>
         ) : post ? (
-          <div className="space-y-6">
-            <EnhancedPostCard post={post} />
-            <PostComments postId={post.id} />
-          </div>
-        ) : (
-          <div className="text-center py-10">
-            <h2 className="text-xl font-medium mb-2">Post not found</h2>
-            <p className="text-muted-foreground">
-              This post may have been removed or doesn't exist.
-            </p>
-          </div>
-        )}
+          <>
+            <SlideUp>
+              <EnhancedPostCard post={post} />
+            </SlideUp>
+
+            <FadeIn className="mt-6">
+              <PostComments postId={post.id} />
+            </FadeIn>
+          </>
+        ) : null}
       </div>
     </AppLayout>
   );

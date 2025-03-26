@@ -1,157 +1,142 @@
 
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { useFollow } from "./use-follow";
 import { ProfileType } from "@/types/profile";
-import { useToast } from "@/hooks/use-toast";
-import { Json } from "@/integrations/supabase/types";
 
 export function useProfile(profileId?: string) {
-  const { user, profile: authProfile } = useAuth();
-  const [profile, setProfile] = useState<ProfileType | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [isCurrentUser, setIsCurrentUser] = useState<boolean>(false);
-  const { toast } = useToast();
-
-  // Fetch profile with realtime updates
-  useEffect(() => {
-    if (!profileId) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    // Check if this is the current user's profile
-    setIsCurrentUser(profileId === user?.id);
-
-    // If this is the current user and we already have their profile from auth context
-    if (isCurrentUser && authProfile) {
-      setProfile(authProfile);
-      setIsLoading(false);
-      return;
-    }
-
-    // Otherwise fetch the profile
-    const fetchProfile = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", profileId)
-          .single();
-
-        if (error) {
-          setError(new Error(error.message));
-        } else if (data) {
-          // Create a complete ProfileType object with default values
-          const completeProfile: ProfileType = {
-            ...data,
-            level: data.level || 1,
-            xp: data.xp || 0,
-            badges: Array.isArray(data.badges) 
-              ? (data.badges as any[]).map(badge => ({
-                  name: badge.name || '',
-                  icon: badge.icon || '',
-                  description: badge.description || '',
-                  earned: badge.earned || false
-                }))
-              : [{ name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true }],
-            stats: typeof data.stats === 'object' && data.stats !== null
-              ? {
-                  followers: (data.stats as any).followers || 0,
-                  following: (data.stats as any).following || 0,
-                  ideas: (data.stats as any).ideas || 0,
-                  mentorSessions: (data.stats as any).mentorSessions || 0,
-                  posts: (data.stats as any).posts || 0,
-                  rank: (data.stats as any).rank || undefined
-                }
-              : {
-                  followers: 0,
-                  following: 0,
-                  ideas: 0,
-                  mentorSessions: 0,
-                  posts: 0
-                }
-          };
-          setProfile(completeProfile);
-        }
-      } catch (error: any) {
-        setError(error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProfile();
-
-    // Set up realtime subscription for profile changes
-    const channel = supabase
-      .channel(`profile-${profileId}`)
-      .on('postgres_changes', 
-          { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profileId}` },
-          (payload) => {
-            const updatedData = payload.new as any;
-            setProfile(prevProfile => {
-              if (!prevProfile) return null;
-              return {
-                ...prevProfile,
-                ...updatedData,
-                badges: Array.isArray(updatedData.badges) 
-                  ? updatedData.badges.map((badge: any) => ({
-                      name: badge.name || '',
-                      icon: badge.icon || '',
-                      description: badge.description || '',
-                      earned: badge.earned || false
-                    }))
-                  : prevProfile.badges,
-                stats: typeof updatedData.stats === 'object' && updatedData.stats !== null
-                  ? {
-                      followers: (updatedData.stats as any).followers || prevProfile.stats.followers,
-                      following: (updatedData.stats as any).following || prevProfile.stats.following,
-                      ideas: (updatedData.stats as any).ideas || prevProfile.stats.ideas,
-                      mentorSessions: (updatedData.stats as any).mentorSessions || prevProfile.stats.mentorSessions,
-                      posts: (updatedData.stats as any).posts || prevProfile.stats.posts,
-                      rank: (updatedData.stats as any).rank || prevProfile.stats.rank
-                    }
-                  : prevProfile.stats
-              };
-            });
-          }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [profileId, user?.id, authProfile, isCurrentUser]);
-
-  // Update profile function
-  const updateProfile = async (updates: Partial<ProfileType>) => {
-    if (!profile) return;
-
-    try {
-      const { error } = await supabase
+  const { user } = useAuth();
+  const [isUpdating, setIsUpdating] = useState(false);
+  const queryClient = useQueryClient();
+  const { followUser, unfollowUser, isFollowing, isLoading: isFollowLoading } = useFollow();
+  
+  // Get profile by ID
+  const { data: profile, isLoading, error } = useQuery({
+    queryKey: ["profile", profileId || user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", profileId || user?.id)
+        .single();
+        
+      if (error) throw error;
+      return data as ProfileType;
+    },
+    enabled: !!(profileId || user?.id),
+  });
+  
+  // Update profile mutation
+  const updateProfile = useMutation({
+    mutationFn: async (updates: Partial<ProfileType>) => {
+      if (!user) throw new Error("Not authenticated");
+      
+      setIsUpdating(true);
+      
+      const { data, error } = await supabase
         .from("profiles")
         .update(updates)
-        .eq("id", profile.id);
-
+        .eq("id", user.id)
+        .select()
+        .single();
+        
       if (error) throw error;
-
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
-      });
-
-      return true;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Profile updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to update profile: ${error.message}`);
+    },
+    onSettled: () => {
+      setIsUpdating(false);
+    }
+  });
+  
+  // Upload avatar
+  const uploadAvatar = async (file: File): Promise<string | null> => {
+    if (!user) {
+      toast.error("You must be logged in to upload an avatar");
+      return null;
+    }
+    
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+      
+      setIsUpdating(true);
+      
+      const { error: uploadError } = await supabase.storage
+        .from("profiles")
+        .upload(filePath, file, { upsert: true });
+        
+      if (uploadError) throw uploadError;
+      
+      const { data } = supabase.storage
+        .from("profiles")
+        .getPublicUrl(filePath);
+        
+      return data.publicUrl;
     } catch (error: any) {
-      toast({
-        title: "Update failed",
-        description: error.message || "An unexpected error occurred",
-        variant: "destructive",
-      });
-      return false;
+      toast.error(`Error uploading avatar: ${error.message}`);
+      return null;
+    } finally {
+      setIsUpdating(false);
     }
   };
-
-  return { profile, isLoading, error, updateProfile, isCurrentUser };
+  
+  // Get followers count
+  const { data: followersCount = 0 } = useQuery({
+    queryKey: ["followers-count", profileId || user?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("user_follows")
+        .select("*", { count: "exact", head: true })
+        .eq("following_id", profileId || user?.id);
+        
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!(profileId || user?.id),
+  });
+  
+  // Get following count
+  const { data: followingCount = 0 } = useQuery({
+    queryKey: ["following-count", profileId || user?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("user_follows")
+        .select("*", { count: "exact", head: true })
+        .eq("follower_id", profileId || user?.id);
+        
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!(profileId || user?.id),
+  });
+  
+  // Check if the current user is the profile owner
+  const isOwnProfile = user?.id === profileId || !profileId;
+  
+  return {
+    profile,
+    isLoading: isLoading || isUpdating,
+    error,
+    updateProfile: updateProfile.mutate,
+    uploadAvatar,
+    isUpdating,
+    followersCount,
+    followingCount,
+    isOwnProfile,
+    followUser,
+    unfollowUser,
+    isFollowing,
+    isFollowLoading
+  };
 }

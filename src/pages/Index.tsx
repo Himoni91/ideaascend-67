@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts } from "@/hooks/use-posts";
@@ -16,11 +16,23 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Index() {
   const { user, profile } = useAuth();
-  const [activeCategory, setActiveCategory] = useState("All");
-  const [activeFilter, setActiveFilter] = useState<FeedFilter>("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get category from URL query param or default to "All"
+  const categoryParam = searchParams.get("category") || "All";
+  const [activeCategory, setActiveCategory] = useState(categoryParam);
+  
+  // Get filter from URL query param or default to "all"
+  const filterParam = searchParams.get("filter") as FeedFilter || "all";
+  const [activeFilter, setActiveFilter] = useState<FeedFilter>(filterParam);
+  
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const { categories } = useCategories();
   const loaderRef = useRef<HTMLDivElement>(null);
@@ -37,17 +49,50 @@ export default function Index() {
     activeFilter
   );
 
+  // Update URL when filters change
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    
+    if (activeCategory !== "All") {
+      params.set("category", activeCategory);
+    } else {
+      params.delete("category");
+    }
+    
+    if (activeFilter !== "all") {
+      params.set("filter", activeFilter);
+    } else {
+      params.delete("filter");
+    }
+    
+    setSearchParams(params, { replace: true });
+  }, [activeCategory, activeFilter, searchParams, setSearchParams]);
+
   // Load more posts when the loader comes into view
   useEffect(() => {
-    if (isLoaderInView && hasMore) {
+    if (isLoaderInView && hasMore && !isLoading) {
       loadMore();
     }
-  }, [isLoaderInView, hasMore, loadMore]);
+  }, [isLoaderInView, hasMore, loadMore, isLoading]);
+
+  // Handle changes to the active category
+  const handleCategoryChange = useCallback((category: string) => {
+    setActiveCategory(category);
+    // Reset to the top of the page when changing category
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
   // Handle changes to the active filter
-  const handleFilterChange = (filter: FeedFilter) => {
+  const handleFilterChange = useCallback((filter: FeedFilter) => {
     setActiveFilter(filter);
-  };
+    // Reset to the top of the page when changing filter
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  // Handle post comment click
+  const handleCommentClick = useCallback((postId: string) => {
+    setExpandedPost(postId);
+  }, []);
 
   // Greeting based on time of day
   const getGreeting = () => {
@@ -60,65 +105,111 @@ export default function Index() {
   return (
     <AppLayout>
       <div className="max-w-2xl mx-auto px-4 sm:px-0">
-        <div className="mb-8">
+        <motion.div 
+          className="mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
           <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-idolyst-blue to-idolyst-indigo bg-clip-text text-transparent">
             {getGreeting()}, {profile?.full_name?.split(' ')[0] || 'there'}!
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
             Discover insights, connect with mentors, and stay updated on the startup ecosystem
           </p>
-        </div>
+        </motion.div>
 
         {/* Create Post Card */}
-        {user && <CreatePostCard />}
+        <AnimatePresence>
+          {user && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+            >
+              <CreatePostCard />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Feed Filters */}
-        <Tabs value={activeFilter} onValueChange={handleFilterChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="all">All Posts</TabsTrigger>
-            <TabsTrigger value="following">
-              My Followings
-            </TabsTrigger>
-            <TabsTrigger value="trending">Trending</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <Tabs value={activeFilter} onValueChange={handleFilterChange} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger value="all">All Posts</TabsTrigger>
+              <TabsTrigger value="following">
+                My Followings
+              </TabsTrigger>
+              <TabsTrigger value="trending">Trending</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </motion.div>
 
         {/* Category Tabs */}
-        <FeedTabs
-          categories={categories}
-          activeCategory={activeCategory}
-          onChange={setActiveCategory}
-        />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+        >
+          <FeedTabs
+            categories={categories}
+            activeCategory={activeCategory}
+            onChange={handleCategoryChange}
+          />
+        </motion.div>
 
         {/* Post List */}
         <div className="space-y-4">
           {isLoading && posts.length === 0 ? (
             // Loading placeholders
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="bg-card rounded-xl p-4 space-y-4 shadow-sm">
-                <div className="flex items-center space-x-3">
-                  <Skeleton className="h-10 w-10 rounded-full" />
-                  <div>
-                    <Skeleton className="h-4 w-40 mb-2" />
-                    <Skeleton className="h-3 w-20" />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-card rounded-xl p-4 space-y-4 shadow-sm">
+                  <div className="flex items-center space-x-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div>
+                      <Skeleton className="h-4 w-40 mb-2" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-2/3" />
-                </div>
-              </div>
-            ))
+              ))}
+            </motion.div>
           ) : posts.length > 0 ? (
             <>
-              {posts.map((post) => (
-                <EnhancedPostCard
-                  key={post.id}
-                  post={post}
-                  onClickComment={() => setExpandedPost(post.id)}
-                />
-              ))}
+              <AnimatePresence>
+                {posts.map((post, index) => (
+                  <motion.div
+                    key={post.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ 
+                      duration: 0.3, 
+                      delay: Math.min(0.1 * index, 0.5) 
+                    }}
+                  >
+                    <EnhancedPostCard
+                      post={post}
+                      onClickComment={handleCommentClick}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               
               {/* Infinite scroll loader */}
               {hasMore && (
@@ -130,14 +221,29 @@ export default function Index() {
                     variant="outline" 
                     onClick={loadMore} 
                     disabled={isLoading}
+                    className="relative overflow-hidden"
                   >
-                    {isLoading ? "Loading..." : "Load More"}
+                    {isLoading ? (
+                      <>
+                        <span className="opacity-0">Load More</span>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      </>
+                    ) : (
+                      "Load More"
+                    )}
                   </Button>
                 </div>
               )}
             </>
           ) : (
-            <div className="text-center py-10">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="text-center py-10"
+            >
               <p className="text-gray-500 dark:text-gray-400 mb-4">
                 {activeFilter === "following" 
                   ? "No posts from people you follow. Start following more people!" 
@@ -147,11 +253,14 @@ export default function Index() {
               </p>
               
               {activeFilter === "following" && user && (
-                <Button onClick={() => setActiveFilter("all")}>
+                <Button 
+                  onClick={() => handleFilterChange("all")}
+                  className="animate-pulse"
+                >
                   Browse All Posts
                 </Button>
               )}
-            </div>
+            </motion.div>
           )}
         </div>
       </div>

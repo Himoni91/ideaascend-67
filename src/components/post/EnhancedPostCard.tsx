@@ -9,7 +9,6 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -29,23 +28,24 @@ import {
   User,
   Trash,
   ChevronDown,
-  TrendingUp,
 } from "lucide-react";
-import { motion } from "framer-motion";
-import { formatDistanceToNow } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import PostHeader from "./PostHeader";
 
 interface EnhancedPostCardProps {
   post: Post;
   onClickComment?: (postId: string) => void;
   onClickShare?: (postId: string) => void;
+  compact?: boolean;
 }
 
 export default function EnhancedPostCard({
   post,
   onClickComment,
   onClickShare,
+  compact = false,
 }: EnhancedPostCardProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -76,7 +76,7 @@ export default function EnhancedPostCard({
     if (onClickComment) {
       onClickComment(post.id);
     } else {
-      setIsExpanded(!isExpanded);
+      navigate(`/post/${post.id}`);
     }
   };
 
@@ -87,16 +87,12 @@ export default function EnhancedPostCard({
       // Default share action - copy link to clipboard
       const url = `${window.location.origin}/post/${post.id}`;
       navigator.clipboard.writeText(url);
-      // Use imported toast instead of window.toast
       toast.success("Link copied to clipboard");
     }
   };
 
-  const handleAuthorClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (post.author?.id) {
-      navigate(`/profile/${post.author.id}`);
-    }
+  const handleCardClick = () => {
+    navigate(`/post/${post.id}`);
   };
 
   return (
@@ -104,83 +100,23 @@ export default function EnhancedPostCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
+      whileHover={{ scale: 1.01, transition: { duration: 0.2 } }}
     >
-      <Card className="mb-4 overflow-hidden hover:shadow-md transition-shadow">
-        <CardContent className="pt-6">
+      <Card 
+        className={cn(
+          "mb-4 overflow-hidden hover:shadow-md transition-shadow cursor-pointer",
+          compact && "shadow-sm"
+        )}
+        onClick={handleCardClick}
+      >
+        <CardContent className={cn("pt-6", compact && "p-4")}>
           {/* Author information */}
-          <div className="flex items-start justify-between mb-4">
-            <div 
-              className="flex items-center cursor-pointer" 
-              onClick={handleAuthorClick}
-            >
-              <Avatar className="h-10 w-10">
-                <AvatarImage 
-                  src={post.author?.avatar_url || undefined} 
-                  alt={post.author?.full_name || post.author?.username || "User"}
-                />
-                <AvatarFallback>
-                  {post.author?.full_name?.[0] || post.author?.username?.[0] || "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="ml-3">
-                <div className="flex items-center">
-                  <p className="text-sm font-medium">
-                    {post.author?.full_name || post.author?.username}
-                  </p>
-                  {post.author?.is_verified && (
-                    <Badge variant="outline" className="ml-1 px-1 py-0 text-xs">
-                      ✓
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                  <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
-                  {post.isTrending && (
-                    <span className="flex items-center text-amber-500">
-                      <TrendingUp className="h-3 w-3 mr-1" />
-                      Trending
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
-                  <span className="sr-only">More options</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem className="cursor-pointer" onClick={() => handleShare()}>
-                  <LinkIcon className="mr-2 h-4 w-4" />
-                  <span>Copy link</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer" onClick={() => window.open(`/post/${post.id}`, '_blank')}>
-                  <Bookmark className="mr-2 h-4 w-4" />
-                  <span>Save post</span>
-                </DropdownMenuItem>
-                {post.author?.id === user?.id ? (
-                  <DropdownMenuItem className="cursor-pointer text-destructive">
-                    <Trash className="mr-2 h-4 w-4" />
-                    <span>Delete post</span>
-                  </DropdownMenuItem>
-                ) : (
-                  <>
-                    <DropdownMenuItem className="cursor-pointer" onClick={() => navigate(`/profile/${post.author?.id}`)}>
-                      <User className="mr-2 h-4 w-4" />
-                      <span>View profile</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="cursor-pointer text-destructive">
-                      <Flag className="mr-2 h-4 w-4" />
-                      <span>Report</span>
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <PostHeader 
+            author={post.author!} 
+            timestamp={post.created_at}
+            isTrending={post.isTrending}
+            compact={compact}
+          />
 
           {/* Categories */}
           {post.categories && post.categories.length > 0 && (
@@ -190,6 +126,10 @@ export default function EnhancedPostCard({
                   key={category.id}
                   style={{ backgroundColor: category.color || undefined }}
                   className="text-xs py-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/?category=${category.name}`);
+                  }}
                 >
                   {category.icon && <span className="mr-1">{category.icon}</span>}
                   {category.name}
@@ -200,13 +140,19 @@ export default function EnhancedPostCard({
 
           {/* Post content */}
           <div className="space-y-3">
-            <p className="text-sm whitespace-pre-line">{displayContent}</p>
+            <p className={cn(
+              "whitespace-pre-line",
+              compact ? "text-xs" : "text-sm"
+            )}>{displayContent}</p>
             
-            {contentIsTooLong && (
+            {contentIsTooLong && !compact && (
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={handleExpandContent}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleExpandContent();
+                }}
                 className="flex items-center text-xs text-muted-foreground px-0"
               >
                 {showFullContent ? "Show less" : "Read more"}
@@ -221,7 +167,10 @@ export default function EnhancedPostCard({
 
             {/* Media display */}
             {post.media_url && post.media_type === "image" && (
-              <div className="mt-3 rounded-lg overflow-hidden">
+              <div className={cn(
+                "mt-3 rounded-lg overflow-hidden",
+                compact && "max-h-[200px]"
+              )}>
                 <img
                   src={post.media_url}
                   alt="Post attachment"
@@ -234,44 +183,108 @@ export default function EnhancedPostCard({
         </CardContent>
 
         {/* Actions */}
-        <CardFooter className="border-t py-3 flex justify-between">
+        <CardFooter className={cn(
+          "border-t py-3 flex justify-between",
+          compact && "py-2 px-4"
+        )}>
           <Button
             variant="ghost"
-            size="sm"
+            size={compact ? "sm" : "default"}
             className={cn(
               "text-muted-foreground",
-              hasLiked && "text-primary"
+              hasLiked && "text-primary",
+              compact && "h-8 px-2"
             )}
-            onClick={handleLike}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleLike();
+            }}
           >
             <ThumbsUp
               className={cn(
                 "mr-1 h-4 w-4",
+                compact && "h-3.5 w-3.5",
                 hasLiked && "fill-current"
               )}
             />
-            {post.likes_count || 0}
+            <span className={cn(compact && "text-xs")}>
+              {post.likes_count || 0}
+            </span>
           </Button>
           
           <Button
             variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            onClick={handleComment}
+            size={compact ? "sm" : "default"}
+            className={cn(
+              "text-muted-foreground",
+              compact && "h-8 px-2"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleComment();
+            }}
           >
-            <MessageSquare className="mr-1 h-4 w-4" />
-            {post.comments_count || 0}
+            <MessageSquare className={cn("mr-1 h-4 w-4", compact && "h-3.5 w-3.5")} />
+            <span className={cn(compact && "text-xs")}>
+              {post.comments_count || 0}
+            </span>
           </Button>
           
           <Button
             variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            onClick={handleShare}
+            size={compact ? "sm" : "default"}
+            className={cn(
+              "text-muted-foreground",
+              compact && "h-8 px-2"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleShare();
+            }}
           >
-            <Share2 className="mr-1 h-4 w-4" />
-            Share
+            <Share2 className={cn("mr-1 h-4 w-4", compact && "h-3.5 w-3.5")} />
+            <span className={cn(compact && "text-xs")}>Share</span>
           </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn("h-10 w-10", compact && "h-8 w-8")}
+              >
+                <MoreHorizontal className={cn("h-4 w-4", compact && "h-3.5 w-3.5")} />
+                <span className="sr-only">More options</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem className="cursor-pointer" onClick={() => handleShare()}>
+                <LinkIcon className="mr-2 h-4 w-4" />
+                <span>Copy link</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => window.open(`/post/${post.id}`, '_blank')}>
+                <Bookmark className="mr-2 h-4 w-4" />
+                <span>Save post</span>
+              </DropdownMenuItem>
+              {post.author?.id === user?.id ? (
+                <DropdownMenuItem className="cursor-pointer text-destructive">
+                  <Trash className="mr-2 h-4 w-4" />
+                  <span>Delete post</span>
+                </DropdownMenuItem>
+              ) : (
+                <>
+                  <DropdownMenuItem className="cursor-pointer" onClick={() => navigate(`/profile/${post.author?.id}`)}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>View profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer text-destructive">
+                    <Flag className="mr-2 h-4 w-4" />
+                    <span>Report</span>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </CardFooter>
       </Card>
     </motion.div>
