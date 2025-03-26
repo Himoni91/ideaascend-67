@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Post, PostWithCategories, FeedFilter } from "@/types/post";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { ProfileType } from "@/types/profile";
 
 export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') {
   const { user } = useAuth();
@@ -13,6 +14,46 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
   const pageSize = 10;
 
   const queryKey = ["posts", categoryName, feedFilter, currentPage, pageSize];
+
+  const formatProfileData = (profileData: any): ProfileType => {
+    const defaultBadges = [
+      { name: "New Member", icon: "👋", description: "Welcome to Idolyst", earned: true }
+    ];
+    
+    const defaultStats = {
+      followers: 0,
+      following: 0,
+      ideas: 0,
+      mentorSessions: 0,
+      posts: 0,
+      rank: 0
+    };
+
+    let badges = defaultBadges;
+    let stats = defaultStats;
+
+    try {
+      if (profileData.badges) {
+        if (Array.isArray(profileData.badges)) {
+          badges = profileData.badges;
+        }
+      }
+      
+      if (profileData.stats) {
+        if (typeof profileData.stats === 'object' && !Array.isArray(profileData.stats)) {
+          stats = { ...defaultStats, ...profileData.stats };
+        }
+      }
+    } catch (e) {
+      console.error("Error parsing profile data:", e);
+    }
+
+    return {
+      ...profileData,
+      badges,
+      stats
+    } as ProfileType;
+  };
 
   const {
     data: posts,
@@ -66,6 +107,8 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
       const hasMore = count ? (currentPage * pageSize) < count : false;
 
       const transformedData = await Promise.all(data?.map(async (post) => {
+        const formattedAuthor = formatProfileData(post.author);
+        
         const categories = post.categories.map((pc: any) => pc.category);
         
         const { data: pollData } = await supabase
@@ -132,15 +175,15 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
         
         return {
           ...post,
-          author: post.author,
+          author: formattedAuthor,
           categories,
           isReposted,
           isTrending: post.trending_score > 50,
           poll
-        };
+        } as PostWithCategories;
       }) || []);
 
-      return { data: transformedData as PostWithCategories[], hasMore };
+      return { data: transformedData, hasMore };
     },
     staleTime: 1000 * 60,
     gcTime: 1000 * 60 * 5,

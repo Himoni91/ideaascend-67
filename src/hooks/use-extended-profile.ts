@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { ExtendedProfileType, UserRole } from "@/types/profile-extended";
 import { toast } from "sonner";
+import { Json } from "@/integrations/supabase/types";
 
 export function useExtendedProfile(usernameOrId?: string) {
   const { user } = useAuth();
@@ -70,31 +71,49 @@ export function useExtendedProfile(usernameOrId?: string) {
           }
         }
 
-        // Ensure proper structure of jsonb arrays
+        // Safely parse JSON fields with proper type casting
+        const defaultBadges = [{ name: "New Member", icon: "👋", description: "Welcome to Idolyst", earned: true }];
+        const defaultStats = {
+          followers: 0,
+          following: 0,
+          ideas: 0,
+          mentorSessions: 0,
+          posts: 0
+        };
+
+        // Type assertion helper function for array fields
+        const parseJsonArray = <T>(json: Json | null, defaultValue: T[]): T[] => {
+          if (!json) return defaultValue;
+          if (Array.isArray(json)) return json as unknown as T[];
+          return defaultValue;
+        };
+
+        // Type assertion helper for object fields
+        const parseJsonObject = <T>(json: Json | null, defaultValue: T): T => {
+          if (!json) return defaultValue;
+          if (typeof json === 'object' && !Array.isArray(json)) return json as unknown as T;
+          return defaultValue;
+        };
+
+        // Ensure verification status is one of the allowed values
+        const verificationStatus = (data.verification_status || 'unverified') as 
+          'unverified' | 'pending' | 'verified' | 'rejected';
+
+        // Create the formatted profile with proper type assertions
         const formattedProfile: ExtendedProfileType = {
           ...data,
-          // Cast any types we know could be different between DB and our type system
-          education: Array.isArray(data.education) ? data.education : [],
-          work_experience: Array.isArray(data.work_experience) ? data.work_experience : [],
+          education: parseJsonArray(data.education, []),
+          work_experience: parseJsonArray(data.work_experience, []),
           skills: Array.isArray(data.skills) ? data.skills : [],
-          achievements: Array.isArray(data.achievements) ? data.achievements : [],
-          portfolio_items: Array.isArray(data.portfolio_items) ? data.portfolio_items : [],
-          social_links: data.social_links || {},
-          verification_documents: Array.isArray(data.verification_documents) ? data.verification_documents : [],
-          verification_status: data.verification_status || 'unverified',
+          achievements: parseJsonArray(data.achievements, []),
+          portfolio_items: parseJsonArray(data.portfolio_items, []),
+          social_links: parseJsonObject(data.social_links, {}),
+          verification_documents: parseJsonArray(data.verification_documents, []),
+          verification_status: verificationStatus,
           onboarding_completed: !!data.onboarding_completed,
           onboarding_step: data.onboarding_step || 1,
-          // Handle other potential type mismatches
-          badges: Array.isArray(data.badges) 
-            ? data.badges 
-            : [{ name: "New Member", icon: "👋", description: "Welcome to Idolyst", earned: true }],
-          stats: data.stats || {
-            followers: 0,
-            following: 0,
-            ideas: 0,
-            mentorSessions: 0,
-            posts: 0
-          }
+          badges: parseJsonArray(data.badges, defaultBadges),
+          stats: parseJsonObject(data.stats, defaultStats)
         };
 
         setProfile(formattedProfile);
@@ -116,7 +135,7 @@ export function useExtendedProfile(usernameOrId?: string) {
           { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
           (payload) => {
             if (payload.new) {
-              setProfile(prev => prev ? { ...prev, ...payload.new } : payload.new as ExtendedProfileType);
+              setProfile(prev => prev ? { ...prev, ...payload.new } : payload.new as unknown as ExtendedProfileType);
             }
           }
         )
@@ -143,16 +162,25 @@ export function useExtendedProfile(usernameOrId?: string) {
         throw new Error("You can only update your own profile");
       }
       
-      // Generate the correct object to update, handling nested objects properly
-      const profileId = profile?.id || user.id;
+      // Convert the strongly typed objects back to Json format for Supabase
+      const dbUpdates: Record<string, any> = {
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+      
+      // Convert typed arrays/objects back to JSON compatible format
+      if (updates.education) dbUpdates.education = updates.education;
+      if (updates.work_experience) dbUpdates.work_experience = updates.work_experience;
+      if (updates.achievements) dbUpdates.achievements = updates.achievements;
+      if (updates.portfolio_items) dbUpdates.portfolio_items = updates.portfolio_items;
+      if (updates.social_links) dbUpdates.social_links = updates.social_links;
+      if (updates.verification_documents) dbUpdates.verification_documents = updates.verification_documents;
       
       // Update the profile
+      const profileId = profile?.id || user.id;
       const { error } = await supabase
         .from('profiles')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
+        .update(dbUpdates)
         .eq('id', profileId);
 
       if (error) throw error;
