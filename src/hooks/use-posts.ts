@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Post, PostWithCategories, FeedFilter } from "@/types/post";
+import { Post, PostWithCategories, FeedFilter, ReactionType } from "@/types/post";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -106,7 +106,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
                   .select("*")
                   .eq("poll_option_id", option.id)
                   .eq("user_id", user.id)
-                  .single();
+                  .maybeSingle();
                   
                 hasVoted = !!voteData;
               }
@@ -131,11 +131,25 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
             total_votes: totalVotes
           };
         }
+
+        // Check if user has reposted this post
+        let isReposted = false;
+        if (user) {
+          const { data: repostData } = await supabase
+            .from("post_reposts")
+            .select("*")
+            .eq("post_id", post.id)
+            .eq("user_id", user.id)
+            .maybeSingle();
+            
+          isReposted = !!repostData;
+        }
         
         return {
           ...post,
           author: post.author,
           categories,
+          isReposted,
           isTrending: post.trending_score > 50, // Arbitrary threshold
           poll
         };
@@ -298,7 +312,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
 
   // Mutation to react to a post
   const reactToPost = useMutation({
-    mutationFn: async ({ postId, reactionType }: { postId: string; reactionType: string }) => {
+    mutationFn: async ({ postId, reactionType }: { postId: string; reactionType: ReactionType }) => {
       if (!user) throw new Error("You must be logged in to react to a post");
       
       // Check if user already reacted with this type
@@ -318,9 +332,16 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           .eq("id", existingReaction.id);
           
         if (error) throw error;
-        return { postId, removed: true };
+        return { postId, removed: true, reactionType };
       } else {
-        // Add the reaction
+        // Remove any existing reaction of different type
+        await supabase
+          .from("post_reactions")
+          .delete()
+          .eq("post_id", postId)
+          .eq("user_id", user.id);
+          
+        // Add the new reaction
         const { data, error } = await supabase
           .from("post_reactions")
           .insert({
@@ -332,7 +353,76 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           .single();
           
         if (error) throw error;
-        return { postId, reaction: data, removed: false };
+        return { postId, reaction: data, removed: false, reactionType };
+      }
+    },
+    onSuccess: (result) => {
+      // Update the post in cache
+      queryClient.setQueryData(queryKey, (oldData: any) => {
+        if (!oldData?.data) return oldData;
+        
+        return {
+          ...oldData,
+          data: oldData.data.map((post: Post) => {
+            if (post.id === result.postId) {
+              // Only update likes count for like reactions
+              const likesUpdate = result.reactionType === 'like' 
+                ? { likes_count: result.removed 
+                    ? Math.max(0, (post.likes_count || 0) - 1)
+                    : (post.likes_count || 0) + 1 }
+                : {};
+                
+              return {
+                ...post,
+                userReaction: result.removed ? null : result.reaction,
+                ...likesUpdate
+              };
+            }
+            return post;
+          })
+        };
+      });
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to react to post: ${error.message}`);
+    }
+  });
+
+  // Mutation to repost
+  const repostPost = useMutation({
+    mutationFn: async (postId: string) => {
+      if (!user) throw new Error("You must be logged in to repost");
+      
+      // Check if user already reposted this post
+      const { data: existingRepost } = await supabase
+        .from("post_reposts")
+        .select("*")
+        .eq("post_id", postId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+        
+      if (existingRepost) {
+        // Remove the repost if it already exists
+        const { error } = await supabase
+          .from("post_reposts")
+          .delete()
+          .eq("id", existingRepost.id);
+          
+        if (error) throw error;
+        return { postId, removed: true };
+      } else {
+        // Add the repost
+        const { data, error } = await supabase
+          .from("post_reposts")
+          .insert({
+            post_id: postId,
+            user_id: user.id
+          })
+          .select()
+          .single();
+          
+        if (error) throw error;
+        return { postId, repost: data, removed: false };
       }
     },
     onSuccess: (result) => {
@@ -346,10 +436,10 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
             if (post.id === result.postId) {
               return {
                 ...post,
-                userReaction: result.removed ? null : result.reaction,
-                likes_count: result.removed 
-                  ? (post.likes_count || 0) - 1 
-                  : (post.likes_count || 0) + 1
+                isReposted: !result.removed,
+                reposts_count: result.removed 
+                  ? Math.max(0, (post.reposts_count || 0) - 1)
+                  : (post.reposts_count || 0) + 1
               };
             }
             return post;
@@ -358,7 +448,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
       });
     },
     onError: (error: any) => {
-      toast.error(`Failed to react to post: ${error.message}`);
+      toast.error(`Failed to repost: ${error.message}`);
     }
   });
 
@@ -377,5 +467,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     loadMore,
     createPost: createPost.mutate,
     reactToPost: reactToPost.mutate,
+    repostPost: repostPost.mutate
   };
 }

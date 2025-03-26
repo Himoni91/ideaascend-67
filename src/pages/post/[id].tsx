@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,14 +12,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePosts } from "@/hooks/use-posts";
-import { Post, DatabaseProfile } from "@/types/post";
+import { Post, DatabaseProfile, ReactionType } from "@/types/post";
 import { ProfileType } from "@/types/profile";
 
 export default function PostDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { reactToPost } = usePosts();
+  const { reactToPost, repostPost } = usePosts();
   
   // Fetch the specific post
   const {
@@ -154,12 +155,26 @@ export default function PostDetailPage() {
         badges: rawAuthor.badges
       };
       
+      // Check if user has reposted this post
+      let isReposted = false;
+      if (user) {
+        const { data: repostData } = await supabase
+          .from("post_reposts")
+          .select("*")
+          .eq("post_id", data.id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+          
+        isReposted = !!repostData;
+      }
+      
       const transformedPost: Post = {
         ...data,
         categories,
         userReaction,
         poll,
         author: transformedAuthor,
+        isReposted,
         isTrending: data.trending_score > 50 // Arbitrary threshold
       };
       
@@ -169,8 +184,15 @@ export default function PostDetailPage() {
   });
   
   // Handle post reaction
-  const handleReaction = (postId: string, reactionType: string) => {
+  const handleReaction = (postId: string, reactionType: ReactionType) => {
+    if (!user) return;
     reactToPost({ postId, reactionType });
+  };
+  
+  // Handle repost
+  const handleRepost = async (postId: string) => {
+    if (!user) return;
+    repostPost(postId);
   };
   
   if (isLoading) {
@@ -244,6 +266,7 @@ export default function PostDetailPage() {
           <EnhancedPostCard 
             post={post} 
             onReaction={handleReaction}
+            onRepost={handleRepost}
           />
           
           <div className="mt-6">

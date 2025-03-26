@@ -1,29 +1,31 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
-import { Post } from "@/types/post";
-import { Heart, MessageSquare, Share2, BarChart3, Bookmark } from "lucide-react";
+import { Post, ReactionType } from "@/types/post";
+import { BarChart3, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner"; 
 import { useFollow } from "@/hooks/use-follow";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLinkPreview } from "@/hooks/use-link-preview";
+import { Button } from "@/components/ui/button";
 import LinkPreview from "./LinkPreview";
 import PostPoll from "./PostPoll";
 import PostComments from "./PostComments";
+import ReactionButtons from "./ReactionButtons";
 
 interface EnhancedPostCardProps {
   post: Post;
-  onReaction?: (postId: string, reactionType: string) => void;
-  compact?: boolean; // Add compact prop
-  onClickComment?: (postId: string) => void; // Add onClickComment prop
-  showComments?: boolean; // Add showComments prop
+  onReaction?: (postId: string, reactionType: ReactionType) => void;
+  compact?: boolean;
+  onClickComment?: (postId: string) => void;
+  showComments?: boolean;
 }
 
 export default function EnhancedPostCard({ 
@@ -35,9 +37,6 @@ export default function EnhancedPostCard({
 }: EnhancedPostCardProps) {
   const { user } = useAuth();
   const { followUser, unfollowUser, isFollowing } = useFollow();
-  const [isLiked, setIsLiked] = useState(!!post.userReaction);
-  const [likeCount, setLikeCount] = useState(post.likes_count || 0);
-  const [isBookmarked, setIsBookmarked] = useState(false);
   const [showAllContent, setShowAllContent] = useState(false);
   const [showCommentsSection, setShowCommentsSection] = useState(showComments);
   const { linkPreview } = useLinkPreview(post.content);
@@ -53,33 +52,15 @@ export default function EnhancedPostCard({
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true }) 
     : "";
   
-  const handleLikeClick = () => {
+  const handleReaction = (postId: string, reactionType: ReactionType) => {
     if (!user) {
-      toast.error("Please sign in to like posts");
+      toast.error("Please sign in to react to posts");
       return;
     }
-    
-    setIsLiked(!isLiked);
-    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
     
     if (onReaction) {
-      onReaction(post.id, "like");
+      onReaction(postId, reactionType);
     }
-  };
-  
-  const handleBookmarkClick = () => {
-    if (!user) {
-      toast.error("Please sign in to bookmark posts");
-      return;
-    }
-    
-    setIsBookmarked(!isBookmarked);
-    toast.success(isBookmarked ? "Post removed from bookmarks" : "Post saved to bookmarks");
-  };
-  
-  const handleShareClick = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast.success("Link copied to clipboard");
   };
   
   const handleFollowClick = () => {
@@ -129,16 +110,7 @@ export default function EnhancedPostCard({
               <span>•</span>
               <span>{formattedDate}</span>
             </div>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="flex items-center">
-                <Heart className="h-3 w-3 mr-1" />
-                {post.likes_count || 0}
-              </span>
-              <span className="flex items-center">
-                <MessageSquare className="h-3 w-3 mr-1" />
-                {post.comments_count || 0}
-              </span>
-            </div>
+            <ReactionButtons post={post} onReaction={handleReaction} compact={true} />
           </div>
         </CardContent>
       </Card>
@@ -258,56 +230,10 @@ export default function EnhancedPostCard({
       <Separator />
       
       <CardFooter className="p-3 flex justify-between">
-        <div className="flex gap-1 sm:gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLikeClick}
-            className={cn(
-              "text-muted-foreground hover:text-primary hover:bg-primary/10",
-              isLiked && "text-primary"
-            )}
-          >
-            <motion.div
-              animate={isLiked ? { scale: [1, 1.2, 1] } : {}}
-              transition={{ duration: 0.3 }}
-            >
-              <Heart className={cn("h-4 w-4 mr-1", isLiked && "fill-current")} />
-            </motion.div>
-            {likeCount > 0 && <span>{likeCount}</span>}
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-primary hover:bg-primary/10"
-            onClick={handleCommentClick}
-          >
-            <MessageSquare className="h-4 w-4 mr-1" />
-            {post.comments_count && post.comments_count > 0 ? post.comments_count : ''}
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleShareClick}
-            className="text-muted-foreground hover:text-primary hover:bg-primary/10"
-          >
-            <Share2 className="h-4 w-4 mr-1" />
-          </Button>
-        </div>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleBookmarkClick}
-          className={cn(
-            "text-muted-foreground hover:text-primary hover:bg-primary/10",
-            isBookmarked && "text-primary"
-          )}
-        >
-          <Bookmark className={cn("h-4 w-4", isBookmarked && "fill-current")} />
-        </Button>
+        <ReactionButtons 
+          post={post} 
+          onReaction={handleReaction}
+        />
       </CardFooter>
       
       <AnimatePresence>

@@ -303,6 +303,35 @@ export type Database = {
           },
         ]
       }
+      post_reposts: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_reposts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           category: string | null
@@ -313,6 +342,7 @@ export type Database = {
           likes_count: number | null
           media_type: string | null
           media_url: string | null
+          reposts_count: number | null
           trending_score: number | null
           user_id: string
           view_count: number | null
@@ -326,6 +356,7 @@ export type Database = {
           likes_count?: number | null
           media_type?: string | null
           media_url?: string | null
+          reposts_count?: number | null
           trending_score?: number | null
           user_id: string
           view_count?: number | null
@@ -339,6 +370,7 @@ export type Database = {
           likes_count?: number | null
           media_type?: string | null
           media_url?: string | null
+          reposts_count?: number | null
           trending_score?: number | null
           user_id?: string
           view_count?: number | null

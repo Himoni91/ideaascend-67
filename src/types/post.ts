@@ -92,12 +92,14 @@ export type Post = {
   comments_count: number | null;
   view_count: number | null;
   trending_score: number | null;
+  reposts_count: number | null;
   created_at: string;
   author?: Omit<ProfileType, 'badges'> & {
     badges?: any;
   };
   categories?: PostCategory[];
   userReaction?: PostReaction | null;
+  isReposted?: boolean;
   isTrending?: boolean;
   poll?: Poll;
   link_preview?: LinkPreview;
@@ -108,3 +110,12 @@ export type PostWithCategories = Post & {
 };
 
 export type FeedFilter = 'all' | 'following' | 'trending';
+
+export type ReactionType = 'like' | 'insightful' | 'fundable' | 'repost';
+
+export type SharingOption = {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  action: (post: Post) => void;
+};
