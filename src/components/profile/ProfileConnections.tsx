@@ -37,6 +37,7 @@ const convertToProfileType = (profile: any): ProfileType => {
     updated_at: profile.updated_at || '',
     level: profile.level || 1,
     xp: profile.xp || 0,
+    byline: profile.byline || null,
     badges: Array.isArray(profile.badges) 
       ? profile.badges 
       : [{ name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true }],

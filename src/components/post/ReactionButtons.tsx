@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { Post, ReactionTypeString } from "@/types/post";
+import { Post, ReactionType } from "@/types/post";
 import { 
   DropdownMenu,
   DropdownMenuContent,

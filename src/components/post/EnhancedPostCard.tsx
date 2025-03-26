@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -22,7 +21,7 @@ import ReactionButtons from "./ReactionButtons";
 
 interface EnhancedPostCardProps {
   post: Post;
-  onReaction?: (postId: string, reactionType: ReactionType) => void;
+  onReaction?: (postId: string, reactionType: string) => void;
   onRepost?: (postId: string) => void;
   compact?: boolean;
   onClickComment?: (postId: string) => void;
@@ -54,7 +53,7 @@ export default function EnhancedPostCard({
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true }) 
     : "";
   
-  const handleReaction = (postId: string, reactionType: ReactionType) => {
+  const handleReaction = (postId: string, reactionType: string) => {
     if (!user) {
       toast.error("Please sign in to react to posts");
       return;

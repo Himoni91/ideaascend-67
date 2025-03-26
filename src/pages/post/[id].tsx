@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePosts } from "@/hooks/use-posts";
-import { Post, DatabaseProfile, ReactionType } from "@/types/post";
+import { Post, DatabaseProfile } from "@/types/post";
 import { ProfileType } from "@/types/profile";
 
 export default function PostDetailPage() {
@@ -139,6 +139,7 @@ export default function PostDetailPage() {
         is_verified: rawAuthor.is_verified || false,
         created_at: rawAuthor.created_at || '',
         updated_at: rawAuthor.updated_at || '',
+        byline: rawAuthor.byline || null,
         level: rawAuthor.level || 1,
         xp: rawAuthor.xp || 0,
         // Parse stats from JSON if needed
@@ -184,7 +185,7 @@ export default function PostDetailPage() {
   });
   
   // Handle post reaction
-  const handleReaction = (postId: string, reactionType: ReactionType) => {
+  const handleReaction = (postId: string, reactionType: string) => {
     if (!user) return;
     reactToPost({ postId, reactionType });
   };

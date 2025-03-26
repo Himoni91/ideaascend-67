@@ -12,10 +12,8 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
   const [hasMore, setHasMore] = useState(true);
   const pageSize = 10;
 
-  // Use a consistent query key pattern for caching
   const queryKey = ["posts", categoryName, feedFilter, currentPage, pageSize];
 
-  // Query to fetch posts with author and categories
   const {
     data: posts,
     isLoading,
@@ -36,16 +34,13 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
         .order('created_at', { ascending: false })
         .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
 
-      // Apply category filter if specified
       if (categoryName && categoryName !== 'All') {
         query = query.eq('post_categories.category.name', categoryName);
       }
 
-      // Apply feed filter
       if (feedFilter === 'trending') {
         query = query.order('trending_score', { ascending: false });
       } else if (feedFilter === 'following' && user) {
-        // Get the list of users that the current user follows
         const { data: followingData } = await supabase
           .from("user_follows")
           .select("following_id")
@@ -56,7 +51,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
         if (followingIds.length > 0) {
           query = query.in('user_id', followingIds);
         } else {
-          // If user isn't following anyone, return empty array
           return { data: [], hasMore: false };
         }
       }
@@ -65,18 +59,15 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
 
       if (error) throw error;
 
-      // Check if there are more posts
       const { count } = await supabase
         .from("posts")
         .select("*", { count: 'exact', head: true });
 
       const hasMore = count ? (currentPage * pageSize) < count : false;
 
-      // Transform the data to flatten the nested structure
       const transformedData = await Promise.all(data?.map(async (post) => {
         const categories = post.categories.map((pc: any) => pc.category);
         
-        // Check if post has a poll
         const { data: pollData } = await supabase
           .from("polls")
           .select(`
@@ -86,10 +77,8 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           .eq("post_id", post.id)
           .maybeSingle();
           
-        // If there's a poll, append it to the post
         let poll = null;
         if (pollData) {
-          // Calculate total votes for each option
           const optionsWithVotes = await Promise.all(
             pollData.options.map(async (option: any) => {
               const { count } = await supabase
@@ -97,7 +86,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
                 .select("*", { count: "exact" })
                 .eq("poll_option_id", option.id);
                 
-              // If user is logged in, check if they voted for this option
               let hasVoted = false;
               if (user) {
                 const { data: voteData } = await supabase
@@ -118,7 +106,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
             })
           );
           
-          // Calculate total votes
           const totalVotes = optionsWithVotes.reduce(
             (sum, option) => sum + (option.votes_count || 0), 
             0
@@ -131,7 +118,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           };
         }
 
-        // Check if user has reposted this post
         let isReposted = false;
         if (user) {
           const { data: repostData } = await supabase
@@ -149,19 +135,18 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           author: post.author,
           categories,
           isReposted,
-          isTrending: post.trending_score > 50, // Arbitrary threshold
+          isTrending: post.trending_score > 50,
           poll
         };
       }) || []);
 
       return { data: transformedData as PostWithCategories[], hasMore };
     },
-    staleTime: 1000 * 60, // 1 minute
-    gcTime: 1000 * 60 * 5, // 5 minutes
-    placeholderData: (previousData) => previousData // This replaces keepPreviousData in React Query v5
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 5,
+    placeholderData: (previousData) => previousData
   });
 
-  // If user is authenticated, fetch their reactions to posts
   useEffect(() => {
     if (user && posts?.data?.length) {
       const fetchUserReactions = async () => {
@@ -174,7 +159,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           .in("post_id", postIds);
           
         if (reactions?.length) {
-          // Add user reactions to cached posts
           queryClient.setQueryData(queryKey, (oldData: any) => {
             if (!oldData?.data) return oldData;
             
@@ -193,14 +177,12 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     }
   }, [user, posts?.data, queryClient, queryKey]);
 
-  // Set up realtime subscription for post changes
   useEffect(() => {
     const channel = supabase
       .channel('posts-changes')
       .on('postgres_changes', 
           { event: '*', schema: 'public', table: 'posts' },
           () => {
-            // Refetch posts when there are changes
             refetch();
           }
       )
@@ -211,7 +193,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     };
   }, [refetch]);
 
-  // Mutation to create a new post
   const createPost = useMutation({
     mutationFn: async ({ 
       content, 
@@ -233,7 +214,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     }) => {
       if (!user) throw new Error("You must be logged in to create a post");
       
-      // Step 1: Insert the post
       const { data: post, error: postError } = await supabase
         .from("posts")
         .insert({
@@ -247,7 +227,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
         
       if (postError) throw postError;
       
-      // Step 2: Associate categories with the post
       if (categoryIds.length > 0) {
         const postCategories = categoryIds.map(categoryId => ({
           post_id: post.id,
@@ -261,16 +240,13 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
         if (categoriesError) throw categoriesError;
       }
       
-      // Step 3: Create poll if pollData is provided
       if (pollData) {
-        // Calculate expiry date if provided
         let expiresAt = null;
         if (pollData.expiresIn) {
           expiresAt = new Date();
           expiresAt.setHours(expiresAt.getHours() + pollData.expiresIn);
         }
         
-        // Insert poll
         const { data: poll, error: pollError } = await supabase
           .from("polls")
           .insert({
@@ -284,7 +260,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           
         if (pollError) throw pollError;
         
-        // Insert poll options
         const pollOptions = pollData.options.map(option => ({
           poll_id: poll.id,
           option_text: option
@@ -300,7 +275,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
       return post;
     },
     onSuccess: () => {
-      // Invalidate posts queries to refetch data
       queryClient.invalidateQueries({ queryKey: ["posts"] });
       toast.success("Post created successfully!");
     },
@@ -309,12 +283,10 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     }
   });
 
-  // Mutation to react to a post
   const reactToPost = useMutation({
     mutationFn: async ({ postId, reactionType }: { postId: string; reactionType: string }) => {
       if (!user) throw new Error("You must be logged in to react to a post");
       
-      // Check if user already reacted with this type
       const { data: existingReaction } = await supabase
         .from("post_reactions")
         .select("*")
@@ -324,7 +296,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
         .maybeSingle();
         
       if (existingReaction) {
-        // Remove the reaction if it already exists (toggle behavior)
         const { error } = await supabase
           .from("post_reactions")
           .delete()
@@ -332,7 +303,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           
         if (error) throw error;
         
-        // Show feedback to user
         if (reactionType === 'like') {
           toast.info("Removed like");
         } else {
@@ -341,21 +311,18 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
         
         return { postId, removed: true, reactionType };
       } else {
-        // Find the reaction type ID from reaction_types table
         const { data: reactionTypeData } = await supabase
           .from("reaction_types")
           .select("id")
           .eq("name", reactionType)
           .single();
         
-        // Remove any existing reaction of different type
         await supabase
           .from("post_reactions")
           .delete()
           .eq("post_id", postId)
           .eq("user_id", user.id);
           
-        // Add the new reaction
         const { data, error } = await supabase
           .from("post_reactions")
           .insert({
@@ -369,7 +336,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           
         if (error) throw error;
         
-        // Show feedback to user
         if (reactionType === 'like') {
           toast.success("Post liked");
         } else if (reactionType === 'fundable') {
@@ -388,7 +354,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
       }
     },
     onSuccess: (result) => {
-      // Update the post in cache
       queryClient.setQueryData(queryKey, (oldData: any) => {
         if (!oldData?.data) return oldData;
         
@@ -396,7 +361,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           ...oldData,
           data: oldData.data.map((post: Post) => {
             if (post.id === result.postId) {
-              // Only update likes count for like reactions
               const likesUpdate = result.reactionType === 'like' 
                 ? { likes_count: result.removed 
                     ? Math.max(0, (post.likes_count || 0) - 1)
@@ -419,12 +383,10 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     }
   });
 
-  // Mutation to repost
   const repostPost = useMutation({
     mutationFn: async (postId: string) => {
       if (!user) throw new Error("You must be logged in to repost");
       
-      // Check if user already reposted this post
       const { data: existingRepost } = await supabase
         .from("post_reposts")
         .select("*")
@@ -433,7 +395,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
         .maybeSingle();
         
       if (existingRepost) {
-        // Remove the repost if it already exists
         const { error } = await supabase
           .from("post_reposts")
           .delete()
@@ -442,7 +403,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
         if (error) throw error;
         return { postId, removed: true };
       } else {
-        // Add the repost
         const { data, error } = await supabase
           .from("post_reposts")
           .insert({
@@ -457,7 +417,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
       }
     },
     onSuccess: (result) => {
-      // Update the post in cache
       queryClient.setQueryData(queryKey, (oldData: any) => {
         if (!oldData?.data) return oldData;
         
@@ -478,7 +437,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
         };
       });
       
-      // Show success toast based on action
       if (result.removed) {
         toast.success("Repost removed");
       } else {
@@ -490,7 +448,6 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     }
   });
 
-  // Get next page of posts
   const loadMore = () => {
     if (hasMore && !isLoading) {
       setCurrentPage(prev => prev + 1);
