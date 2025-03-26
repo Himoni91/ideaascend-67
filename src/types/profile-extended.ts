@@ -1,5 +1,6 @@
 
 // Update the import to match the proper types
+import type { Json } from "@/integrations/supabase/types";
 import { ProfileType } from "./profile";
 
 export interface Education {

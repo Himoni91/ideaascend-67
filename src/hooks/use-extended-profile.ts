@@ -57,13 +57,17 @@ export function useExtendedProfile(usernameOrId?: string) {
         // If it's the user's own profile, also load their roles
         if (isOwnProfile && user) {
           try {
-            const { data: rolesData, error: rolesError } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', user.id);
-
-            if (!rolesError && rolesData) {
-              setRoles(rolesData.map(r => r.role));
+            // We'll handle user_roles separately since it's not yet in the types
+            const rolesResponse = await fetch(`${supabase.supabaseUrl}/rest/v1/user_roles?user_id=eq.${user.id}&select=role`, {
+              headers: {
+                'apikey': supabase.supabaseKey,
+                'Authorization': `Bearer ${supabase.supabaseKey}`
+              }
+            });
+            
+            if (rolesResponse.ok) {
+              const rolesData = await rolesResponse.json();
+              setRoles(rolesData.map((r: any) => r.role));
             }
           } catch (err) {
             console.error('Error fetching roles:', err);
@@ -73,13 +77,17 @@ export function useExtendedProfile(usernameOrId?: string) {
         // Ensure proper structure of jsonb arrays
         const formattedProfile: ExtendedProfileType = {
           ...data,
+          // Cast any types we know could be different between DB and our type system
           education: data.education || [],
           work_experience: data.work_experience || [],
           skills: data.skills || [],
           achievements: data.achievements || [],
           portfolio_items: data.portfolio_items || [],
           social_links: data.social_links || {},
-          verification_documents: data.verification_documents || []
+          verification_documents: data.verification_documents || [],
+          verification_status: data.verification_status || 'unverified',
+          onboarding_completed: !!data.onboarding_completed,
+          onboarding_step: data.onboarding_step || 1
         };
 
         setProfile(formattedProfile);
@@ -239,25 +247,13 @@ export function useExtendedProfile(usernameOrId?: string) {
         });
       }
       
-      // Update profile verification status
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          verification_status: 'pending',
-          verification_documents: documentUrls
-        })
-        .eq('id', user.id);
-        
-      if (profileError) throw profileError;
-      
-      toast.success("Verification request submitted successfully");
-      
-      // Update local state
-      setProfile(prev => prev ? { 
-        ...prev, 
+      // Update profile verification status using our updateProfile function
+      await updateProfile({
         verification_status: 'pending',
         verification_documents: documentUrls
-      } : null);
+      });
+      
+      toast.success("Verification request submitted successfully");
       
     } catch (error: any) {
       console.error('Error submitting verification:', error);
@@ -274,22 +270,10 @@ export function useExtendedProfile(usernameOrId?: string) {
     }
     
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          onboarding_step: step,
-          onboarding_completed: completed
-        })
-        .eq('id', user.id);
-        
-      if (error) throw error;
-      
-      // Update local state
-      setProfile(prev => prev ? { 
-        ...prev, 
+      await updateProfile({
         onboarding_step: step,
         onboarding_completed: completed
-      } : null);
+      });
       
     } catch (error: any) {
       console.error('Error updating onboarding step:', error);

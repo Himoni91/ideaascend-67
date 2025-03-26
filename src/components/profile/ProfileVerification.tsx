@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { ExtendedProfileType } from "@/types/profile-extended";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -9,7 +10,8 @@ import {
   FileCheck, 
   Upload, 
   AlertCircle, 
-  HelpCircle 
+  HelpCircle,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";

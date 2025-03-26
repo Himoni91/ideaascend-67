@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { ExtendedProfileType, PortfolioItem } from "@/types/profile-extended";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useExtendedProfile } from "@/hooks/use-extended-profile";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 
 interface ProfilePortfolioProps {
   profile: ExtendedProfileType;
@@ -305,7 +306,7 @@ export default function ProfilePortfolio({ profile, editable = false }: ProfileP
     }
   };
 
-  const item = {
+  const itemVariants: Variants = {
     hidden: { y: 20, opacity: 0 },
     show: { y: 0, opacity: 1 }
   };
@@ -350,7 +351,7 @@ export default function ProfilePortfolio({ profile, editable = false }: ProfileP
               {portfolioItems.map((item, index) => (
                 <motion.div 
                   key={index}
-                  variants={item}
+                  variants={itemVariants}
                   className="rounded-lg overflow-hidden border hover:shadow-md transition-shadow"
                 >
                   {item.image_url && (
