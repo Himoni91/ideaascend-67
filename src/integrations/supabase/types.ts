@@ -9,9 +9,101 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ideas: {
+        Row: {
+          category: string
+          comments_count: number | null
+          created_at: string
+          description: string
+          id: string
+          mentor_reviews_count: number | null
+          tags: string[] | null
+          title: string
+          user_id: string
+          votes_count: number | null
+        }
+        Insert: {
+          category: string
+          comments_count?: number | null
+          created_at?: string
+          description: string
+          id?: string
+          mentor_reviews_count?: number | null
+          tags?: string[] | null
+          title: string
+          user_id: string
+          votes_count?: number | null
+        }
+        Update: {
+          category?: string
+          comments_count?: number | null
+          created_at?: string
+          description?: string
+          id?: string
+          mentor_reviews_count?: number | null
+          tags?: string[] | null
+          title?: string
+          user_id?: string
+          votes_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ideas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          category: string | null
+          comments_count: number | null
+          content: string
+          created_at: string
+          id: string
+          likes_count: number | null
+          media_type: string | null
+          media_url: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          comments_count?: number | null
+          content: string
+          created_at?: string
+          id?: string
+          likes_count?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          comments_count?: number | null
+          content?: string
+          created_at?: string
+          id?: string
+          likes_count?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
+          badges: Json | null
           bio: string | null
           company: string | null
           created_at: string | null
@@ -20,16 +112,20 @@ export type Database = {
           id: string
           is_mentor: boolean | null
           is_verified: boolean | null
+          level: number | null
           linkedin_url: string | null
           location: string | null
           position: string | null
+          stats: Json | null
           twitter_url: string | null
           updated_at: string | null
           username: string | null
           website: string | null
+          xp: number | null
         }
         Insert: {
           avatar_url?: string | null
+          badges?: Json | null
           bio?: string | null
           company?: string | null
           created_at?: string | null
@@ -38,16 +134,20 @@ export type Database = {
           id: string
           is_mentor?: boolean | null
           is_verified?: boolean | null
+          level?: number | null
           linkedin_url?: string | null
           location?: string | null
           position?: string | null
+          stats?: Json | null
           twitter_url?: string | null
           updated_at?: string | null
           username?: string | null
           website?: string | null
+          xp?: number | null
         }
         Update: {
           avatar_url?: string | null
+          badges?: Json | null
           bio?: string | null
           company?: string | null
           created_at?: string | null
@@ -56,15 +156,54 @@ export type Database = {
           id?: string
           is_mentor?: boolean | null
           is_verified?: boolean | null
+          level?: number | null
           linkedin_url?: string | null
           location?: string | null
           position?: string | null
+          stats?: Json | null
           twitter_url?: string | null
           updated_at?: string | null
           username?: string | null
           website?: string | null
+          xp?: number | null
         }
         Relationships: []
+      }
+      user_follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_follows_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

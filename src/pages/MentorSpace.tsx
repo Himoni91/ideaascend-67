@@ -1,7 +1,6 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Search, Filter, Award, Calendar, ThumbsUp, MessageSquare, ArrowRight } from "lucide-react";
+import { Users, Search, Filter, Award, Calendar, ThumbsUp, MessageSquare, ArrowRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AppLayout from "@/components/layout/AppLayout";

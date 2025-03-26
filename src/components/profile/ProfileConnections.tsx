@@ -25,24 +25,30 @@ export default function ProfileConnections({ profile }: ProfileConnectionsProps)
   const fetchConnections = async () => {
     setIsLoading(true);
     try {
-      // Fetch followers
+      // Fetch followers - people who follow this profile
       const { data: followerData, error: followerError } = await supabase
         .from('user_follows')
-        .select('follower_id, profiles!user_follows_follower_id_fkey(*)')
+        .select(`
+          follower_id,
+          follower:profiles!user_follows_follower_id_fkey(*)
+        `)
         .eq('following_id', profile.id);
       
       if (followerError) throw followerError;
       
-      // Fetch following
+      // Fetch following - people this profile follows
       const { data: followingData, error: followingError } = await supabase
         .from('user_follows')
-        .select('following_id, profiles!user_follows_following_id_fkey(*)')
+        .select(`
+          following_id,
+          following:profiles!user_follows_following_id_fkey(*)
+        `)
         .eq('follower_id', profile.id);
       
       if (followingError) throw followingError;
       
-      setFollowers(followerData.map(item => item.profiles));
-      setFollowing(followingData.map(item => item.profiles));
+      setFollowers(followerData.map(item => item.follower));
+      setFollowing(followingData.map(item => item.following));
     } catch (error) {
       console.error("Error fetching connections:", error);
     } finally {
@@ -53,7 +59,7 @@ export default function ProfileConnections({ profile }: ProfileConnectionsProps)
   useEffect(() => {
     fetchConnections();
     
-    // Set up realtime subscription for followers/following changes
+    // Set up realtime subscription for follower/following changes
     const channel = supabase
       .channel('connections-changes')
       .on('postgres_changes', 
