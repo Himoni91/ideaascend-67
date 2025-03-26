@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ExtendedProfileType } from "@/types/profile-extended";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -181,7 +180,7 @@ export default function ProfileVerification({ profile }: ProfileVerificationProp
                           className="h-6 w-6"
                           onClick={() => removeFile(index)}
                         >
-                          <X className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}

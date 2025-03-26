@@ -1,4 +1,5 @@
 
+// Update the import to match the proper types
 import { ProfileType } from "./profile";
 
 export interface Education {

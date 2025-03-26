@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ExtendedProfileType, PortfolioItem } from "@/types/profile-extended";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -115,9 +114,8 @@ export default function ProfilePortfolio({ profile, editable = false }: ProfileP
     try {
       let imageUrl = currentItem.image_url;
       
-      // Upload image if provided
       if (imageFile) {
-        imageUrl = await uploadAvatar(imageFile); // Reusing avatar upload function
+        imageUrl = await uploadAvatar(imageFile);
       }
       
       const itemToSave = {
@@ -129,10 +127,8 @@ export default function ProfilePortfolio({ profile, editable = false }: ProfileP
       const newItems = [...portfolioItems];
       
       if (isEditDialogOpen && editIndex >= 0) {
-        // Edit existing
         newItems[editIndex] = itemToSave;
       } else {
-        // Add new
         newItems.push(itemToSave);
       }
       

@@ -56,15 +56,17 @@ export function useExtendedProfile(usernameOrId?: string) {
 
         // If it's the user's own profile, also load their roles
         if (isOwnProfile && user) {
-          const { data: rolesData, error: rolesError } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', user.id);
+          try {
+            const { data: rolesData, error: rolesError } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', user.id);
 
-          if (rolesError) {
-            console.error('Error fetching roles:', rolesError);
-          } else if (rolesData) {
-            setRoles(rolesData.map(r => r.role));
+            if (!rolesError && rolesData) {
+              setRoles(rolesData.map(r => r.role));
+            }
+          } catch (err) {
+            console.error('Error fetching roles:', err);
           }
         }
 
@@ -198,16 +200,15 @@ export function useExtendedProfile(usernameOrId?: string) {
     }
     
     try {
-      // Start a verification request
-      const { data: verificationRequest, error: verificationError } = await supabase
-        .from('verification_requests')
-        .insert([
-          { user_id: user.id, status: 'pending' }
-        ])
-        .select()
-        .single();
-        
-      if (verificationError) throw verificationError;
+      // First create a storage bucket if it doesn't exist
+      const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('verification');
+      
+      if (bucketError && bucketError.message.includes('does not exist')) {
+        await supabase.storage.createBucket('verification', {
+          public: false,
+          fileSizeLimit: 5242880 // 5MB
+        });
+      }
       
       // Upload each document and gather URLs
       const documentUrls = [];
@@ -215,7 +216,7 @@ export function useExtendedProfile(usernameOrId?: string) {
       for (let i = 0; i < documents.length; i++) {
         const file = documents[i];
         const fileExt = file.name.split('.').pop();
-        const filePath = `verification/${user.id}/${verificationRequest.id}/${i}.${fileExt}`;
+        const filePath = `verification/${user.id}/${i}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from('verification')
@@ -238,21 +239,12 @@ export function useExtendedProfile(usernameOrId?: string) {
         });
       }
       
-      // Update the verification request with document URLs
-      const { error: updateError } = await supabase
-        .from('verification_requests')
-        .update({
-          documents: documentUrls
-        })
-        .eq('id', verificationRequest.id);
-        
-      if (updateError) throw updateError;
-      
       // Update profile verification status
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
-          verification_status: 'pending'
+          verification_status: 'pending',
+          verification_documents: documentUrls
         })
         .eq('id', user.id);
         
