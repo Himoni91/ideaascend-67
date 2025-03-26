@@ -18,13 +18,46 @@ export type ProfileType = {
   updated_at: string;
   
   // Additional fields for UI/UX
-  level?: number;
-  xp?: number;
-  badges?: Array<{name: string, icon: string}>;
-  stats?: {
+  level: number;
+  xp: number;
+  badges: Array<{name: string, icon: string, description: string, earned: boolean}>;
+  stats: {
     followers: number;
     following: number;
     ideas: number;
     mentorSessions: number;
+    posts: number;
+    rank?: number; // Leaderboard position
   };
+  followers?: ProfileType[];
+  following?: ProfileType[];
+  certifications?: Array<{name: string, issuer: string, date: string}>;
+  availability?: Array<{date: string, slots: Array<{start: string, end: string, booked: boolean}>}>;
+  reviews?: Array<{
+    id: string,
+    reviewer_id: string,
+    reviewer_name: string,
+    reviewer_avatar: string,
+    rating: number,
+    comment: string,
+    date: string
+  }>;
+  posts?: Array<{
+    id: string,
+    content: string,
+    category: string,
+    createdAt: string,
+    likes: number,
+    comments: number
+  }>;
+  ideas?: Array<{
+    id: string,
+    title: string,
+    description: string,
+    tags: string[],
+    votes: number,
+    comments: number,
+    mentorReviews: number,
+    createdAt: string
+  }>;
 };
