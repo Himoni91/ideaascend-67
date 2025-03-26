@@ -1,125 +1,189 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ProfileType } from "@/types/profile";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
-} from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { UserRoundCheck, Users } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ProfileConnectionsProps {
   profile: ProfileType;
 }
 
 export default function ProfileConnections({ profile }: ProfileConnectionsProps) {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogType, setDialogType] = useState<'followers' | 'following'>('followers');
+  const [activeTab, setActiveTab] = useState("followers");
+  const [followers, setFollowers] = useState<ProfileType[]>([]);
+  const [following, setFollowing] = useState<ProfileType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
   
-  const stats = profile.stats || { followers: 0, following: 0 };
-  
-  const openFollowers = () => {
-    setDialogType('followers');
-    setDialogOpen(true);
-  };
-  
-  const openFollowing = () => {
-    setDialogType('following');
-    setDialogOpen(true);
-  };
-  
-  // Mock data for UI display - in production this would come from the API
-  const followersList = profile.followers || Array(stats.followers).fill(null).map((_, i) => ({
-    id: `follower-${i}`,
-    username: `user${i}`,
-    full_name: `User ${i}`,
-    avatar_url: null,
-  })) as ProfileType[];
-  
-  const followingList = profile.following || Array(stats.following).fill(null).map((_, i) => ({
-    id: `following-${i}`,
-    username: `mentor${i}`,
-    full_name: `Mentor ${i}`,
-    avatar_url: null,
-  })) as ProfileType[];
-  
-  const getInitials = (name?: string | null) => {
-    if (!name) return "U";
-    return name.split(" ")
-      .map(part => part.charAt(0))
-      .join("")
-      .toUpperCase()
-      .substring(0, 2);
-  };
-  
-  return (
-    <>
-      <div className="flex justify-between mt-4">
-        <Button 
-          variant="ghost" 
-          onClick={openFollowers}
-          className="flex-1 justify-start"
-        >
-          <UserRoundCheck className="w-4 h-4 mr-2" />
-          <span className="font-medium">{stats.followers}</span>
-          <span className="ml-1 text-gray-500 dark:text-gray-400">Followers</span>
-        </Button>
-        
-        <Button 
-          variant="ghost" 
-          onClick={openFollowing}
-          className="flex-1 justify-start"
-        >
-          <Users className="w-4 h-4 mr-2" />
-          <span className="font-medium">{stats.following}</span>
-          <span className="ml-1 text-gray-500 dark:text-gray-400">Following</span>
-        </Button>
-      </div>
+  const fetchConnections = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch followers
+      const { data: followerData, error: followerError } = await supabase
+        .from('user_follows')
+        .select('follower_id, profiles!user_follows_follower_id_fkey(*)')
+        .eq('following_id', profile.id);
       
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {dialogType === 'followers' ? 'Followers' : 'Following'}
-            </DialogTitle>
-          </DialogHeader>
+      if (followerError) throw followerError;
+      
+      // Fetch following
+      const { data: followingData, error: followingError } = await supabase
+        .from('user_follows')
+        .select('following_id, profiles!user_follows_following_id_fkey(*)')
+        .eq('follower_id', profile.id);
+      
+      if (followingError) throw followingError;
+      
+      setFollowers(followerData.map(item => item.profiles));
+      setFollowing(followingData.map(item => item.profiles));
+    } catch (error) {
+      console.error("Error fetching connections:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    fetchConnections();
+    
+    // Set up realtime subscription for followers/following changes
+    const channel = supabase
+      .channel('connections-changes')
+      .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'user_follows' },
+          (payload) => {
+            fetchConnections();
+          }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile.id]);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-xl flex items-center">
+          <Users className="mr-2 h-5 w-5 text-idolyst-blue" />
+          Connections
+        </CardTitle>
+        <CardDescription>
+          People connected with {profile.full_name || profile.username}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="followers" onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="followers" className="text-xs">
+              Followers ({profile.stats?.followers || followers.length})
+            </TabsTrigger>
+            <TabsTrigger value="following" className="text-xs">
+              Following ({profile.stats?.following || following.length})
+            </TabsTrigger>
+          </TabsList>
           
-          <div className="space-y-4 py-4">
-            {(dialogType === 'followers' ? followersList : followingList).map((user) => (
-              <Link 
-                key={user.id} 
-                to={`/profile/${user.id}`}
-                className="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                onClick={() => setDialogOpen(false)}
-              >
-                <Avatar className="w-10 h-10 rounded-full">
-                  {user.avatar_url ? (
-                    <AvatarImage src={user.avatar_url} alt={user.full_name || "User"} />
-                  ) : (
-                    <AvatarFallback className="bg-gradient-to-br from-idolyst-blue to-idolyst-indigo text-white">
-                      {getInitials(user.full_name)}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-                <div className="ml-3">
-                  <p className="font-medium">{user.full_name}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">@{user.username}</p>
-                </div>
-              </Link>
-            ))}
-            
-            {(dialogType === 'followers' ? followersList : followingList).length === 0 && (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                No {dialogType} yet
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <TabsContent value="followers" className="mt-4 space-y-3">
+                {isLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center space-x-3 animate-pulse">
+                      <div className="w-10 h-10 rounded-full bg-muted"></div>
+                      <div className="space-y-2 flex-1">
+                        <div className="h-4 w-1/3 bg-muted rounded"></div>
+                        <div className="h-3 w-1/4 bg-muted rounded"></div>
+                      </div>
+                    </div>
+                  ))
+                ) : followers.length > 0 ? (
+                  followers.map((follower) => (
+                    <Link 
+                      key={follower.id} 
+                      to={`/profile/${follower.id}`}
+                      className="flex items-center p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={follower.avatar_url || undefined} />
+                        <AvatarFallback>
+                          {follower.full_name?.charAt(0) || follower.username?.charAt(0) || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="ml-3 flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{follower.full_name || follower.username}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {follower.position && follower.company ? 
+                            `${follower.position} at ${follower.company}` : 
+                            follower.location || `@${follower.username}`}
+                        </p>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-muted-foreground">No followers yet</p>
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="following" className="mt-4 space-y-3">
+                {isLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center space-x-3 animate-pulse">
+                      <div className="w-10 h-10 rounded-full bg-muted"></div>
+                      <div className="space-y-2 flex-1">
+                        <div className="h-4 w-1/3 bg-muted rounded"></div>
+                        <div className="h-3 w-1/4 bg-muted rounded"></div>
+                      </div>
+                    </div>
+                  ))
+                ) : following.length > 0 ? (
+                  following.map((followed) => (
+                    <Link 
+                      key={followed.id} 
+                      to={`/profile/${followed.id}`}
+                      className="flex items-center p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={followed.avatar_url || undefined} />
+                        <AvatarFallback>
+                          {followed.full_name?.charAt(0) || followed.username?.charAt(0) || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="ml-3 flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{followed.full_name || followed.username}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {followed.position && followed.company ? 
+                            `${followed.position} at ${followed.company}` : 
+                            followed.location || `@${followed.username}`}
+                        </p>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-muted-foreground">Not following anyone yet</p>
+                  </div>
+                )}
+              </TabsContent>
+            </motion.div>
+          </AnimatePresence>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 }

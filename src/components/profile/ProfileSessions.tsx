@@ -1,129 +1,189 @@
 
 import { ProfileType } from "@/types/profile";
-import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, Clock, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Calendar, MessageSquare, User } from "lucide-react";
+import { motion } from "framer-motion";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 interface ProfileSessionsProps {
   profile: ProfileType;
 }
 
 export default function ProfileSessions({ profile }: ProfileSessionsProps) {
-  // This would come from the API in production
-  const sessions = profile.is_mentor ? [
+  // Mocked session data
+  const mockSessions = [
     {
       id: "1",
-      title: "Product Roadmap Planning",
-      date: "2023-10-25T14:00:00Z",
-      duration: 45,
-      mentee: "Alice Johnson",
-      status: "upcoming"
+      date: "2023-07-15T14:00:00",
+      duration: 30,
+      title: "Product Strategy Discussion",
+      participant: {
+        id: "user1",
+        name: "Sarah Johnson",
+        avatar: "",
+        expertise: "Product Management"
+      },
+      status: "completed"
     },
     {
       id: "2",
-      title: "Seed Funding Strategy",
-      date: "2023-10-20T10:30:00Z",
+      date: "2023-08-02T10:00:00",
       duration: 60,
-      mentee: "Bob Smith",
+      title: "Funding Strategy Review",
+      participant: {
+        id: "user2",
+        name: "Michael Chen",
+        avatar: "",
+        expertise: "VC Funding"
+      },
       status: "completed"
-    }
-  ] : [
-    {
-      id: "1",
-      title: "Startup Financial Planning",
-      date: "2023-10-22T15:00:00Z",
-      duration: 45,
-      mentor: "Jane Doe",
-      status: "upcoming"
     },
     {
-      id: "2",
-      title: "Go-to-Market Strategy",
-      date: "2023-10-15T11:00:00Z",
-      duration: 60,
-      mentor: "David Wilson",
-      status: "completed"
-    }
+      id: "3",
+      date: "2023-09-10T15:30:00",
+      duration: 45,
+      title: "UI/UX Feedback Session",
+      participant: {
+        id: "user3",
+        name: "Alex Rivera",
+        avatar: "",
+        expertise: "UX Design"
+      },
+      status: "scheduled"
+    },
   ];
 
-  if (sessions.length === 0) {
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const item = {
+    hidden: { y: 20, opacity: 0 },
+    show: { y: 0, opacity: 1 }
+  };
+
+  if (mockSessions.length === 0) {
     return (
-      <Card className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 text-center">
-        <p className="text-gray-500 dark:text-gray-400">No mentor sessions yet</p>
-      </Card>
+      <div className="text-center py-12 border rounded-lg bg-muted/20">
+        <Calendar className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
+        <h3 className="text-lg font-medium mb-1">No mentorship sessions yet</h3>
+        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+          {profile.id === profile.id 
+            ? profile.is_mentor 
+              ? "You haven't conducted any mentorship sessions yet."
+              : "You haven't participated in any mentorship sessions yet."
+            : `${profile.full_name || profile.username} hasn't participated in any mentorship sessions yet.`}
+        </p>
+        {profile.is_mentor ? (
+          <Button className="mt-4" variant="outline" asChild>
+            <a href="/mentor-space">
+              <Calendar className="mr-2 h-4 w-4" />
+              Manage Availability
+            </a>
+          </Button>
+        ) : (
+          <Button className="mt-4" variant="outline" asChild>
+            <a href="/mentor-space">
+              <User className="mr-2 h-4 w-4" />
+              Find a Mentor
+            </a>
+          </Button>
+        )}
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {sessions.map((session) => (
-        <Card 
-          key={session.id} 
-          className={`rounded-xl shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in ${
-            session.status === 'upcoming' 
-              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
-              : 'bg-white dark:bg-gray-800'
-          }`}
-        >
-          <CardContent className="p-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold mb-2">{session.title}</h3>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-muted-foreground">
+          {mockSessions.length} {mockSessions.length === 1 ? "session" : "sessions"}
+        </div>
+        <Button variant="outline" size="sm" className="h-8">
+          <Calendar className="mr-2 h-4 w-4" />
+          {profile.is_mentor ? "Manage Availability" : "Book a Session"}
+        </Button>
+      </div>
+      
+      <motion.div 
+        className="space-y-4"
+        variants={container}
+        initial="hidden"
+        animate="show"
+      >
+        {mockSessions.map((session) => (
+          <motion.div 
+            key={session.id}
+            variants={item}
+            className="border rounded-lg p-4 bg-card hover:border-primary/20 transition-colors"
+          >
+            <div className="flex items-start gap-4">
+              <div className="hidden sm:block">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={session.participant.avatar} />
+                  <AvatarFallback>{session.participant.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h3 className="text-base font-medium">{session.title}</h3>
+                  <Badge variant={session.status === "completed" ? "secondary" : "default"} className="text-xs">
+                    {session.status === "completed" ? "Completed" : "Upcoming"}
+                  </Badge>
+                </div>
                 
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                    <CalendarDays className="w-4 h-4 mr-2 text-gray-500" />
-                    {new Date(session.date).toLocaleDateString(undefined, { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  <span className="flex items-center">
+                    <Calendar className="mr-1 h-3.5 w-3.5" />
+                    {new Date(session.date).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      year: 'numeric' 
                     })}
-                  </div>
-                  
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                    <Clock className="w-4 h-4 mr-2 text-gray-500" />
-                    {new Date(session.date).toLocaleTimeString(undefined, { 
-                      hour: '2-digit', 
+                  </span>
+                  <span>
+                    {new Date(session.date).toLocaleTimeString('en-US', { 
+                      hour: 'numeric', 
                       minute: '2-digit' 
-                    })} • {session.duration} minutes
-                  </div>
-                  
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                    <span className="w-4 h-4 mr-2 flex items-center justify-center text-gray-500">
-                      {profile.is_mentor ? '👨‍🎓' : '👨‍🏫'}
-                    </span>
-                    {profile.is_mentor ? `Mentee: ${session.mentee}` : `Mentor: ${session.mentor}`}
-                  </div>
+                    })}
+                  </span>
+                  <span>{session.duration} min</span>
+                </div>
+                
+                <div className="mt-2 flex items-center">
+                  <span className="text-sm">
+                    {profile.is_mentor ? "With: " : "Mentor: "}
+                    <a href="#" className="font-medium hover:underline">{session.participant.name}</a>
+                  </span>
+                  <span className="mx-2 text-muted-foreground">•</span>
+                  <span className="text-xs text-muted-foreground">{session.participant.expertise}</span>
                 </div>
               </div>
               
-              <div className="mt-4 md:mt-0 md:ml-4 flex flex-col items-start md:items-end">
-                <span className={`text-xs font-medium px-2 py-1 rounded-full mb-3 ${
-                  session.status === 'upcoming' 
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' 
-                    : 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
-                }`}>
-                  {session.status === 'upcoming' ? 'Upcoming' : 'Completed'}
-                </span>
-                
-                {session.status === 'upcoming' && (
-                  <Button size="sm" className="gap-2 w-full md:w-auto">
-                    <Video className="w-4 h-4" />
-                    Join Session
-                  </Button>
-                )}
-                
-                {session.status === 'completed' && (
-                  <Button variant="outline" size="sm" className="gap-2 w-full md:w-auto">
+              <div>
+                {session.status === "completed" ? (
+                  <Button variant="outline" size="sm" className="whitespace-nowrap">
                     View Notes
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" className="whitespace-nowrap">
+                    <MessageSquare className="mr-2 h-3.5 w-3.5" />
+                    Join Call
                   </Button>
                 )}
               </div>
             </div>
-          </CardContent>
-        </Card>
-      ))}
+          </motion.div>
+        ))}
+      </motion.div>
     </div>
   );
 }

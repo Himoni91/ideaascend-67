@@ -5,14 +5,23 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext"; 
 import { RouteGuard } from "@/components/auth/RouteGuard";
 
 // Pages
 import Index from "./pages/Index";
 import PitchHub from "./pages/PitchHub";
+import PitchHubIdea from "./pages/PitchHubIdea";
 import MentorSpace from "./pages/MentorSpace";
+import MentorProfile from "./pages/MentorProfile";
 import Ascend from "./pages/Ascend";
 import Profile from "./pages/Profile";
+import ProfileSettings from "./pages/ProfileSettings";
+import Discover from "./pages/Discover";
+import Calendar from "./pages/Calendar";
+import Analytics from "./pages/Analytics";
+import Achievements from "./pages/Achievements";
+import Help from "./pages/Help";
 import NotFound from "./pages/NotFound";
 
 // Auth Pages
@@ -29,117 +38,183 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            {/* Protected Routes */}
-            <Route 
-              path="/" 
-              element={
-                <RouteGuard requireAuth={true}>
-                  <Index />
-                </RouteGuard>
-              } 
-            />
-            <Route 
-              path="/pitch-hub" 
-              element={
-                <RouteGuard requireAuth={true}>
-                  <PitchHub />
-                </RouteGuard>
-              } 
-            />
-            <Route 
-              path="/mentor-space" 
-              element={
-                <RouteGuard requireAuth={true}>
-                  <MentorSpace />
-                </RouteGuard>
-              } 
-            />
-            <Route 
-              path="/ascend" 
-              element={
-                <RouteGuard requireAuth={true}>
-                  <Ascend />
-                </RouteGuard>
-              } 
-            />
-            <Route 
-              path="/profile" 
-              element={
-                <RouteGuard requireAuth={true}>
-                  <Profile />
-                </RouteGuard>
-              } 
-            />
-            <Route 
-              path="/profile/:id" 
-              element={
-                <RouteGuard requireAuth={true}>
-                  <Profile />
-                </RouteGuard>
-              } 
-            />
+      <ThemeProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              {/* Protected Routes */}
+              <Route 
+                path="/" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <Index />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/pitch-hub" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <PitchHub />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/pitch-hub/:id" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <PitchHubIdea />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/mentor-space" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <MentorSpace />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/mentor-space/:id" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <MentorProfile />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/ascend" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <Ascend />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/discover" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <Discover />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/profile" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <Profile />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/profile/:id" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <Profile />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/profile/settings" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <ProfileSettings />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/calendar" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <Calendar />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/analytics" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <Analytics />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/achievements" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <Achievements />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/help" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <Help />
+                  </RouteGuard>
+                } 
+              />
 
-            {/* Auth Routes */}
-            <Route 
-              path="/auth/sign-in" 
-              element={
-                <RouteGuard requireAuth={false}>
-                  <SignIn />
-                </RouteGuard>
-              } 
-            />
-            <Route 
-              path="/auth/sign-up" 
-              element={
-                <RouteGuard requireAuth={false}>
-                  <SignUp />
-                </RouteGuard>
-              } 
-            />
-            <Route 
-              path="/auth/forgot-password" 
-              element={
-                <RouteGuard requireAuth={false}>
-                  <ForgotPassword />
-                </RouteGuard>
-              } 
-            />
-            <Route 
-              path="/auth/check-email" 
-              element={
-                <RouteGuard requireAuth={false}>
-                  <CheckEmail />
-                </RouteGuard>
-              } 
-            />
-            <Route 
-              path="/auth/update-password" 
-              element={
-                <RouteGuard requireAuth={false}>
-                  <UpdatePassword />
-                </RouteGuard>
-              } 
-            />
-            <Route 
-              path="/auth/verification" 
-              element={
-                <RouteGuard requireAuth={false}>
-                  <Verification />
-                </RouteGuard>
-              } 
-            />
-            <Route path="/auth/callback" element={<Callback />} />
+              {/* Auth Routes */}
+              <Route 
+                path="/auth/sign-in" 
+                element={
+                  <RouteGuard requireAuth={false}>
+                    <SignIn />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/auth/sign-up" 
+                element={
+                  <RouteGuard requireAuth={false}>
+                    <SignUp />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/auth/forgot-password" 
+                element={
+                  <RouteGuard requireAuth={false}>
+                    <ForgotPassword />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/auth/check-email" 
+                element={
+                  <RouteGuard requireAuth={false}>
+                    <CheckEmail />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/auth/update-password" 
+                element={
+                  <RouteGuard requireAuth={false}>
+                    <UpdatePassword />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/auth/verification" 
+                element={
+                  <RouteGuard requireAuth={false}>
+                    <Verification />
+                  </RouteGuard>
+                } 
+              />
+              <Route path="/auth/callback" element={<Callback />} />
 
-            {/* 404 Route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
+              {/* 404 Route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </ThemeProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

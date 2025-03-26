@@ -1,133 +1,145 @@
 
 import { Link, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { 
+  Home, Users, Lightbulb, Sparkles, Settings, LogOut, 
+  User, Calendar, BarChart, Award, HelpCircle, Compass
+} from "lucide-react";
+import { UserProfileMenu } from "../auth/UserProfileMenu";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { ModeToggle } from "@/components/theme/mode-toggle";
+import { Logo } from "@/components/ui/logo";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Sidebar = () => {
   const location = useLocation();
   const path = location.pathname;
-
+  const { signOut } = useAuth();
+  const isMobile = useIsMobile();
+  
   const isActive = (route: string) => {
-    return path === route;
+    if (route === "/") {
+      return path === route;
+    }
+    return path.startsWith(route);
   };
 
-  const menuItems = [
-    {
-      title: "Launchpad",
-      path: "/",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-          <polyline points="9 22 9 12 15 12 15 22"></polyline>
-        </svg>
-      ),
-    },
-    {
-      title: "PitchHub",
-      path: "/pitch-hub",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"></path>
-          <path d="M9 18h6"></path>
-          <path d="M10 22h4"></path>
-        </svg>
-      ),
-    },
-    {
-      title: "MentorSpace",
-      path: "/mentor-space",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M5.3 18.7l5.3-5.3-5.3-5.3"></path>
-          <path d="m10.6 13.4 5.3-5.3"></path>
-        </svg>
-      ),
-    },
-    {
-      title: "Ascend",
-      path: "/ascend",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m2 20 2-2h2l5-5 5 5h2l4 4"></path>
-          <path d="M18.5 5.5a2.5 2.5 0 0 0-5 0 2.5 2.5 0 0 0 5 0Z"></path>
-          <path d="M18.5 2.5V5"></path>
-          <path d="M18.5 8.5V11"></path>
-          <path d="M16 5.5H13.5"></path>
-          <path d="M18.5 5.5H21"></path>
-        </svg>
-      ),
-    },
-    {
-      title: "Messages",
-      path: "/messages",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-      ),
-    },
-    {
-      title: "Notifications",
-      path: "/notifications",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
-          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
-        </svg>
-      ),
-    },
-    {
-      title: "Profile",
-      path: "/profile",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="8" r="5"></circle>
-          <path d="M20 21a8 8 0 0 0-16 0"></path>
-        </svg>
-      ),
-    },
+  const navItems = [
+    { name: "Home", icon: Home, path: "/" },
+    { name: "Mentor Space", icon: Users, path: "/mentor-space" },
+    { name: "Pitch Hub", icon: Lightbulb, path: "/pitch-hub" },
+    { name: "Ascend", icon: Sparkles, path: "/ascend" },
+    { name: "Discover", icon: Compass, path: "/discover" },
   ];
 
+  const secondaryNavItems = [
+    { name: "Calendar", icon: Calendar, path: "/calendar" },
+    { name: "Analytics", icon: BarChart, path: "/analytics" },
+    { name: "Achievements", icon: Award, path: "/achievements" },
+  ];
+
+  if (isMobile) return null;
+
   return (
-    <aside className="w-64 hidden md:block border-r border-gray-200 dark:border-gray-800 h-screen sticky top-0 animate-slide-in">
-      <div className="flex flex-col h-full py-6">
-        {/* Logo */}
-        <div className="px-6 mb-8">
-          <Link to="/" className="flex items-center">
-            <span className="text-2xl font-semibold bg-gradient-to-r from-idolyst-blue to-idolyst-indigo bg-clip-text text-transparent">
-              Idolyst
-            </span>
+    <aside className="hidden md:flex flex-col w-64 h-screen p-4 border-r border-border bg-background">
+      <div className="flex items-center mb-6 animate-fade-in">
+        <Logo className="h-8 w-auto" />
+        <h1 className="ml-2 text-xl font-bold bg-gradient-to-r from-idolyst-blue to-idolyst-indigo bg-clip-text text-transparent">
+          Idolyst
+        </h1>
+      </div>
+      
+      <div className="mb-2 px-3">
+        <UserProfileMenu />
+      </div>
+      
+      <Separator className="my-4" />
+      
+      <nav className="space-y-1 flex-1">
+        {navItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={cn(
+              "flex items-center px-3 py-2 rounded-md text-sm transition-colors group relative overflow-hidden",
+              isActive(item.path) 
+                ? "bg-primary/10 text-primary font-medium" 
+                : "text-foreground/60 hover:text-foreground hover:bg-accent/50"
+            )}
+          >
+            {isActive(item.path) && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
+            )}
+            <item.icon 
+              className={cn(
+                "h-4 w-4 mr-3 transition-transform", 
+                isActive(item.path) 
+                  ? "text-primary" 
+                  : "text-muted-foreground group-hover:text-foreground"
+              )} 
+            />
+            <span className={isActive(item.path) ? "text-foreground" : ""}>{item.name}</span>
           </Link>
-        </div>
-
-        {/* Navigation Links */}
-        <nav className="flex-1 space-y-1 px-3">
-          {menuItems.map((item) => (
-            <Link
-              key={item.title}
-              to={item.path}
-              className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${
-                isActive(item.path)
-                  ? "bg-idolyst-blue/10 text-idolyst-blue"
-                  : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              }`}
-            >
-              <span className="mr-3">{item.icon}</span>
-              <span>{item.title}</span>
-            </Link>
-          ))}
-        </nav>
-
-        {/* User Section */}
-        <div className="px-6 pt-6 border-t border-gray-200 dark:border-gray-800">
-          <div className="flex items-center">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-idolyst-blue to-idolyst-indigo flex items-center justify-center text-white">
-              <span className="text-sm font-medium">JD</span>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium">John Doe</p>
-              <p className="text-xs text-gray-500">Level 3 Entrepreneur</p>
-            </div>
-          </div>
+        ))}
+        
+        <Separator className="my-4" />
+        
+        {secondaryNavItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={cn(
+              "flex items-center px-3 py-2 rounded-md text-sm transition-colors group relative overflow-hidden",
+              isActive(item.path) 
+                ? "bg-primary/10 text-primary font-medium" 
+                : "text-foreground/60 hover:text-foreground hover:bg-accent/50"
+            )}
+          >
+            {isActive(item.path) && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
+            )}
+            <item.icon 
+              className={cn(
+                "h-4 w-4 mr-3 transition-transform", 
+                isActive(item.path) 
+                  ? "text-primary" 
+                  : "text-muted-foreground group-hover:text-foreground"
+              )} 
+            />
+            <span className={isActive(item.path) ? "text-foreground" : ""}>{item.name}</span>
+          </Link>
+        ))}
+      </nav>
+      
+      <div className="mt-auto space-y-2">
+        <Separator className="my-2" />
+        <Link
+          to="/profile/settings"
+          className="flex items-center px-3 py-2 rounded-md text-sm text-foreground/60 hover:text-foreground hover:bg-accent/50 transition-colors"
+        >
+          <Settings className="h-4 w-4 mr-3 text-muted-foreground" />
+          Settings
+        </Link>
+        <Link
+          to="/help"
+          className="flex items-center px-3 py-2 rounded-md text-sm text-foreground/60 hover:text-foreground hover:bg-accent/50 transition-colors"
+        >
+          <HelpCircle className="h-4 w-4 mr-3 text-muted-foreground" />
+          Help & Support
+        </Link>
+        <div className="flex items-center justify-between px-3 py-2">
+          <ModeToggle />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => signOut()}
+            className="text-foreground/60 hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Log out
+          </Button>
         </div>
       </div>
     </aside>
