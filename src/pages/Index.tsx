@@ -4,7 +4,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts } from "@/hooks/use-posts";
 import { useCategories } from "@/hooks/use-categories";
-import { FeedFilter } from "@/types/post";
+import { FeedFilter, ReactionType } from "@/types/post";
 import { useInView } from "framer-motion";
 
 // Components
@@ -44,7 +44,8 @@ export default function Index() {
     isLoading,
     hasMore,
     loadMore,
-    reactToPost
+    reactToPost,
+    repostPost
   } = usePosts(
     activeCategory === "All" ? undefined : activeCategory,
     activeFilter
@@ -96,9 +97,14 @@ export default function Index() {
   }, []);
 
   // Handle post reaction
-  const handleReaction = useCallback((postId: string, reactionType: string) => {
+  const handleReaction = useCallback((postId: string, reactionType: ReactionType) => {
     reactToPost({ postId, reactionType });
   }, [reactToPost]);
+
+  // Handle repost
+  const handleRepost = useCallback((postId: string) => {
+    repostPost(postId);
+  }, [repostPost]);
 
   // Greeting based on time of day
   const getGreeting = () => {
@@ -145,7 +151,7 @@ export default function Index() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
         >
-          <Tabs value={activeFilter} onValueChange={handleFilterChange} className="w-full">
+          <Tabs value={activeFilter} onValueChange={handleFilterChange as any} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="all">All Posts</TabsTrigger>
               <TabsTrigger value="following">
@@ -213,6 +219,7 @@ export default function Index() {
                       post={post}
                       onClickComment={handleCommentClick}
                       onReaction={handleReaction}
+                      onRepost={handleRepost}
                     />
                   </motion.div>
                 ))}
@@ -282,6 +289,7 @@ export default function Index() {
                 <EnhancedPostCard 
                   post={posts.find(p => p.id === expandedPost)!} 
                   onReaction={handleReaction}
+                  onRepost={handleRepost}
                 />
               )}
               

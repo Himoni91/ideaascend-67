@@ -14,7 +14,7 @@ export type PostReaction = {
   id: string;
   post_id: string;
   user_id: string;
-  reaction_type: string;
+  reaction_type: ReactionType;
   created_at: string;
 };
 

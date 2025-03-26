@@ -190,7 +190,7 @@ export default function PostDetailPage() {
   };
   
   // Handle repost
-  const handleRepost = async (postId: string) => {
+  const handleRepost = (postId: string) => {
     if (!user) return;
     repostPost(postId);
   };

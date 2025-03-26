@@ -446,6 +446,13 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           })
         };
       });
+      
+      // Show success toast based on action
+      if (result.removed) {
+        toast.success("Repost removed");
+      } else {
+        toast.success("Post reposted to your profile");
+      }
     },
     onError: (error: any) => {
       toast.error(`Failed to repost: ${error.message}`);

@@ -23,6 +23,7 @@ import ReactionButtons from "./ReactionButtons";
 interface EnhancedPostCardProps {
   post: Post;
   onReaction?: (postId: string, reactionType: ReactionType) => void;
+  onRepost?: (postId: string) => void;
   compact?: boolean;
   onClickComment?: (postId: string) => void;
   showComments?: boolean;
@@ -31,6 +32,7 @@ interface EnhancedPostCardProps {
 export default function EnhancedPostCard({ 
   post, 
   onReaction, 
+  onRepost,
   compact = false, 
   onClickComment,
   showComments = false
@@ -60,6 +62,17 @@ export default function EnhancedPostCard({
     
     if (onReaction) {
       onReaction(postId, reactionType);
+    }
+  };
+
+  const handleRepost = (postId: string) => {
+    if (!user) {
+      toast.error("Please sign in to repost");
+      return;
+    }
+
+    if (onRepost) {
+      onRepost(postId);
     }
   };
   
@@ -110,7 +123,7 @@ export default function EnhancedPostCard({
               <span>•</span>
               <span>{formattedDate}</span>
             </div>
-            <ReactionButtons post={post} onReaction={handleReaction} compact={true} />
+            <ReactionButtons post={post} onReaction={handleReaction} onRepost={handleRepost} compact={true} />
           </div>
         </CardContent>
       </Card>
@@ -233,6 +246,7 @@ export default function EnhancedPostCard({
         <ReactionButtons 
           post={post} 
           onReaction={handleReaction}
+          onRepost={handleRepost}
         />
       </CardFooter>
       
