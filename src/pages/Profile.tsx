@@ -25,7 +25,7 @@ export default function Profile() {
     error,
     updateProfile,
     isOwnProfile
-  } = useProfile(username ? undefined : user?.id);
+  } = useProfile(username ? username : undefined);
 
   if (error) {
     return (

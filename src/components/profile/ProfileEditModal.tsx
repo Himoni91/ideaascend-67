@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -22,12 +21,14 @@ interface ProfileEditModalProps {
   profile: ProfileType | null;
   isOpen: boolean;
   onClose: () => void;
+  onSave: (updatedProfile: Partial<ProfileType>) => Promise<void>;
 }
 
 export default function ProfileEditModal({
   profile,
   isOpen,
   onClose,
+  onSave,
 }: ProfileEditModalProps) {
   const { updateProfile, uploadAvatar, isUpdating } = useProfile();
   const [formData, setFormData] = useState<Partial<ProfileType>>({});
@@ -91,15 +92,13 @@ export default function ProfileEditModal({
       }
 
       if (avatarUrl) {
-        await updateProfile({
+        await onSave({
           ...formData,
           avatar_url: avatarUrl,
         });
       } else {
-        await updateProfile(formData);
+        await onSave(formData);
       }
-
-      onClose();
     } catch (error) {
       console.error("Error updating profile:", error);
       toast.error("Failed to update profile");
