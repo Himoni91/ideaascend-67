@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,25 +14,40 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner"; 
 import { useFollow } from "@/hooks/use-follow";
 import { motion } from "framer-motion";
+import { useLinkPreview } from "@/hooks/use-link-preview";
+import LinkPreview from "./LinkPreview";
+import PostPoll from "./PostPoll";
+import PostComments from "./PostComments";
 
 interface EnhancedPostCardProps {
   post: Post;
   onReaction?: (postId: string, reactionType: string) => void;
   compact?: boolean; // Add compact prop
   onClickComment?: (postId: string) => void; // Add onClickComment prop
+  showComments?: boolean; // Add showComments prop
 }
 
 export default function EnhancedPostCard({ 
   post, 
   onReaction, 
   compact = false, 
-  onClickComment 
+  onClickComment,
+  showComments = false
 }: EnhancedPostCardProps) {
   const { user } = useAuth();
   const { followUser, unfollowUser, isFollowing } = useFollow();
   const [isLiked, setIsLiked] = useState(!!post.userReaction);
   const [likeCount, setLikeCount] = useState(post.likes_count || 0);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [showAllContent, setShowAllContent] = useState(false);
+  const [showCommentsSection, setShowCommentsSection] = useState(showComments);
+  const { linkPreview } = useLinkPreview(post.content);
+  
+  // Check if content is long and needs to be truncated
+  const isLongContent = post.content.length > 280;
+  const displayContent = !showAllContent && isLongContent 
+    ? post.content.substring(0, 280) + '...' 
+    : post.content;
   
   // Check if current user is the author
   const isAuthor = user?.id === post.user_id;
@@ -92,6 +107,9 @@ export default function EnhancedPostCard({
   const handleCommentClick = () => {
     if (onClickComment) {
       onClickComment(post.id);
+    } else {
+      // Toggle comments section
+      setShowCommentsSection(!showCommentsSection);
     }
   };
 
@@ -178,7 +196,27 @@ export default function EnhancedPostCard({
         </div>
         
         <div className="mt-3 mb-4">
-          <div className="whitespace-pre-wrap mb-4">{post.content}</div>
+          <div className="whitespace-pre-wrap mb-4">
+            {displayContent}
+            {isLongContent && (
+              <button
+                onClick={() => setShowAllContent(!showAllContent)}
+                className="ml-1 text-primary hover:underline text-sm font-medium"
+              >
+                {showAllContent ? "Show less" : "Read more"}
+              </button>
+            )}
+          </div>
+          
+          {/* Link Preview */}
+          {linkPreview && !post.link_preview && (
+            <LinkPreview preview={linkPreview} />
+          )}
+          
+          {/* Poll Display */}
+          {post.poll && (
+            <PostPoll postId={post.id} />
+          )}
           
           {post.media_url && (
             <div className="mt-3 rounded-lg overflow-hidden">
@@ -279,6 +317,22 @@ export default function EnhancedPostCard({
           <Bookmark className={cn("h-4 w-4", isBookmarked && "fill-current")} />
         </Button>
       </CardFooter>
+      
+      {/* Inline comments section */}
+      <AnimatePresence>
+        {showCommentsSection && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="px-3 pb-3">
+              <PostComments postId={post.id} minimized={false} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Card>
   );
 }

@@ -1,248 +1,283 @@
 
-import { useState, useRef } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { usePosts } from "@/hooks/use-posts";
+import React, { useState, useRef } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Image, X, Paperclip } from "lucide-react";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCategories } from "@/hooks/use-categories";
+import { usePosts } from "@/hooks/use-posts";
+import { useNavigate } from "react-router-dom";
+import { Camera, FileImage, BarChart2, X } from "lucide-react";
 import CategorySelector from "./CategorySelector";
+import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import CreatePoll from "./CreatePoll";
 
 export default function CreatePostCard() {
   const { user, profile } = useAuth();
-  const { createPost } = usePosts();
+  const navigate = useNavigate();
   const [content, setContent] = useState("");
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  if (!user || !profile) return null;
-
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
-    if (!isExpanded && e.target.value.length > 0) {
-      setIsExpanded(true);
-    }
-  };
-
-  const handleFocus = () => {
-    setIsExpanded(true);
-  };
-
-  const handleCancel = () => {
-    setContent("");
-    setIsExpanded(false);
-    setSelectedCategories([]);
-    setMediaPreview(null);
-    setMediaFile(null);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size must be less than 5MB");
-      return;
-    }
-
-    // Check file type (only images for now)
-    if (!file.type.startsWith("image/")) {
-      toast.error("Only image files are supported");
-      return;
-    }
-
-    setMediaFile(file);
-    const url = URL.createObjectURL(file);
-    setMediaPreview(url);
-  };
-
-  const removeMedia = () => {
-    setMediaPreview(null);
-    setMediaFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!content.trim()) {
-      toast.error("Please enter some content for your post");
-      return;
-    }
-
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isCreatingPoll, setIsCreatingPoll] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { categories } = useCategories();
+  const { createPost } = usePosts();
+  
+  const handleCreatePost = async () => {
+    if (!content.trim() && !selectedFile) return;
+    
     setIsSubmitting(true);
-
+    
     try {
       let mediaUrl = null;
       let mediaType = null;
-
-      // Upload media file if exists
-      if (mediaFile) {
-        const fileExt = mediaFile.name.split(".").pop();
-        const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-        const filePath = `posts/${user.id}/${fileName}`;
-
-        const { error: uploadError, data } = await supabase.storage
-          .from("media")
-          .upload(filePath, mediaFile);
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        // Get public URL for the uploaded file
+      
+      // Upload file if selected
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop();
+        const filePath = `${user!.id}/${Date.now()}.${fileExt}`;
+        
+        const { data, error } = await supabase.storage
+          .from("posts")
+          .upload(filePath, selectedFile);
+          
+        if (error) throw error;
+        
         const { data: { publicUrl } } = supabase.storage
-          .from("media")
+          .from("posts")
           .getPublicUrl(filePath);
-
+          
         mediaUrl = publicUrl;
-        mediaType = mediaFile.type.startsWith("image/") ? "image" : "file";
+        mediaType = selectedFile.type;
       }
-
+      
       await createPost({
         content,
-        categoryIds: selectedCategories,
+        categoryIds: selectedCategoryIds,
         mediaUrl,
-        mediaType,
+        mediaType
       });
-
-      // Clear the form
-      handleCancel();
+      
+      // Clear form
+      setContent("");
+      setSelectedCategoryIds([]);
+      setSelectedFile(null);
+      setImagePreview(null);
     } catch (error: any) {
       toast.error(`Error creating post: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
-
+  
+  const handleSelectImage = () => {
+    fileInputRef.current?.click();
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      // Check if file is an image
+      if (!file.type.startsWith('image/')) {
+        toast.error("Only image files are supported");
+        return;
+      }
+      
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size should be less than 5MB");
+        return;
+      }
+      
+      setSelectedFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const handleClearImage = () => {
+    setSelectedFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+  
+  const handleCreatePoll = (pollData: {
+    question: string;
+    options: string[];
+    isMultipleChoice: boolean;
+    expiresIn: number | null;
+  }) => {
+    // Add poll question to post content
+    setContent((prevContent) => {
+      const pollText = `Poll: ${pollData.question}\n\nOptions:\n${pollData.options.map((option, i) => `${i+1}. ${option}`).join('\n')}`;
+      
+      return prevContent.trim() 
+        ? `${prevContent}\n\n${pollText}` 
+        : pollText;
+    });
+    
+    // Store poll data to submit later
+    setPollData(pollData);
+    setIsCreatingPoll(false);
+  };
+  
+  const [pollData, setPollData] = useState<{
+    question: string;
+    options: string[];
+    isMultipleChoice: boolean;
+    expiresIn: number | null;
+  } | null>(null);
+  
+  if (!user) {
+    return (
+      <Card className="mb-6 shadow-sm hover:shadow-md transition-shadow duration-300">
+        <CardContent className="p-4">
+          <div 
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => navigate("/auth/sign-in")}
+          >
+            <Avatar className="h-10 w-10">
+              <AvatarFallback>?</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 py-2.5 px-3 bg-muted rounded-full text-muted-foreground">
+              Sign in to share what's on your mind...
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
   return (
-    <Card className="mb-6 overflow-hidden">
-      <CardContent className="pt-6">
-        <div className="flex">
-          <Avatar className="h-10 w-10 mr-3">
+    <Card className="mb-6 shadow-sm hover:shadow-md transition-shadow duration-300">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <Avatar className="h-10 w-10">
             <AvatarImage src={profile?.avatar_url || undefined} />
             <AvatarFallback>
               {profile?.full_name?.[0] || profile?.username?.[0] || "U"}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-grow">
-            <Textarea
-              placeholder="Share an update, insight or question..."
-              className="min-h-[60px] resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
-              value={content}
-              onChange={handleContentChange}
-              onFocus={handleFocus}
-            />
-          </div>
-        </div>
-
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="mt-4"
+          
+          <div className="flex-1">
+            <div 
+              contentEditable={true}
+              role="textbox"
+              className="min-h-[80px] w-full p-2.5 focus:outline-none rounded-md border border-input bg-background hover:bg-accent/10 placeholder:text-muted-foreground resize-none"
+              placeholder="Share what's on your mind..."
+              onInput={(e) => setContent(e.currentTarget.textContent || "")}
+              data-gramm="false"
+              data-gramm_editor="false"
+              data-enable-grammarly="false"
             >
-              <CategorySelector
-                selectedCategories={selectedCategories}
-                onChange={setSelectedCategories}
-              />
-
-              {mediaPreview && (
-                <div className="relative mt-3">
-                  <div className="rounded-lg overflow-hidden border bg-muted/20 relative">
-                    <img
-                      src={mediaPreview}
-                      alt="Upload preview"
-                      className="max-h-[300px] w-full object-contain"
-                    />
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2 h-8 w-8 rounded-full"
-                      onClick={removeMedia}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </CardContent>
-
-      <CardFooter className={`border-t px-6 py-3 ${isExpanded ? "justify-between" : "justify-end"}`}>
-        {isExpanded ? (
-          <>
-            <div className="flex gap-2">
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                onChange={handleFileChange}
-                accept="image/*"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSubmitting}
-              >
-                <Image className="h-5 w-5 text-muted-foreground" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={true} // Disabled for now
-              >
-                <Paperclip className="h-5 w-5 text-muted-foreground" />
-              </Button>
             </div>
-            <div className="flex gap-2">
+            
+            {/* Image preview */}
+            <AnimatePresence>
+              {imagePreview && (
+                <motion.div 
+                  className="relative mt-3 rounded-md overflow-hidden border"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview" 
+                    className="max-h-[200px] w-full object-contain"
+                  />
+                  <Button
+                    className="absolute top-2 right-2 rounded-full h-8 w-8 p-0"
+                    size="icon"
+                    variant="destructive"
+                    onClick={handleClearImage}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            
+            {/* Category selector */}
+            <div className="mt-4">
+              <CategorySelector
+                categories={categories}
+                selectedCategoryIds={selectedCategoryIds}
+                onChange={setSelectedCategoryIds}
+              />
+            </div>
+            
+            {/* Poll creation form */}
+            <AnimatePresence>
+              {isCreatingPoll && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <CreatePoll 
+                    onCreatePoll={handleCreatePoll}
+                    onCancel={() => setIsCreatingPoll(false)}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+            
+            <div className="flex items-center justify-between mt-4">
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="rounded-full h-9 px-3"
+                  onClick={handleSelectImage}
+                >
+                  <FileImage className="h-4 w-4 mr-2" />
+                  Image
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="rounded-full h-9 px-3"
+                  onClick={() => setIsCreatingPoll(true)}
+                  disabled={isCreatingPoll}
+                >
+                  <BarChart2 className="h-4 w-4 mr-2" />
+                  Poll
+                </Button>
+                
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  accept="image/*"
+                />
+              </div>
+              
               <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCancel}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSubmit}
-                disabled={!content.trim() || isSubmitting}
+                onClick={handleCreatePost}
+                disabled={(!content.trim() && !selectedFile) || isSubmitting}
+                className="rounded-full h-9"
               >
                 {isSubmitting ? "Posting..." : "Post"}
               </Button>
             </div>
-          </>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full px-4"
-            onClick={handleFocus}
-          >
-            Create Post
-          </Button>
-        )}
-      </CardFooter>
+          </div>
+        </div>
+      </CardContent>
     </Card>
   );
 }

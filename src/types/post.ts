@@ -30,6 +30,26 @@ export type PostComment = {
   replies?: PostComment[];
 };
 
+export type PollOption = {
+  id: string;
+  poll_id: string;
+  option_text: string;
+  created_at: string;
+  votes_count?: number;
+  has_voted?: boolean;
+};
+
+export type Poll = {
+  id: string;
+  post_id: string;
+  question: string;
+  created_at: string;
+  expires_at: string | null;
+  is_multiple_choice: boolean;
+  options: PollOption[];
+  total_votes?: number;
+};
+
 export type Post = {
   id: string;
   user_id: string;
@@ -46,6 +66,16 @@ export type Post = {
   categories?: PostCategory[];
   userReaction?: PostReaction | null;
   isTrending?: boolean;
+  poll?: Poll;
+  link_preview?: LinkPreview;
+};
+
+export type LinkPreview = {
+  url: string;
+  title: string;
+  description: string;
+  image: string;
+  domain: string;
 };
 
 export type PostWithCategories = Post & {

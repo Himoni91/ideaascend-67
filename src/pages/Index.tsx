@@ -43,7 +43,8 @@ export default function Index() {
     posts,
     isLoading,
     hasMore,
-    loadMore
+    loadMore,
+    reactToPost
   } = usePosts(
     activeCategory === "All" ? undefined : activeCategory,
     activeFilter
@@ -93,6 +94,11 @@ export default function Index() {
   const handleCommentClick = useCallback((postId: string) => {
     setExpandedPost(postId);
   }, []);
+
+  // Handle post reaction
+  const handleReaction = useCallback((postId: string, reactionType: string) => {
+    reactToPost({ postId, reactionType });
+  }, [reactToPost]);
 
   // Greeting based on time of day
   const getGreeting = () => {
@@ -206,6 +212,7 @@ export default function Index() {
                     <EnhancedPostCard
                       post={post}
                       onClickComment={handleCommentClick}
+                      onReaction={handleReaction}
                     />
                   </motion.div>
                 ))}
@@ -272,7 +279,10 @@ export default function Index() {
             <>
               {/* Find and display the post */}
               {posts.find(p => p.id === expandedPost) && (
-                <EnhancedPostCard post={posts.find(p => p.id === expandedPost)!} />
+                <EnhancedPostCard 
+                  post={posts.find(p => p.id === expandedPost)!} 
+                  onReaction={handleReaction}
+                />
               )}
               
               {/* Comments for the post */}

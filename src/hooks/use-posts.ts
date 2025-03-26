@@ -74,15 +74,72 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
       const hasMore = count ? (currentPage * pageSize) < count : false;
 
       // Transform the data to flatten the nested structure
-      const transformedData = data?.map(post => {
+      const transformedData = await Promise.all(data?.map(async (post) => {
         const categories = post.categories.map((pc: any) => pc.category);
+        
+        // Check if post has a poll
+        const { data: pollData } = await supabase
+          .from("polls")
+          .select(`
+            *,
+            options:poll_options(*)
+          `)
+          .eq("post_id", post.id)
+          .maybeSingle();
+          
+        // If there's a poll, append it to the post
+        let poll = null;
+        if (pollData) {
+          // Calculate total votes for each option
+          const optionsWithVotes = await Promise.all(
+            pollData.options.map(async (option: any) => {
+              const { count } = await supabase
+                .from("poll_votes")
+                .select("*", { count: "exact" })
+                .eq("poll_option_id", option.id);
+                
+              // If user is logged in, check if they voted for this option
+              let hasVoted = false;
+              if (user) {
+                const { data: voteData } = await supabase
+                  .from("poll_votes")
+                  .select("*")
+                  .eq("poll_option_id", option.id)
+                  .eq("user_id", user.id)
+                  .single();
+                  
+                hasVoted = !!voteData;
+              }
+              
+              return {
+                ...option,
+                votes_count: count || 0,
+                has_voted: hasVoted
+              };
+            })
+          );
+          
+          // Calculate total votes
+          const totalVotes = optionsWithVotes.reduce(
+            (sum, option) => sum + (option.votes_count || 0), 
+            0
+          );
+          
+          poll = {
+            ...pollData,
+            options: optionsWithVotes,
+            total_votes: totalVotes
+          };
+        }
+        
         return {
           ...post,
           author: post.author,
           categories,
-          isTrending: post.trending_score > 50 // Arbitrary threshold
+          isTrending: post.trending_score > 50, // Arbitrary threshold
+          poll
         };
-      }) || [];
+      }) || []);
 
       return { data: transformedData as PostWithCategories[], hasMore };
     },
@@ -143,11 +200,23 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
 
   // Mutation to create a new post
   const createPost = useMutation({
-    mutationFn: async ({ content, categoryIds, mediaUrl, mediaType }: { 
+    mutationFn: async ({ 
+      content, 
+      categoryIds, 
+      mediaUrl, 
+      mediaType,
+      pollData
+    }: { 
       content: string; 
       categoryIds: string[];
       mediaUrl?: string;
       mediaType?: string;
+      pollData?: {
+        question: string;
+        options: string[];
+        isMultipleChoice: boolean;
+        expiresIn: number | null;
+      } | null;
     }) => {
       if (!user) throw new Error("You must be logged in to create a post");
       
@@ -177,6 +246,42 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           .insert(postCategories);
           
         if (categoriesError) throw categoriesError;
+      }
+      
+      // Step 3: Create poll if pollData is provided
+      if (pollData) {
+        // Calculate expiry date if provided
+        let expiresAt = null;
+        if (pollData.expiresIn) {
+          expiresAt = new Date();
+          expiresAt.setHours(expiresAt.getHours() + pollData.expiresIn);
+        }
+        
+        // Insert poll
+        const { data: poll, error: pollError } = await supabase
+          .from("polls")
+          .insert({
+            post_id: post.id,
+            question: pollData.question,
+            is_multiple_choice: pollData.isMultipleChoice,
+            expires_at: expiresAt ? expiresAt.toISOString() : null
+          })
+          .select()
+          .single();
+          
+        if (pollError) throw pollError;
+        
+        // Insert poll options
+        const pollOptions = pollData.options.map(option => ({
+          poll_id: poll.id,
+          option_text: option
+        }));
+        
+        const { error: optionsError } = await supabase
+          .from("poll_options")
+          .insert(pollOptions);
+          
+        if (optionsError) throw optionsError;
       }
       
       return post;
