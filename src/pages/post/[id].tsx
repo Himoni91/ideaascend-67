@@ -50,8 +50,11 @@ export default function PostDetailPage() {
       } as Post;
     },
     retry: 1,
-    onError: (error: any) => {
-      toast.error(`Error loading post: ${error.message}`);
+    meta: {
+      // Use meta to handle additional options
+      onError: (error: any) => {
+        toast.error(`Error loading post: ${error.message}`);
+      }
     }
   });
 
@@ -68,6 +71,13 @@ export default function PostDetailPage() {
       incrementViewCount();
     }
   }, [post?.id]);
+  
+  // Show an error UI if the query failed
+  useEffect(() => {
+    if (error) {
+      toast.error(`Error loading post: ${(error as Error).message}`);
+    }
+  }, [error]);
   
   if (error) {
     return (

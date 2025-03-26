@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Post } from "@/types/post";
@@ -34,6 +33,7 @@ import {
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface EnhancedPostCardProps {
   post: Post;
@@ -86,12 +86,8 @@ export default function EnhancedPostCard({
       // Default share action - copy link to clipboard
       const url = `${window.location.origin}/post/${post.id}`;
       navigator.clipboard.writeText(url);
-      // Use toast if available, otherwise alert
-      if (window.toast) {
-        window.toast.success("Link copied to clipboard");
-      } else {
-        alert("Link copied to clipboard");
-      }
+      // Use imported toast instead of window.toast
+      toast.success("Link copied to clipboard");
     }
   };
 

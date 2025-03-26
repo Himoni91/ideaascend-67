@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,7 +85,8 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
 
       return { data: transformedData as PostWithCategories[], hasMore };
     },
-    keepPreviousData: true
+    staleTime: 1000 * 60, // 1 minute
+    gcTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // If user is authenticated, fetch their reactions to posts
