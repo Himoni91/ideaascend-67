@@ -16,7 +16,7 @@ import PitchHubIdea from "./pages/PitchHubIdea";
 import MentorSpace from "./pages/MentorSpace";
 import MentorProfile from "./pages/MentorProfile";
 import Ascend from "./pages/Ascend";
-import Profile from "./pages/Profile";
+import EnhancedProfile from "./pages/EnhancedProfile";
 import ProfileSettings from "./pages/ProfileSettings";
 import Discover from "./pages/Discover";
 import Calendar from "./pages/Calendar";
@@ -114,15 +114,15 @@ const App = () => (
                 path="/profile" 
                 element={
                   <RouteGuard requireAuth={true}>
-                    <Profile />
+                    <EnhancedProfile />
                   </RouteGuard>
                 } 
               />
               <Route 
-                path="/profile/:id" 
+                path="/profile/:username" 
                 element={
                   <RouteGuard requireAuth={true}>
-                    <Profile />
+                    <EnhancedProfile />
                   </RouteGuard>
                 } 
               />
