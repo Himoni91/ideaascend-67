@@ -270,6 +270,7 @@ export type Database = {
           id: string
           post_id: string
           reaction_type: string
+          reaction_type_id: string | null
           user_id: string
         }
         Insert: {
@@ -277,6 +278,7 @@ export type Database = {
           id?: string
           post_id: string
           reaction_type: string
+          reaction_type_id?: string | null
           user_id: string
         }
         Update: {
@@ -284,6 +286,7 @@ export type Database = {
           id?: string
           post_id?: string
           reaction_type?: string
+          reaction_type_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -292,6 +295,13 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_reactions_reaction_type_id_fkey"
+            columns: ["reaction_type_id"]
+            isOneToOne: false
+            referencedRelation: "reaction_types"
             referencedColumns: ["id"]
           },
           {
@@ -390,6 +400,7 @@ export type Database = {
           avatar_url: string | null
           badges: Json | null
           bio: string | null
+          byline: string | null
           company: string | null
           created_at: string | null
           expertise: string[] | null
@@ -412,6 +423,7 @@ export type Database = {
           avatar_url?: string | null
           badges?: Json | null
           bio?: string | null
+          byline?: string | null
           company?: string | null
           created_at?: string | null
           expertise?: string[] | null
@@ -434,6 +446,7 @@ export type Database = {
           avatar_url?: string | null
           badges?: Json | null
           bio?: string | null
+          byline?: string | null
           company?: string | null
           created_at?: string | null
           expertise?: string[] | null
@@ -451,6 +464,33 @@ export type Database = {
           username?: string | null
           website?: string | null
           xp?: number | null
+        }
+        Relationships: []
+      }
+      reaction_types: {
+        Row: {
+          color: string | null
+          created_at: string
+          icon: string
+          id: string
+          name: string
+          weight: number
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          icon: string
+          id?: string
+          name: string
+          weight?: number
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          icon?: string
+          id?: string
+          name?: string
+          weight?: number
         }
         Relationships: []
       }

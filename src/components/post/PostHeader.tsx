@@ -82,9 +82,14 @@ export default function PostHeader({
               </Badge>
             )}
           </div>
+          
+          {author?.byline && (
+            <p className="text-xs text-muted-foreground">{author.byline}</p>
+          )}
+          
           <div className="flex items-center space-x-2 text-xs text-muted-foreground">
             <span>{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
-            {author?.position && !compact && (
+            {!author?.byline && author?.position && !compact && (
               <span className="hidden sm:inline">{author.position}</span>
             )}
             {isTrending && (

@@ -10,11 +10,21 @@ export type PostCategory = {
   created_at: string;
 };
 
+export type ReactionType = {
+  id: string;
+  name: string;
+  icon: string;
+  color: string | null;
+  weight: number;
+  created_at: string;
+};
+
 export type PostReaction = {
   id: string;
   post_id: string;
   user_id: string;
-  reaction_type: ReactionType;
+  reaction_type: string;
+  reaction_type_id: string | null;
   created_at: string;
 };
 
@@ -79,6 +89,7 @@ export type DatabaseProfile = {
   xp: number | null;
   badges: any;
   stats: any;
+  byline: string | null;
 };
 
 export type Post = {
@@ -111,7 +122,7 @@ export type PostWithCategories = Post & {
 
 export type FeedFilter = 'all' | 'following' | 'trending';
 
-export type ReactionType = 'like' | 'insightful' | 'fundable' | 'repost';
+export type ReactionTypeString = 'like' | 'insightful' | 'fundable' | 'innovative' | 'helpful' | 'inspiring' | 'repost';
 
 export type SharingOption = {
   id: string;

@@ -3,7 +3,9 @@ import { useState } from "react";
 import { ProfileType } from "@/types/profile";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Edit, MessageSquare, UserPlus, Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Edit, MessageSquare, UserPlus, Check, CheckCircle } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface ProfileHeaderProps {
   profile: ProfileType;
@@ -31,11 +33,23 @@ export default function ProfileHeader({ profile, isCurrentUser, onEdit }: Profil
   return (
     <div className="relative mb-8">
       {/* Cover Image */}
-      <div className="h-40 md:h-60 rounded-xl bg-gradient-to-r from-idolyst-blue to-idolyst-indigo animate-pulse-subtle"></div>
+      <div className="h-40 md:h-60 rounded-xl bg-gradient-to-r from-idolyst-blue to-idolyst-indigo">
+        <motion.div 
+          className="w-full h-full"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8 }}
+        />
+      </div>
       
       {/* Profile Info */}
-      <div className="relative px-4 md:px-6 -mt-16 animate-fade-in">
-        <div className="flex flex-col md:flex-row items-start md:items-end">
+      <div className="relative px-4 md:px-6 -mt-16">
+        <motion.div 
+          className="flex flex-col md:flex-row items-start md:items-end"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
           {/* Avatar */}
           <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl bg-white p-1 shadow-md transition-transform hover:scale-105 duration-300">
             <Avatar className="w-full h-full rounded-lg bg-gradient-to-br from-idolyst-blue to-idolyst-indigo flex items-center justify-center text-white text-2xl font-bold">
@@ -51,8 +65,21 @@ export default function ProfileHeader({ profile, isCurrentUser, onEdit }: Profil
           
           {/* Name and Basic Info */}
           <div className="mt-4 md:mt-0 md:ml-6 md:mb-2 flex-1">
-            <h1 className="text-2xl font-bold">{profile.full_name}</h1>
-            <p className="text-gray-600 dark:text-gray-300">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold">{profile.full_name}</h1>
+              {profile.is_verified && (
+                <Badge variant="outline" className="ml-2 px-1.5 py-0.5">
+                  <CheckCircle className="h-3.5 w-3.5 text-primary mr-1" />
+                  <span className="text-xs">Verified</span>
+                </Badge>
+              )}
+            </div>
+            
+            {profile.byline && (
+              <p className="text-lg text-muted-foreground font-medium mt-1">{profile.byline}</p>
+            )}
+            
+            <p className="text-gray-600 dark:text-gray-300 mt-1">
               {profile.position && profile.company ? (
                 <>
                   {profile.position} at {profile.company} 
@@ -97,7 +124,7 @@ export default function ProfileHeader({ profile, isCurrentUser, onEdit }: Profil
               </>
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

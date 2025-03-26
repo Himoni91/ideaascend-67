@@ -1,8 +1,7 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Post, PostWithCategories, FeedFilter, ReactionType } from "@/types/post";
+import { Post, PostWithCategories, FeedFilter } from "@/types/post";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -312,7 +311,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
 
   // Mutation to react to a post
   const reactToPost = useMutation({
-    mutationFn: async ({ postId, reactionType }: { postId: string; reactionType: ReactionType }) => {
+    mutationFn: async ({ postId, reactionType }: { postId: string; reactionType: string }) => {
       if (!user) throw new Error("You must be logged in to react to a post");
       
       // Check if user already reacted with this type
@@ -332,8 +331,23 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           .eq("id", existingReaction.id);
           
         if (error) throw error;
+        
+        // Show feedback to user
+        if (reactionType === 'like') {
+          toast.info("Removed like");
+        } else {
+          toast.info(`Removed ${reactionType} reaction`);
+        }
+        
         return { postId, removed: true, reactionType };
       } else {
+        // Find the reaction type ID from reaction_types table
+        const { data: reactionTypeData } = await supabase
+          .from("reaction_types")
+          .select("id")
+          .eq("name", reactionType)
+          .single();
+        
         // Remove any existing reaction of different type
         await supabase
           .from("post_reactions")
@@ -347,12 +361,29 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           .insert({
             post_id: postId,
             user_id: user.id,
-            reaction_type: reactionType
+            reaction_type: reactionType,
+            reaction_type_id: reactionTypeData?.id
           })
           .select()
           .single();
           
         if (error) throw error;
+        
+        // Show feedback to user
+        if (reactionType === 'like') {
+          toast.success("Post liked");
+        } else if (reactionType === 'fundable') {
+          toast.success("Marked as fundable");
+        } else if (reactionType === 'insightful') {
+          toast.success("Marked as insightful");
+        } else if (reactionType === 'innovative') {
+          toast.success("Marked as innovative");
+        } else if (reactionType === 'helpful') {
+          toast.success("Marked as helpful");
+        } else if (reactionType === 'inspiring') {
+          toast.success("Marked as inspiring");
+        }
+        
         return { postId, reaction: data, removed: false, reactionType };
       }
     },

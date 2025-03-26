@@ -16,6 +16,7 @@ export type ProfileType = {
   is_verified: boolean;
   created_at: string;
   updated_at: string;
+  byline: string | null;
   
   // Additional fields for UI/UX
   level: number;

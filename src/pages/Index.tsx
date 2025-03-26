@@ -1,10 +1,9 @@
-
 import { useState, useEffect, useRef, useCallback } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts } from "@/hooks/use-posts";
 import { useCategories } from "@/hooks/use-categories";
-import { FeedFilter, ReactionType } from "@/types/post";
+import { FeedFilter, ReactionTypeString } from "@/types/post";
 import { useInView } from "framer-motion";
 
 // Components
@@ -25,11 +24,9 @@ export default function Index() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Get category from URL query param or default to "All"
   const categoryParam = searchParams.get("category") || "All";
   const [activeCategory, setActiveCategory] = useState(categoryParam);
   
-  // Get filter from URL query param or default to "all"
   const filterParam = searchParams.get("filter") as FeedFilter || "all";
   const [activeFilter, setActiveFilter] = useState<FeedFilter>(filterParam);
   
@@ -38,7 +35,6 @@ export default function Index() {
   const loaderRef = useRef<HTMLDivElement>(null);
   const isLoaderInView = useInView(loaderRef);
   
-  // Get posts with the active category and filter
   const {
     posts,
     isLoading,
@@ -51,7 +47,6 @@ export default function Index() {
     activeFilter
   );
 
-  // Update URL when filters change
   useEffect(() => {
     const params = new URLSearchParams(searchParams);
     
@@ -70,43 +65,34 @@ export default function Index() {
     setSearchParams(params, { replace: true });
   }, [activeCategory, activeFilter, searchParams, setSearchParams]);
 
-  // Load more posts when the loader comes into view
   useEffect(() => {
     if (isLoaderInView && hasMore && !isLoading) {
       loadMore();
     }
   }, [isLoaderInView, hasMore, loadMore, isLoading]);
 
-  // Handle changes to the active category
   const handleCategoryChange = useCallback((category: string) => {
     setActiveCategory(category);
-    // Reset to the top of the page when changing category
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // Handle changes to the active filter
   const handleFilterChange = useCallback((filter: FeedFilter) => {
     setActiveFilter(filter);
-    // Reset to the top of the page when changing filter
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // Handle post comment click
   const handleCommentClick = useCallback((postId: string) => {
     setExpandedPost(postId);
   }, []);
 
-  // Handle post reaction
-  const handleReaction = useCallback((postId: string, reactionType: ReactionType) => {
+  const handleReaction = useCallback((postId: string, reactionType: string) => {
     reactToPost({ postId, reactionType });
   }, [reactToPost]);
 
-  // Handle repost
   const handleRepost = useCallback((postId: string) => {
     repostPost(postId);
   }, [repostPost]);
 
-  // Greeting based on time of day
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -131,7 +117,6 @@ export default function Index() {
           </p>
         </motion.div>
 
-        {/* Create Post Card */}
         <AnimatePresence>
           {user && (
             <motion.div
@@ -145,7 +130,6 @@ export default function Index() {
           )}
         </AnimatePresence>
 
-        {/* Feed Filters */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -162,7 +146,6 @@ export default function Index() {
           </Tabs>
         </motion.div>
 
-        {/* Category Tabs */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -175,10 +158,8 @@ export default function Index() {
           />
         </motion.div>
 
-        {/* Post List */}
         <div className="space-y-4">
           {isLoading && posts.length === 0 ? (
-            // Loading placeholders
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -217,7 +198,7 @@ export default function Index() {
                   >
                     <EnhancedPostCard
                       post={post}
-                      onClickComment={handleCommentClick}
+                      onClickComment={() => handleCommentClick(post.id)}
                       onReaction={handleReaction}
                       onRepost={handleRepost}
                     />
@@ -225,7 +206,6 @@ export default function Index() {
                 ))}
               </AnimatePresence>
               
-              {/* Infinite scroll loader */}
               {hasMore && (
                 <div 
                   ref={loaderRef} 
@@ -279,12 +259,10 @@ export default function Index() {
         </div>
       </div>
 
-      {/* Comments Dialog */}
       <Dialog open={!!expandedPost} onOpenChange={(open) => !open && setExpandedPost(null)}>
         <DialogContent className="max-w-xl">
           {expandedPost && (
             <>
-              {/* Find and display the post */}
               {posts.find(p => p.id === expandedPost) && (
                 <EnhancedPostCard 
                   post={posts.find(p => p.id === expandedPost)!} 
@@ -293,7 +271,6 @@ export default function Index() {
                 />
               )}
               
-              {/* Comments for the post */}
               <PostComments postId={expandedPost} />
             </>
           )}
