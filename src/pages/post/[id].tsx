@@ -249,15 +249,21 @@ export default function PostDetailPage() {
   return (
     <AppLayout>
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
           className="mb-6"
-          onClick={() => navigate(-1)}
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        </motion.div>
         
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -270,9 +276,14 @@ export default function PostDetailPage() {
             onRepost={handleRepost}
           />
           
-          <div className="mt-6">
-            <PostComments postId={post.id} />
-          </div>
+          <motion.div 
+            className="mt-6 bg-card rounded-xl p-6 shadow-sm"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            <PostComments postId={post.id} minimized={false} />
+          </motion.div>
         </motion.div>
       </div>
     </AppLayout>

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -6,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
-import { Post, ReactionType } from "@/types/post";
-import { BarChart3, MessageSquare } from "lucide-react";
+import { Post } from "@/types/post";
+import { BarChart3, MessageSquare, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner"; 
 import { useFollow } from "@/hooks/use-follow";
@@ -122,7 +123,7 @@ export default function EnhancedPostCard({
               <span>•</span>
               <span>{formattedDate}</span>
             </div>
-            <ReactionButtons post={post} onReaction={handleReaction} onRepost={handleRepost} compact={true} />
+            <ReactionButtons post={post} onReaction={handleReaction} onRepost={handleRepost} compact={true} onClickComment={handleCommentClick} />
           </div>
         </CardContent>
       </Card>
@@ -145,15 +146,21 @@ export default function EnhancedPostCard({
             <div>
               <Link 
                 to={`/profile/${post.author?.username}`}
-                className="font-medium hover:text-primary transition-colors"
+                className="font-medium hover:text-primary transition-colors flex items-center gap-1"
               >
                 {post.author?.full_name || post.author?.username || "Anonymous"}
+                {post.author?.is_verified && (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-primary fill-primary" />
+                )}
               </Link>
-              <div className="text-xs text-muted-foreground flex items-center gap-1">
-                {post.author?.position && (
+              <div className="text-xs text-muted-foreground flex flex-col">
+                {post.author?.byline && (
+                  <span className="text-xs">{post.author.byline}</span>
+                )}
+                {!post.author?.byline && post.author?.position && (
                   <span>{post.author.position} at {post.author.company}</span>
                 )}
-                {formattedDate && <span>• {formattedDate}</span>}
+                <span>{formattedDate}</span>
               </div>
             </div>
           </div>
@@ -186,22 +193,26 @@ export default function EnhancedPostCard({
             )}
           </div>
           
-          {linkPreview && !post.link_preview && (
-            <LinkPreview preview={linkPreview} />
-          )}
-          
           {post.poll && (
             <PostPoll postId={post.id} />
+          )}
+          
+          {linkPreview && !post.link_preview && (
+            <LinkPreview preview={linkPreview} />
           )}
           
           {post.media_url && (
             <div className="mt-3 rounded-lg overflow-hidden">
               {post.media_type?.includes('image') ? (
-                <img 
+                <motion.img 
                   src={post.media_url} 
                   alt="Post attachment" 
                   className="w-full h-auto max-h-[500px] object-cover rounded-lg"
                   loading="lazy"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                  whileHover={{ scale: 1.01 }}
                 />
               ) : post.media_type?.includes('video') ? (
                 <video 
@@ -219,7 +230,7 @@ export default function EnhancedPostCard({
             <Badge 
               key={category.id} 
               variant="outline"
-              className="text-xs"
+              className="text-xs transition-all hover:bg-opacity-100"
               style={{ 
                 backgroundColor: category.color ? `${category.color}20` : undefined,
                 color: category.color || undefined
@@ -246,6 +257,8 @@ export default function EnhancedPostCard({
           post={post} 
           onReaction={handleReaction}
           onRepost={handleRepost}
+          onClickComment={handleCommentClick}
+          showComments={showCommentsSection}
         />
       </CardFooter>
       
@@ -257,8 +270,8 @@ export default function EnhancedPostCard({
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="px-3 pb-3">
-              <PostComments postId={post.id} minimized={false} />
+            <div className="px-4 pb-4">
+              <PostComments postId={post.id} minimized={true} />
             </div>
           </motion.div>
         )}

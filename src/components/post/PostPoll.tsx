@@ -1,196 +1,204 @@
 
-import { useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { Poll } from "@/types/post";
-import { usePolls } from "@/hooks/use-polls";
-import { cn } from "@/lib/utils";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { BarChart2, Clock, Vote } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/contexts/AuthContext";
+import { usePolls } from "@/hooks/use-polls";
+import { toast } from "sonner";
+import { PollOption } from "@/types/post";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import { Separator } from "@/components/ui/separator";
-import { formatDistanceToNow } from "date-fns";
+import { Check, Lock } from "lucide-react";
 
 interface PostPollProps {
   postId: string;
-  className?: string;
 }
 
-export default function PostPoll({ postId, className }: PostPollProps) {
+export default function PostPoll({ postId }: PostPollProps) {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const { poll, isLoading, voteOnPoll } = usePolls(postId);
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [showResults, setShowResults] = useState(false);
   
-  if (isLoading) {
-    return (
-      <Card className={cn("mt-3", className)}>
-        <CardContent className="p-4">
-          <div className="space-y-2">
-            <div className="h-5 w-3/4 bg-muted animate-pulse rounded"></div>
-            <div className="space-y-2 mt-4">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-10 bg-muted animate-pulse rounded"></div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-  
-  if (!poll) return null;
-  
-  const hasExpired = poll.expires_at ? new Date(poll.expires_at) < new Date() : false;
-  const hasVoted = poll.options.some(option => option.has_voted);
-  const totalVotes = poll.total_votes || 0;
-  
-  const handleOptionClick = (optionId: string) => {
+  // Check if user has already voted or poll has expired
+  useEffect(() => {
+    if (poll) {
+      const userVoted = poll.options.some(option => option.has_voted);
+      setHasVoted(userVoted);
+      setShowResults(userVoted);
+      
+      // Auto-select the option the user has voted for
+      if (userVoted) {
+        const votedOption = poll.options.find(option => option.has_voted);
+        if (votedOption) {
+          setSelectedOption(votedOption.id);
+        }
+      }
+    }
+  }, [poll]);
+
+  const handleVote = () => {
     if (!user) {
-      navigate("/auth/sign-in");
+      toast.error("You must be logged in to vote");
       return;
     }
     
-    if (hasVoted && !poll.is_multiple_choice) return;
-    if (hasExpired) return;
-    
-    if (poll.is_multiple_choice) {
-      if (selectedOptions.includes(optionId)) {
-        setSelectedOptions(selectedOptions.filter(id => id !== optionId));
-      } else {
-        setSelectedOptions([...selectedOptions, optionId]);
-      }
-    } else {
-      voteOnPoll({ optionId });
+    if (!selectedOption) {
+      toast.error("Please select an option");
+      return;
     }
+    
+    if (poll?.expires_at && new Date(poll.expires_at) < new Date()) {
+      toast.error("This poll has expired");
+      return;
+    }
+    
+    voteOnPoll({ optionId: selectedOption });
   };
   
-  const handleSubmitVotes = () => {
-    if (selectedOptions.length === 0) return;
-    
-    // Vote on each selected option
-    selectedOptions.forEach(optionId => {
-      voteOnPoll({ optionId });
-    });
-    
-    // Clear selections
-    setSelectedOptions([]);
-  };
+  const isPollExpired = poll?.expires_at ? new Date(poll.expires_at) < new Date() : false;
   
-  // Calculate which users can see results
-  const canSeeResults = user || hasVoted || hasExpired;
+  if (isLoading || !poll) {
+    return (
+      <div className="rounded-lg border p-4 mt-3 animate-pulse">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4"></div>
+        <div className="space-y-3">
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+  
+  const calculatePercentage = (optionVotes: number) => {
+    if (!poll.total_votes) return 0;
+    return Math.round((optionVotes / poll.total_votes) * 100);
+  };
   
   return (
-    <Card className={cn("mt-3 overflow-hidden", className)}>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1.5">
-            <Vote className="h-4 w-4 text-primary" />
-            <h3 className="font-medium">{poll.question}</h3>
-          </div>
-          
-          {poll.expires_at && (
-            <div className="flex items-center text-xs text-muted-foreground">
-              <Clock className="h-3 w-3 mr-1" />
-              {hasExpired ? (
-                "Poll ended"
+    <motion.div 
+      className="rounded-lg border p-4 mt-3 bg-background/50 backdrop-blur-sm"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <h3 className="font-medium text-lg mb-3">{poll.question}</h3>
+      
+      <div className="space-y-3 mb-4">
+        <AnimatePresence>
+          {poll.options.map((option: PollOption) => (
+            <motion.div 
+              key={option.id}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className={`relative ${showResults ? 'cursor-default' : 'cursor-pointer'}`}
+            >
+              {showResults ? (
+                <div 
+                  className="rounded-lg border p-3 relative overflow-hidden"
+                >
+                  <div className="flex justify-between items-center z-10 relative">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{option.option_text}</span>
+                      {option.has_voted && (
+                        <span className="bg-primary/20 text-primary p-1 rounded-full">
+                          <Check className="h-3 w-3" />
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">{calculatePercentage(option.votes_count || 0)}%</span>
+                  </div>
+                  <Progress 
+                    value={calculatePercentage(option.votes_count || 0)} 
+                    className="h-full absolute top-0 left-0 bg-transparent z-0 rounded-lg"
+                  />
+                </div>
               ) : (
-                `Ends ${formatDistanceToNow(new Date(poll.expires_at), { addSuffix: true })}`
+                <div 
+                  className={`rounded-lg border p-3 transition-colors ${
+                    selectedOption === option.id
+                      ? 'border-primary bg-primary/10'
+                      : 'hover:border-primary/50'
+                  }`}
+                  onClick={() => !isPollExpired && !hasVoted && setSelectedOption(option.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{option.option_text}</span>
+                    {selectedOption === option.id && (
+                      <motion.span 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="h-4 w-4 rounded-full bg-primary flex items-center justify-center"
+                      >
+                        <Check className="h-3 w-3 text-white" />
+                      </motion.span>
+                    )}
+                  </div>
+                </div>
               )}
-            </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+      
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-muted-foreground">
+          {poll.total_votes} {poll.total_votes === 1 ? 'vote' : 'votes'}
+          {poll.expires_at && (
+            <span className="ml-2 flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+              {isPollExpired ? 'Poll closed' : 'Closes ' + new Date(poll.expires_at).toLocaleDateString()}
+            </span>
           )}
         </div>
         
-        <div className="space-y-2">
-          {poll.options.map((option) => {
-            const percentage = totalVotes > 0 ? Math.round((option.votes_count || 0) / totalVotes * 100) : 0;
-            const isSelected = selectedOptions.includes(option.id);
-            const hasVotedForThis = option.has_voted;
-            
-            return (
-              <button
-                key={option.id}
-                className={cn(
-                  "relative w-full text-left p-2.5 rounded-md border border-input transition-all overflow-hidden",
-                  (isSelected || hasVotedForThis) && "border-primary",
-                  hasExpired && "opacity-80 cursor-default",
-                  !hasExpired && !hasVoted && "hover:border-primary/50",
-                  hasVoted && !poll.is_multiple_choice && "cursor-default"
-                )}
-                disabled={hasExpired}
-                onClick={() => handleOptionClick(option.id)}
-              >
-                {/* Background fill for percentage */}
-                {canSeeResults && (
-                  <motion.div 
-                    className="absolute inset-0 bg-primary/10 origin-left z-0"
-                    initial={{ scaleX: 0 }}
-                    animate={{ scaleX: percentage / 100 }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                  />
-                )}
-                
-                <div className="flex items-center justify-between relative z-10">
-                  <div className="flex items-center gap-2">
-                    {poll.is_multiple_choice ? (
-                      <div className={cn(
-                        "h-4 w-4 border rounded flex items-center justify-center",
-                        isSelected ? "bg-primary border-primary text-primary-foreground" : "border-input"
-                      )}>
-                        {isSelected && (
-                          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
-                        )}
-                      </div>
-                    ) : (
-                      <div className={cn(
-                        "h-4 w-4 rounded-full border flex items-center justify-center",
-                        hasVotedForThis ? "bg-primary border-primary" : "border-input"
-                      )}>
-                        {hasVotedForThis && (
-                          <div className="h-2 w-2 rounded-full bg-primary-foreground" />
-                        )}
-                      </div>
-                    )}
-                    <span>{option.option_text}</span>
-                  </div>
-                  
-                  {canSeeResults && (
-                    <span className="text-sm font-medium">
-                      {percentage}%
-                    </span>
+        {!showResults && !isPollExpired && (
+          <div className="flex gap-2">
+            {hasVoted ? (
+              <Button size="sm" variant="outline" onClick={() => setShowResults(true)}>
+                Show Results
+              </Button>
+            ) : (
+              <>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setShowResults(true)}
+                  disabled={!poll.total_votes}
+                >
+                  View Results
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={handleVote} 
+                  disabled={!selectedOption}
+                  className="relative overflow-hidden"
+                >
+                  <span className={isLoading ? "opacity-0" : "opacity-100"}>Vote</span>
+                  {isLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    </div>
                   )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                </Button>
+              </>
+            )}
+          </div>
+        )}
         
-        {poll.is_multiple_choice && selectedOptions.length > 0 && (
+        {(showResults || isPollExpired) && !hasVoted && (
           <Button 
             size="sm" 
-            className="w-full mt-3"
-            onClick={handleSubmitVotes}
+            variant="outline" 
+            onClick={() => setShowResults(false)}
+            disabled={isPollExpired}
           >
-            Submit Votes
+            Back to Poll
           </Button>
         )}
-      </CardContent>
-      
-      <Separator />
-      
-      <CardFooter className="p-3 text-xs text-muted-foreground flex justify-between">
-        <div className="flex items-center">
-          <BarChart2 className="h-3.5 w-3.5 mr-1.5" />
-          <span>{totalVotes} vote{totalVotes !== 1 ? 's' : ''}</span>
-        </div>
-        
-        {poll.is_multiple_choice && (
-          <div>Multiple choice poll</div>
-        )}
-      </CardFooter>
-    </Card>
+      </div>
+    </motion.div>
   );
 }
