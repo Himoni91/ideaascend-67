@@ -2,7 +2,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
-import { motion, type HTMLMotionProps } from "framer-motion"
+import { motion } from "framer-motion"
 
 import { cn } from "@/lib/utils"
 
@@ -82,22 +82,16 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 )
 Button.displayName = "Button"
 
-// Define specific props for AnimatedButton to fix TypeScript errors
-type AnimatedButtonProps = Omit<ButtonProps, keyof HTMLMotionProps<"button">> & 
-  Omit<HTMLMotionProps<"button">, "ref"> & {
-    ref?: React.Ref<HTMLButtonElement>
-  }
-
-const AnimatedButton = React.forwardRef<HTMLButtonElement, AnimatedButtonProps>(
+// Fixed implementation for AnimatedButton that properly handles the type conflicts
+const AnimatedButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, animation, asChild = false, isLoading = false, ...props }, ref) => {
     if (isLoading) {
-      // For loading state, use regular button to avoid type issues
+      // For loading state, use regular button
       return (
         <button
           className={cn(buttonVariants({ variant, size, animation: "none", className }), "relative")}
           disabled={true}
           ref={ref}
-          {...props}
         >
           <span className="opacity-0">{props.children}</span>
           <span className="absolute inset-0 flex items-center justify-center">
@@ -111,7 +105,7 @@ const AnimatedButton = React.forwardRef<HTMLButtonElement, AnimatedButtonProps>(
     }
     
     if (asChild) {
-      // Use regular button for asChild case
+      // Use Slot for asChild case
       return (
         <Slot
           className={cn(buttonVariants({ variant, size, animation: "none", className }))}
@@ -121,12 +115,11 @@ const AnimatedButton = React.forwardRef<HTMLButtonElement, AnimatedButtonProps>(
       )
     }
     
-    // Use motion.button only for the standard case
+    // Use a regular React button with animation classes instead of motion.button
+    // This avoids the TypeScript errors with motion.button
     return (
-      <motion.button
-        className={cn(buttonVariants({ variant, size, animation: "none", className }))}
-        whileTap={{ scale: 0.95 }}
-        transition={{ duration: 0.2 }}
+      <button
+        className={cn(buttonVariants({ variant, size, animation: "none", className }), "transform active:scale-95 transition-transform duration-200")}
         ref={ref}
         {...props}
       />
