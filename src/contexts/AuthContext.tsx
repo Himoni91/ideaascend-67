@@ -1,10 +1,10 @@
-
 import { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { ProfileType } from "@/types/profile";
+import { Json } from "@/integrations/supabase/types";
 
 type UserVerification = {
   email_verified: boolean;
@@ -96,22 +96,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("Error fetching profile:", error);
       } else if (data) {
         // Create a complete ProfileType object with default values for missing fields
+        const defaultBadges = [
+          { name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true },
+        ];
+        
+        const defaultStats = {
+          followers: 0,
+          following: 0,
+          ideas: 0,
+          mentorSessions: 0,
+          posts: 0
+        };
+        
+        // Type safe parsing for badges and stats
+        let parsedBadges: ProfileType['badges'] = defaultBadges;
+        if (data.badges && Array.isArray(data.badges)) {
+          parsedBadges = data.badges as ProfileType['badges'];
+        }
+        
+        let parsedStats: ProfileType['stats'] = defaultStats;
+        if (data.stats && typeof data.stats === 'object' && !Array.isArray(data.stats)) {
+          parsedStats = data.stats as ProfileType['stats'];
+        }
+        
+        // Create the complete profile with properly typed values
         const completeProfile: ProfileType = {
           ...data,
-          // Add default values for the new required fields
           level: data.level || 1,
           xp: data.xp || 0,
-          badges: data.badges || [
-            { name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true },
-          ],
-          stats: data.stats || {
-            followers: 0,
-            following: 0,
-            ideas: 0,
-            mentorSessions: 0,
-            posts: 0
-          }
+          badges: parsedBadges,
+          stats: parsedStats
         };
+        
         setProfile(completeProfile);
       }
     } catch (error) {
