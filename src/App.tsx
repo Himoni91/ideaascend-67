@@ -1,5 +1,5 @@
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -57,7 +57,7 @@ function App() {
             <Route path="/auth/two-factor" element={<RouteGuard requireAuth={false}><TwoFactor /></RouteGuard>} />
             
             {/* Protected routes */}
-            <Route element={<AppLayout />}>
+            <Route element={<AppLayout><Outlet /></AppLayout>}>
               <Route path="/" element={<RouteGuard><Index /></RouteGuard>} />
               <Route path="/profile" element={<RouteGuard><Profile /></RouteGuard>} />
               <Route path="/profile/enhanced" element={<RouteGuard><EnhancedProfile /></RouteGuard>} />

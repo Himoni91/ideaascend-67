@@ -1,5 +1,6 @@
 
 import { ReactNode, useState, useEffect } from "react";
+import { Outlet } from "react-router-dom";
 import BottomNav from "./BottomNav";
 import Sidebar from "./Sidebar";
 import RightSidebar from "./RightSidebar";
@@ -38,6 +39,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     );
   }
 
+  // The content is either the children prop or the Outlet (for react-router)
+  const content = children || <Outlet />;
+
   return (
     <div className="flex min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Left Sidebar - Hidden on mobile */}
@@ -53,7 +57,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           transition={{ duration: 0.3 }}
         >
           <div className={`container mx-auto px-4 py-6 max-w-7xl ${isMobile ? 'pb-20' : ''}`}>
-            {children}
+            {content}
           </div>
           
           {/* Bottom Navigation - Only visible on mobile */}
