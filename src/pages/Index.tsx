@@ -5,9 +5,10 @@ import { usePosts } from "@/hooks/use-posts";
 import { useCategories } from "@/hooks/use-categories";
 import { FeedFilter, ReactionTypeString } from "@/types/post";
 import { useInView } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 // Components
-import FeedTabs from "@/components/post/FeedTabs";
+import CategoryFilter from "@/components/post/CategoryFilter";
 import CreatePostCard from "@/components/post/CreatePostCard";
 import EnhancedPostCard from "@/components/post/EnhancedPostCard";
 import PostComments from "@/components/post/PostComments";
@@ -17,6 +18,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { ArrowUpIcon, MessageSquareIcon, RefreshCwIcon } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Index() {
   const { user, profile } = useAuth();
@@ -24,9 +27,11 @@ export default function Index() {
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Get category from URL or default to "All"
   const categoryParam = searchParams.get("category") || "All";
   const [activeCategory, setActiveCategory] = useState(categoryParam);
   
+  // Get feed filter from URL or default to "all"
   const filterParam = searchParams.get("filter") as FeedFilter || "all";
   const [activeFilter, setActiveFilter] = useState<FeedFilter>(filterParam);
   
@@ -34,6 +39,7 @@ export default function Index() {
   const { categories } = useCategories();
   const loaderRef = useRef<HTMLDivElement>(null);
   const isLoaderInView = useInView(loaderRef);
+  const scrollToTopRef = useRef<HTMLDivElement>(null);
   
   const {
     posts,
@@ -41,12 +47,14 @@ export default function Index() {
     hasMore,
     loadMore,
     reactToPost,
-    repostPost
+    repostPost,
+    refetch
   } = usePosts(
     activeCategory === "All" ? undefined : activeCategory,
     activeFilter
   );
 
+  // Update URL when category or filter changes
   useEffect(() => {
     const params = new URLSearchParams(searchParams);
     
@@ -65,11 +73,34 @@ export default function Index() {
     setSearchParams(params, { replace: true });
   }, [activeCategory, activeFilter, searchParams, setSearchParams]);
 
+  // Load more posts when bottom is reached
   useEffect(() => {
     if (isLoaderInView && hasMore && !isLoading) {
       loadMore();
     }
   }, [isLoaderInView, hasMore, loadMore, isLoading]);
+
+  // Set up real-time subscription for new posts
+  useEffect(() => {
+    const channel = supabase
+      .channel('posts-changes')
+      .on('postgres_changes', 
+          { event: 'INSERT', schema: 'public', table: 'posts' },
+          () => {
+            toast.info("New posts available!", {
+              action: {
+                label: "Refresh",
+                onClick: () => refetch()
+              }
+            });
+          }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
 
   const handleCategoryChange = useCallback((category: string) => {
     setActiveCategory(category);
@@ -93,11 +124,43 @@ export default function Index() {
     repostPost(postId);
   }, [repostPost]);
 
+  const handleRefresh = useCallback(() => {
+    refetch();
+    toast.success("Feed refreshed!");
+  }, [refetch]);
+
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  // Show scroll to top button when scrolled down
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 500);
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
     if (hour < 18) return "Good afternoon";
     return "Good evening";
+  };
+
+  // Empty state messages based on filter
+  const getEmptyStateMessage = () => {
+    if (activeFilter === "following") {
+      return "No posts from people you follow. Start following more people!";
+    } else if (activeFilter === "trending") {
+      return "No trending posts in this category right now.";
+    } else {
+      return "No posts found in this category.";
+    }
   };
 
   return (
@@ -115,6 +178,24 @@ export default function Index() {
           <p className="text-gray-600 dark:text-gray-300">
             Discover insights, connect with mentors, and stay updated on the startup ecosystem
           </p>
+        </motion.div>
+
+        {/* Refresh button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex justify-end mb-4"
+        >
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh}
+            className="gap-2"
+          >
+            <RefreshCwIcon className="h-4 w-4" />
+            Refresh
+          </Button>
         </motion.div>
 
         <AnimatePresence>
@@ -139,7 +220,7 @@ export default function Index() {
             <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="all">All Posts</TabsTrigger>
               <TabsTrigger value="following">
-                My Followings
+                My Network
               </TabsTrigger>
               <TabsTrigger value="trending">Trending</TabsTrigger>
             </TabsList>
@@ -151,7 +232,7 @@ export default function Index() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.3 }}
         >
-          <FeedTabs
+          <CategoryFilter
             categories={categories}
             activeCategory={activeCategory}
             onChange={handleCategoryChange}
@@ -239,11 +320,7 @@ export default function Index() {
               className="text-center py-10"
             >
               <p className="text-gray-500 dark:text-gray-400 mb-4">
-                {activeFilter === "following" 
-                  ? "No posts from people you follow. Start following more people!" 
-                  : activeFilter === "trending"
-                    ? "No trending posts in this category right now."
-                    : "No posts found in this category."}
+                {getEmptyStateMessage()}
               </p>
               
               {activeFilter === "following" && user && (
@@ -259,6 +336,7 @@ export default function Index() {
         </div>
       </div>
 
+      {/* Expanded post dialog */}
       <Dialog open={!!expandedPost} onOpenChange={(open) => !open && setExpandedPost(null)}>
         <DialogContent className="max-w-xl">
           {expandedPost && (
@@ -276,6 +354,28 @@ export default function Index() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Scroll to top button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.div
+            className="fixed bottom-20 right-4 z-30"
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Button
+              size="icon"
+              className="rounded-full h-10 w-10 shadow-md bg-idolyst-blue text-white hover:bg-idolyst-blue/90"
+              onClick={scrollToTop}
+              aria-label="Scroll to top"
+            >
+              <ArrowUpIcon className="h-5 w-5" />
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AppLayout>
   );
 }

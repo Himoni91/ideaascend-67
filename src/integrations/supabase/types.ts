@@ -409,6 +409,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_mentor: boolean | null
+          is_two_factor_enabled: boolean | null
           is_verified: boolean | null
           level: number | null
           linkedin_url: string | null
@@ -420,6 +421,7 @@ export type Database = {
           onboarding_step: number | null
           portfolio_items: Json | null
           position: string | null
+          preferences: Json | null
           professional_summary: string | null
           public_email: boolean | null
           skills: string[] | null
@@ -447,6 +449,7 @@ export type Database = {
           full_name?: string | null
           id: string
           is_mentor?: boolean | null
+          is_two_factor_enabled?: boolean | null
           is_verified?: boolean | null
           level?: number | null
           linkedin_url?: string | null
@@ -458,6 +461,7 @@ export type Database = {
           onboarding_step?: number | null
           portfolio_items?: Json | null
           position?: string | null
+          preferences?: Json | null
           professional_summary?: string | null
           public_email?: boolean | null
           skills?: string[] | null
@@ -485,6 +489,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_mentor?: boolean | null
+          is_two_factor_enabled?: boolean | null
           is_verified?: boolean | null
           level?: number | null
           linkedin_url?: string | null
@@ -496,6 +501,7 @@ export type Database = {
           onboarding_step?: number | null
           portfolio_items?: Json | null
           position?: string | null
+          preferences?: Json | null
           professional_summary?: string | null
           public_email?: boolean | null
           skills?: string[] | null
@@ -536,6 +542,36 @@ export type Database = {
           id?: string
           name?: string
           weight?: number
+        }
+        Relationships: []
+      }
+      session_history: {
+        Row: {
+          created_at: string | null
+          device_info: Json | null
+          id: string
+          ip_address: string | null
+          last_active_at: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          device_info?: Json | null
+          id?: string
+          ip_address?: string | null
+          last_active_at?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          device_info?: Json | null
+          id?: string
+          ip_address?: string | null
+          last_active_at?: string | null
+          user_agent?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -596,6 +632,39 @@ export type Database = {
           role?: string
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_verification: {
+        Row: {
+          created_at: string | null
+          email_verified: boolean | null
+          id: string
+          two_factor_enabled: boolean | null
+          two_factor_method: string | null
+          updated_at: string | null
+          verification_code: string | null
+          verification_code_expires_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_verified?: boolean | null
+          id: string
+          two_factor_enabled?: boolean | null
+          two_factor_method?: string | null
+          updated_at?: string | null
+          verification_code?: string | null
+          verification_code_expires_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email_verified?: boolean | null
+          id?: string
+          two_factor_enabled?: boolean | null
+          two_factor_method?: string | null
+          updated_at?: string | null
+          verification_code?: string | null
+          verification_code_expires_at?: string | null
         }
         Relationships: []
       }

@@ -7,6 +7,8 @@ import { useNavigate } from "react-router-dom";
 import { PopularCategories } from "./PopularCategories";
 import EnhancedPostCard from "../post/EnhancedPostCard";
 import { motion } from "framer-motion";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TrendingUp, Users, RocketIcon } from "lucide-react";
 
 export function RightSidebarContent() {
   const { user } = useAuth();
@@ -67,12 +69,19 @@ export function RightSidebarContent() {
         transition={{ duration: 0.3, delay: 0.2 }}
         className="space-y-3"
       >
-        <h3 className="font-medium text-sm">Trending Now</h3>
+        <h3 className="font-medium text-sm flex items-center">
+          <TrendingUp className="h-4 w-4 mr-2 text-idolyst-blue" />
+          Trending Now
+        </h3>
         
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-[100px] bg-muted animate-pulse rounded-md" />
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-20 w-full rounded-md" />
+              </div>
             ))}
           </div>
         ) : trendingPosts.length > 0 ? (
@@ -108,7 +117,10 @@ export function RightSidebarContent() {
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.3, delay: 0.3 }}
       >
-        <h3 className="font-medium text-sm mb-3">Discover More</h3>
+        <h3 className="font-medium text-sm mb-3 flex items-center">
+          <RocketIcon className="h-4 w-4 mr-2 text-idolyst-blue" />
+          Discover More
+        </h3>
         <div className="space-y-2">
           <Button 
             variant="outline" 
@@ -116,6 +128,7 @@ export function RightSidebarContent() {
             className="w-full justify-start"
             onClick={() => navigate("/pitch-hub")}
           >
+            <RocketIcon className="h-4 w-4 mr-2" />
             PitchHub
           </Button>
           <Button 
@@ -124,6 +137,7 @@ export function RightSidebarContent() {
             className="w-full justify-start"
             onClick={() => navigate("/mentor-space")}
           >
+            <Users className="h-4 w-4 mr-2" />
             MentorSpace
           </Button>
           <Button 
@@ -132,6 +146,7 @@ export function RightSidebarContent() {
             className="w-full justify-start"
             onClick={() => navigate("/ascend")}
           >
+            <TrendingUp className="h-4 w-4 mr-2" />
             Ascend Leaderboard
           </Button>
         </div>

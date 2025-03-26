@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -100,9 +101,37 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
 
       if (error) throw error;
 
-      const { count } = await supabase
-        .from("posts")
-        .select("*", { count: 'exact', head: true });
+      // Get total count for pagination
+      let count;
+      if (categoryName && categoryName !== 'All') {
+        const { count: categoryCount } = await supabase
+          .from("post_categories")
+          .select("*", { count: 'exact', head: true })
+          .eq('category.name', categoryName);
+        count = categoryCount;
+      } else if (feedFilter === 'following' && user) {
+        const { data: followingData } = await supabase
+          .from("user_follows")
+          .select("following_id")
+          .eq("follower_id", user.id);
+
+        const followingIds = followingData?.map(f => f.following_id) || [];
+        
+        if (followingIds.length > 0) {
+          const { count: followingCount } = await supabase
+            .from("posts")
+            .select("*", { count: 'exact', head: true })
+            .in('user_id', followingIds);
+          count = followingCount;
+        } else {
+          count = 0;
+        }
+      } else {
+        const { count: postsCount } = await supabase
+          .from("posts")
+          .select("*", { count: 'exact', head: true });
+        count = postsCount;
+      }
 
       const hasMore = count ? (currentPage * pageSize) < count : false;
 
@@ -190,6 +219,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     placeholderData: (previousData) => previousData
   });
 
+  // Fetch user reactions for posts
   useEffect(() => {
     if (user && posts?.data?.length) {
       const fetchUserReactions = async () => {
@@ -220,13 +250,69 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     }
   }, [user, posts?.data, queryClient, queryKey]);
 
+  // Set up realtime listeners for posts, post_reactions, and post_comments
   useEffect(() => {
+    // Use a combined channel for all table changes
     const channel = supabase
-      .channel('posts-changes')
+      .channel('posts-realtime')
       .on('postgres_changes', 
           { event: '*', schema: 'public', table: 'posts' },
-          () => {
-            refetch();
+          (payload) => {
+            console.log('Post changed:', payload);
+            // Only auto-refetch for inserts to avoid too much refetching
+            if (payload.eventType === 'INSERT') {
+              // Don't refetch immediately to avoid multiple refetches
+              // when multiple changes occur at once
+              setTimeout(() => {
+                refetch();
+              }, 1000);
+            }
+          }
+      )
+      .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'post_reactions' },
+          (payload) => {
+            console.log('Reaction changed:', payload);
+            if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+              const postId = payload.new?.post_id || payload.old?.post_id;
+              if (postId) {
+                // Update the specific post's reaction count without refetching everything
+                queryClient.invalidateQueries({ 
+                  queryKey: ["posts"],
+                  refetchType: 'none' 
+                });
+                
+                // Only refetch if viewing the post's category or "All"
+                if (posts?.data?.some(post => post.id === postId)) {
+                  setTimeout(() => {
+                    refetch();
+                  }, 1000);
+                }
+              }
+            }
+          }
+      )
+      .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'post_comments' },
+          (payload) => {
+            console.log('Comment changed:', payload);
+            if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+              const postId = payload.new?.post_id || payload.old?.post_id;
+              if (postId) {
+                // Update the specific post's comment count without refetching everything
+                queryClient.invalidateQueries({ 
+                  queryKey: ["posts"],
+                  refetchType: 'none' 
+                });
+                
+                // Only refetch if viewing the post's category or "All"
+                if (posts?.data?.some(post => post.id === postId)) {
+                  setTimeout(() => {
+                    refetch();
+                  }, 1000);
+                }
+              }
+            }
           }
       )
       .subscribe();
@@ -234,8 +320,9 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [refetch]);
+  }, [refetch, queryClient, posts?.data]);
 
+  // Create a new post
   const createPost = useMutation({
     mutationFn: async ({ 
       content, 
@@ -326,6 +413,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     }
   });
 
+  // React to a post
   const reactToPost = useMutation({
     mutationFn: async ({ postId, reactionType }: { postId: string; reactionType: string }) => {
       if (!user) throw new Error("You must be logged in to react to a post");
@@ -426,6 +514,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     }
   });
 
+  // Repost a post
   const repostPost = useMutation({
     mutationFn: async (postId: string) => {
       if (!user) throw new Error("You must be logged in to repost");
@@ -491,6 +580,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     }
   });
 
+  // Load more posts
   const loadMore = () => {
     if (hasMore && !isLoading) {
       setCurrentPage(prev => prev + 1);
@@ -505,6 +595,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     loadMore,
     createPost: createPost.mutate,
     reactToPost: reactToPost.mutate,
-    repostPost: repostPost.mutate
+    repostPost: repostPost.mutate,
+    refetch
   };
 }

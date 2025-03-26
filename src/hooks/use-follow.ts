@@ -36,6 +36,11 @@ export function useFollow() {
     mutationFn: async (userId: string) => {
       if (!user) throw new Error("You must be logged in to follow users");
       
+      // Check if already following this user
+      if (followingIds.includes(userId)) {
+        throw new Error("You are already following this user");
+      }
+      
       const { data, error } = await supabase
         .from("user_follows")
         .insert({
@@ -45,17 +50,39 @@ export function useFollow() {
         .select()
         .single();
         
-      if (error) throw error;
+      if (error) {
+        // If it's a duplicate key error, handle it gracefully
+        if (error.code === '23505') {
+          // This is redundant with our check above, but serves as a fallback
+          return { 
+            follower_id: user.id, 
+            following_id: userId,
+            alreadyFollowing: true
+          };
+        }
+        throw error;
+      }
+      
       return data;
     },
-    onSuccess: (_, userId) => {
-      setFollowingIds(prev => [...prev, userId]);
-      queryClient.invalidateQueries({ queryKey: ["following", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["posts"] });
-      toast.success("User followed successfully");
+    onSuccess: (data, userId) => {
+      // Only update state if not already following
+      if (!data.alreadyFollowing && !followingIds.includes(userId)) {
+        setFollowingIds(prev => [...prev, userId]);
+        queryClient.invalidateQueries({ queryKey: ["following", user?.id] });
+        queryClient.invalidateQueries({ queryKey: ["posts"] });
+        toast.success("User followed successfully");
+      } else if (data.alreadyFollowing) {
+        toast.info("You are already following this user");
+      }
     },
     onError: (error: any) => {
-      toast.error(`Failed to follow: ${error.message}`);
+      // If the error indicates already following, show a friendly message
+      if (error.message === "You are already following this user") {
+        toast.info(error.message);
+      } else {
+        toast.error(`Failed to follow: ${error.message}`);
+      }
     }
   });
 
