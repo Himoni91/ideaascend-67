@@ -1,103 +1,53 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import AppLayout from "@/components/layout/AppLayout";
-import CategoryTabs from "@/components/ui/CategoryTabs";
-import FeedFilter from "@/components/ui/FeedFilter";
-import PostCard from "@/components/ui/PostCard";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { usePosts } from "@/hooks/use-posts";
+import { useCategories } from "@/hooks/use-categories";
+import { FeedFilter } from "@/types/post";
+import { useInView } from "framer-motion";
 
-const Index = () => {
+// Components
+import FeedTabs from "@/components/post/FeedTabs";
+import CreatePostCard from "@/components/post/CreatePostCard";
+import EnhancedPostCard from "@/components/post/EnhancedPostCard";
+import PostComments from "@/components/post/PostComments";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+export default function Index() {
   const { user, profile } = useAuth();
   const [activeCategory, setActiveCategory] = useState("All");
-  const [activeFilter, setActiveFilter] = useState("all");
-  const [posts, setPosts] = useState([]);
+  const [activeFilter, setActiveFilter] = useState<FeedFilter>("all");
+  const [expandedPost, setExpandedPost] = useState<string | null>(null);
+  const { categories } = useCategories();
+  const loaderRef = useRef<HTMLDivElement>(null);
+  const isLoaderInView = useInView(loaderRef);
   
-  const categories = ["All", "Funding", "Startup News", "Tech Trends", "Growth", "Marketing"];
+  // Get posts with the active category and filter
+  const {
+    posts,
+    isLoading,
+    hasMore,
+    loadMore
+  } = usePosts(
+    activeCategory === "All" ? undefined : activeCategory,
+    activeFilter
+  );
 
-  // In a real app, we would fetch posts from Supabase here
-  // This is just mock data for now
-  const mockPosts = [
-    {
-      id: 1,
-      author: {
-        name: "Sarah Johnson",
-        avatar: "SJ",
-        role: "Mentor"
-      },
-      category: "Startup News",
-      title: "How we secured our seed round in a down market",
-      content: "After 6 months of pitching to over 30 VCs, we finally closed our $1.5M seed round. Here's what worked for us in this challenging environment...",
-      timestamp: "2 hours ago",
-      likes: 142,
-      comments: 28,
-      isTrending: true,
-      image: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80",
-    },
-    {
-      id: 2,
-      author: {
-        name: "David Kim",
-        avatar: "DK"
-      },
-      category: "Tech Trends",
-      title: "The rise of AI tools for entrepreneurs",
-      content: "New AI tools are changing how entrepreneurs build products. Here are the top 5 tools I've been using to accelerate development...",
-      timestamp: "5 hours ago",
-      likes: 98,
-      comments: 15,
-      isTrending: false,
-    },
-    {
-      id: 3,
-      author: {
-        name: "Alex Rivera",
-        avatar: "AR",
-        role: "Mentor"
-      },
-      category: "Growth",
-      title: "From 0 to 10,000 users without spending on ads",
-      content: "We hit 10k users last month without spending a dollar on advertising. Our strategy focused on three key channels...",
-      timestamp: "Yesterday",
-      likes: 214,
-      comments: 42,
-      isTrending: true,
-    },
-    {
-      id: 4,
-      author: {
-        name: "Michelle Wong",
-        avatar: "MW"
-      },
-      category: "Funding",
-      title: "Pitch deck template that got us YC interview",
-      content: "Sharing the exact structure of our pitch deck that got us an interview with Y Combinator. Feel free to use this template for your startup...",
-      timestamp: "2 days ago",
-      likes: 175,
-      comments: 34,
-      isTrending: false,
-      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80",
-    },
-  ];
-
+  // Load more posts when the loader comes into view
   useEffect(() => {
-    // Set the mock posts
-    setPosts(mockPosts);
-  }, []);
+    if (isLoaderInView && hasMore) {
+      loadMore();
+    }
+  }, [isLoaderInView, hasMore, loadMore]);
 
-  const filteredPosts = posts.filter(post => {
-    if (activeCategory !== "All" && post.category !== activeCategory) {
-      return false;
-    }
-    
-    if (activeFilter === "trending" && !post.isTrending) {
-      return false;
-    }
-    
-    // In a real app, we would check if the user follows the author for the "following" filter
-    
-    return true;
-  });
+  // Handle changes to the active filter
+  const handleFilterChange = (filter: FeedFilter) => {
+    setActiveFilter(filter);
+  };
 
   // Greeting based on time of day
   const getGreeting = () => {
@@ -109,7 +59,7 @@ const Index = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto px-4 sm:px-0">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-idolyst-blue to-idolyst-indigo bg-clip-text text-transparent">
             {getGreeting()}, {profile?.full_name?.split(' ')[0] || 'there'}!
@@ -119,33 +69,109 @@ const Index = () => {
           </p>
         </div>
 
-        <CategoryTabs 
+        {/* Create Post Card */}
+        {user && <CreatePostCard />}
+
+        {/* Feed Filters */}
+        <Tabs value={activeFilter} onValueChange={handleFilterChange} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsTrigger value="all">All Posts</TabsTrigger>
+            <TabsTrigger value="following">
+              My Followings
+            </TabsTrigger>
+            <TabsTrigger value="trending">Trending</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Category Tabs */}
+        <FeedTabs
           categories={categories}
           activeCategory={activeCategory}
           onChange={setActiveCategory}
         />
 
-        <FeedFilter 
-          activeFilter={activeFilter}
-          onFilterChange={setActiveFilter}
-        />
-
+        {/* Post List */}
         <div className="space-y-4">
-          {filteredPosts.length > 0 ? (
-            filteredPosts.map(post => (
-              <PostCard key={post.id} {...post} />
+          {isLoading && posts.length === 0 ? (
+            // Loading placeholders
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-card rounded-xl p-4 space-y-4 shadow-sm">
+                <div className="flex items-center space-x-3">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div>
+                    <Skeleton className="h-4 w-40 mb-2" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+              </div>
             ))
+          ) : posts.length > 0 ? (
+            <>
+              {posts.map((post) => (
+                <EnhancedPostCard
+                  key={post.id}
+                  post={post}
+                  onClickComment={() => setExpandedPost(post.id)}
+                />
+              ))}
+              
+              {/* Infinite scroll loader */}
+              {hasMore && (
+                <div 
+                  ref={loaderRef} 
+                  className="flex justify-center py-8"
+                >
+                  <Button 
+                    variant="outline" 
+                    onClick={loadMore} 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Loading..." : "Load More"}
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-10">
-              <p className="text-gray-500 dark:text-gray-400">
-                No posts found for the selected category and filter.
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
+                {activeFilter === "following" 
+                  ? "No posts from people you follow. Start following more people!" 
+                  : activeFilter === "trending"
+                    ? "No trending posts in this category right now."
+                    : "No posts found in this category."}
               </p>
+              
+              {activeFilter === "following" && user && (
+                <Button onClick={() => setActiveFilter("all")}>
+                  Browse All Posts
+                </Button>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Comments Dialog */}
+      <Dialog open={!!expandedPost} onOpenChange={(open) => !open && setExpandedPost(null)}>
+        <DialogContent className="max-w-xl">
+          {expandedPost && (
+            <>
+              {/* Find and display the post */}
+              {posts.find(p => p.id === expandedPost) && (
+                <EnhancedPostCard post={posts.find(p => p.id === expandedPost)!} />
+              )}
+              
+              {/* Comments for the post */}
+              <PostComments postId={expandedPost} />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
-};
-
-export default Index;
+}

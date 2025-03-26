@@ -10,6 +10,7 @@ import { RouteGuard } from "@/components/auth/RouteGuard";
 
 // Pages
 import Index from "./pages/Index";
+import PostDetailPage from "./pages/post/[id]";
 import PitchHub from "./pages/PitchHub";
 import PitchHubIdea from "./pages/PitchHubIdea";
 import MentorSpace from "./pages/MentorSpace";
@@ -50,6 +51,14 @@ const App = () => (
                 element={
                   <RouteGuard requireAuth={true}>
                     <Index />
+                  </RouteGuard>
+                } 
+              />
+              <Route 
+                path="/post/:id" 
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <PostDetailPage />
                   </RouteGuard>
                 } 
               />
