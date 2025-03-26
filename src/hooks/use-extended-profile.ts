@@ -57,16 +57,12 @@ export function useExtendedProfile(usernameOrId?: string) {
         // If it's the user's own profile, also load their roles
         if (isOwnProfile && user) {
           try {
-            // We'll handle user_roles separately since it's not yet in the types
-            const rolesResponse = await fetch(`${supabase.supabaseUrl}/rest/v1/user_roles?user_id=eq.${user.id}&select=role`, {
-              headers: {
-                'apikey': supabase.supabaseKey,
-                'Authorization': `Bearer ${supabase.supabaseKey}`
-              }
-            });
-            
-            if (rolesResponse.ok) {
-              const rolesData = await rolesResponse.json();
+            const { data: rolesData, error: rolesError } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', user.id);
+              
+            if (!rolesError && rolesData) {
               setRoles(rolesData.map((r: any) => r.role));
             }
           } catch (err) {
@@ -78,16 +74,27 @@ export function useExtendedProfile(usernameOrId?: string) {
         const formattedProfile: ExtendedProfileType = {
           ...data,
           // Cast any types we know could be different between DB and our type system
-          education: data.education || [],
-          work_experience: data.work_experience || [],
-          skills: data.skills || [],
-          achievements: data.achievements || [],
-          portfolio_items: data.portfolio_items || [],
+          education: Array.isArray(data.education) ? data.education : [],
+          work_experience: Array.isArray(data.work_experience) ? data.work_experience : [],
+          skills: Array.isArray(data.skills) ? data.skills : [],
+          achievements: Array.isArray(data.achievements) ? data.achievements : [],
+          portfolio_items: Array.isArray(data.portfolio_items) ? data.portfolio_items : [],
           social_links: data.social_links || {},
-          verification_documents: data.verification_documents || [],
+          verification_documents: Array.isArray(data.verification_documents) ? data.verification_documents : [],
           verification_status: data.verification_status || 'unverified',
           onboarding_completed: !!data.onboarding_completed,
-          onboarding_step: data.onboarding_step || 1
+          onboarding_step: data.onboarding_step || 1,
+          // Handle other potential type mismatches
+          badges: Array.isArray(data.badges) 
+            ? data.badges 
+            : [{ name: "New Member", icon: "👋", description: "Welcome to Idolyst", earned: true }],
+          stats: data.stats || {
+            followers: 0,
+            following: 0,
+            ideas: 0,
+            mentorSessions: 0,
+            posts: 0
+          }
         };
 
         setProfile(formattedProfile);
@@ -209,13 +216,22 @@ export function useExtendedProfile(usernameOrId?: string) {
     
     try {
       // First create a storage bucket if it doesn't exist
-      const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('verification');
-      
-      if (bucketError && bucketError.message.includes('does not exist')) {
-        await supabase.storage.createBucket('verification', {
-          public: false,
-          fileSizeLimit: 5242880 // 5MB
-        });
+      try {
+        // Check if the bucket exists by trying to get a file (this will fail if the bucket doesn't exist)
+        await supabase.storage.from('verification').download('test.txt');
+      } catch (error) {
+        // Bucket likely doesn't exist, create it
+        try {
+          await supabase.storage.createBucket('verification', {
+            public: false,
+            fileSizeLimit: 5242880 // 5MB
+          });
+        } catch (createError) {
+          // If it fails but not because it already exists, rethrow
+          if (!(createError as Error).message.includes('already exists')) {
+            throw createError;
+          }
+        }
       }
       
       // Upload each document and gather URLs
