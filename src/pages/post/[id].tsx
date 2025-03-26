@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -12,7 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePosts } from "@/hooks/use-posts";
-import { Post } from "@/types/post";
+import { Post, DatabaseProfile } from "@/types/post";
+import { ProfileType } from "@/types/profile";
 
 export default function PostDetailPage() {
   const { id } = useParams();
@@ -89,7 +89,7 @@ export default function PostDetailPage() {
                 .select("*")
                 .eq("poll_option_id", option.id)
                 .eq("user_id", user.id)
-                .single();
+                .maybeSingle();
                 
               hasVoted = !!voteData;
             }
@@ -118,11 +118,48 @@ export default function PostDetailPage() {
       // Increment view count
       await supabase.rpc('increment_view_count', { post_id: id });
       
+      // Transform author data to match ProfileType
+      const rawAuthor = data.author as DatabaseProfile;
+      
+      const transformedAuthor: Omit<ProfileType, 'badges'> & { badges?: any } = {
+        id: rawAuthor.id,
+        username: rawAuthor.username || '',
+        full_name: rawAuthor.full_name || '',
+        avatar_url: rawAuthor.avatar_url || null,
+        bio: rawAuthor.bio || null,
+        location: rawAuthor.location || null,
+        website: rawAuthor.website || null,
+        linkedin_url: rawAuthor.linkedin_url || null,
+        twitter_url: rawAuthor.twitter_url || null,
+        company: rawAuthor.company || null,
+        position: rawAuthor.position || null,
+        expertise: rawAuthor.expertise || [],
+        is_mentor: rawAuthor.is_mentor || false,
+        is_verified: rawAuthor.is_verified || false,
+        created_at: rawAuthor.created_at || '',
+        updated_at: rawAuthor.updated_at || '',
+        level: rawAuthor.level || 1,
+        xp: rawAuthor.xp || 0,
+        // Parse stats from JSON if needed
+        stats: typeof rawAuthor.stats === 'string' 
+          ? JSON.parse(rawAuthor.stats) 
+          : rawAuthor.stats || {
+              followers: 0,
+              following: 0,
+              ideas: 0,
+              mentorSessions: 0,
+              posts: 0
+            },
+        // Store badges for later use
+        badges: rawAuthor.badges
+      };
+      
       const transformedPost: Post = {
         ...data,
         categories,
         userReaction,
         poll,
+        author: transformedAuthor,
         isTrending: data.trending_score > 50 // Arbitrary threshold
       };
       

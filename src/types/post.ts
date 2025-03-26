@@ -50,6 +50,37 @@ export type Poll = {
   total_votes?: number;
 };
 
+export type LinkPreview = {
+  url: string;
+  title: string;
+  description: string;
+  image: string;
+  domain: string;
+};
+
+export type DatabaseProfile = {
+  id: string;
+  username: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  location: string | null;
+  website: string | null;
+  linkedin_url: string | null;
+  twitter_url: string | null;
+  company: string | null;
+  position: string | null;
+  expertise: string[] | null;
+  is_mentor: boolean | null;
+  is_verified: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+  level: number | null;
+  xp: number | null;
+  badges: any;
+  stats: any;
+};
+
 export type Post = {
   id: string;
   user_id: string;
@@ -63,21 +94,13 @@ export type Post = {
   trending_score: number | null;
   created_at: string;
   author?: Omit<ProfileType, 'badges'> & {
-    badges?: any; // Allow any type for badges from JSON
+    badges?: any;
   };
   categories?: PostCategory[];
   userReaction?: PostReaction | null;
   isTrending?: boolean;
   poll?: Poll;
   link_preview?: LinkPreview;
-};
-
-export type LinkPreview = {
-  url: string;
-  title: string;
-  description: string;
-  image: string;
-  domain: string;
 };
 
 export type PostWithCategories = Post & {
