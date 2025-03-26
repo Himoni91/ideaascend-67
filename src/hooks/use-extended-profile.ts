@@ -113,7 +113,8 @@ export function useExtendedProfile(usernameOrId?: string) {
           onboarding_completed: !!data.onboarding_completed,
           onboarding_step: data.onboarding_step || 1,
           badges: parseJsonArray(data.badges, defaultBadges),
-          stats: parseJsonObject(data.stats, defaultStats)
+          stats: parseJsonObject(data.stats, defaultStats),
+          mentor_availability: parseJsonObject<Record<string, any>>(data.mentor_availability, {})
         };
 
         setProfile(formattedProfile);
