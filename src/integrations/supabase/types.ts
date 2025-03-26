@@ -397,12 +397,14 @@ export type Database = {
       }
       profiles: {
         Row: {
+          achievements: Json | null
           avatar_url: string | null
           badges: Json | null
           bio: string | null
           byline: string | null
           company: string | null
           created_at: string | null
+          education: Json | null
           expertise: string[] | null
           full_name: string | null
           id: string
@@ -411,21 +413,36 @@ export type Database = {
           level: number | null
           linkedin_url: string | null
           location: string | null
+          mentor_availability: Json | null
+          mentor_bio: string | null
+          mentor_hourly_rate: number | null
+          onboarding_completed: boolean | null
+          onboarding_step: number | null
+          portfolio_items: Json | null
           position: string | null
+          professional_summary: string | null
+          public_email: boolean | null
+          skills: string[] | null
+          social_links: Json | null
           stats: Json | null
           twitter_url: string | null
           updated_at: string | null
           username: string | null
+          verification_documents: Json | null
+          verification_status: string | null
           website: string | null
+          work_experience: Json | null
           xp: number | null
         }
         Insert: {
+          achievements?: Json | null
           avatar_url?: string | null
           badges?: Json | null
           bio?: string | null
           byline?: string | null
           company?: string | null
           created_at?: string | null
+          education?: Json | null
           expertise?: string[] | null
           full_name?: string | null
           id: string
@@ -434,21 +451,36 @@ export type Database = {
           level?: number | null
           linkedin_url?: string | null
           location?: string | null
+          mentor_availability?: Json | null
+          mentor_bio?: string | null
+          mentor_hourly_rate?: number | null
+          onboarding_completed?: boolean | null
+          onboarding_step?: number | null
+          portfolio_items?: Json | null
           position?: string | null
+          professional_summary?: string | null
+          public_email?: boolean | null
+          skills?: string[] | null
+          social_links?: Json | null
           stats?: Json | null
           twitter_url?: string | null
           updated_at?: string | null
           username?: string | null
+          verification_documents?: Json | null
+          verification_status?: string | null
           website?: string | null
+          work_experience?: Json | null
           xp?: number | null
         }
         Update: {
+          achievements?: Json | null
           avatar_url?: string | null
           badges?: Json | null
           bio?: string | null
           byline?: string | null
           company?: string | null
           created_at?: string | null
+          education?: Json | null
           expertise?: string[] | null
           full_name?: string | null
           id?: string
@@ -457,12 +489,25 @@ export type Database = {
           level?: number | null
           linkedin_url?: string | null
           location?: string | null
+          mentor_availability?: Json | null
+          mentor_bio?: string | null
+          mentor_hourly_rate?: number | null
+          onboarding_completed?: boolean | null
+          onboarding_step?: number | null
+          portfolio_items?: Json | null
           position?: string | null
+          professional_summary?: string | null
+          public_email?: boolean | null
+          skills?: string[] | null
+          social_links?: Json | null
           stats?: Json | null
           twitter_url?: string | null
           updated_at?: string | null
           username?: string | null
+          verification_documents?: Json | null
+          verification_status?: string | null
           website?: string | null
+          work_experience?: Json | null
           xp?: number | null
         }
         Relationships: []
@@ -529,6 +574,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
