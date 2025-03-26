@@ -11,16 +11,23 @@ import { formatDistanceToNow } from "date-fns";
 import { Post } from "@/types/post";
 import { Heart, MessageSquare, Share2, BarChart3, Bookmark } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner"; // Import toast from sonner
+import { toast } from "sonner"; 
 import { useFollow } from "@/hooks/use-follow";
 import { motion } from "framer-motion";
 
 interface EnhancedPostCardProps {
   post: Post;
   onReaction?: (postId: string, reactionType: string) => void;
+  compact?: boolean; // Add compact prop
+  onClickComment?: (postId: string) => void; // Add onClickComment prop
 }
 
-export default function EnhancedPostCard({ post, onReaction }: EnhancedPostCardProps) {
+export default function EnhancedPostCard({ 
+  post, 
+  onReaction, 
+  compact = false, 
+  onClickComment 
+}: EnhancedPostCardProps) {
   const { user } = useAuth();
   const { followUser, unfollowUser, isFollowing } = useFollow();
   const [isLiked, setIsLiked] = useState(!!post.userReaction);
@@ -81,6 +88,50 @@ export default function EnhancedPostCard({ post, onReaction }: EnhancedPostCardP
       followUser(post.author?.id);
     }
   };
+
+  const handleCommentClick = () => {
+    if (onClickComment) {
+      onClickComment(post.id);
+    }
+  };
+
+  // Render a more compact version if compact prop is true
+  if (compact) {
+    return (
+      <Card className="overflow-hidden border-none shadow-sm hover:shadow-md transition-shadow duration-300">
+        <CardContent className="p-3">
+          <Link to={`/post/${post.id}`} className="hover:underline">
+            <h3 className="text-sm font-medium line-clamp-2">{post.content.substring(0, 100)}</h3>
+          </Link>
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Link to={`/profile/${post.author?.username}`} className="flex items-center">
+                <Avatar className="h-5 w-5 mr-1">
+                  <AvatarImage src={post.author?.avatar_url || undefined} />
+                  <AvatarFallback>
+                    {post.author?.full_name?.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{post.author?.full_name || post.author?.username}</span>
+              </Link>
+              <span>•</span>
+              <span>{formattedDate}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="flex items-center">
+                <Heart className="h-3 w-3 mr-1" />
+                {post.likes_count || 0}
+              </span>
+              <span className="flex items-center">
+                <MessageSquare className="h-3 w-3 mr-1" />
+                {post.comments_count || 0}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow duration-300">
@@ -196,16 +247,15 @@ export default function EnhancedPostCard({ post, onReaction }: EnhancedPostCardP
             {likeCount > 0 && <span>{likeCount}</span>}
           </Button>
           
-          <Link to={`/post/${post.id}`}>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-primary hover:bg-primary/10"
-            >
-              <MessageSquare className="h-4 w-4 mr-1" />
-              {post.comments_count && post.comments_count > 0 ? post.comments_count : ''}
-            </Button>
-          </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={handleCommentClick}
+          >
+            <MessageSquare className="h-4 w-4 mr-1" />
+            {post.comments_count && post.comments_count > 0 ? post.comments_count : ''}
+          </Button>
           
           <Button
             variant="ghost"
