@@ -10,6 +10,7 @@ import { ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { SlideUp, FadeIn } from "@/components/ui/page-transition";
+import { Post, PostCategory } from "@/types/post";
 
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -44,12 +45,14 @@ export default function PostDetailPage() {
         ...data,
         categories,
         isTrending: data.trending_score > 50, // Arbitrary threshold
-      };
+      } as Post;
     },
     meta: {
-      onError: (error: Error) => {
-        toast.error(`Error loading post: ${error.message}`);
-        navigate("/");
+      onSettled: (data, error) => {
+        if (error) {
+          toast.error(`Error loading post: ${error.message}`);
+          navigate("/");
+        }
       }
     }
   });
@@ -67,7 +70,11 @@ export default function PostDetailPage() {
       // Increment view count
       await supabase
         .rpc("increment_view_count", { post_id: id })
-        .catch(error => console.error("Failed to increment view count:", error));
+        .then(response => {
+          if (response.error) {
+            console.error("Failed to increment view count:", response.error);
+          }
+        });
 
       return null;
     },

@@ -88,6 +88,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     },
     staleTime: 1000 * 60, // 1 minute
     gcTime: 1000 * 60 * 5, // 5 minutes
+    placeholderData: (previousData) => previousData // This replaces keepPreviousData in React Query v5
   });
 
   // If user is authenticated, fetch their reactions to posts
