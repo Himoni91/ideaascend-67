@@ -24,7 +24,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 const SignIn = () => {
-  const { signIn, signInWithGithub } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -63,12 +63,13 @@ const SignIn = () => {
   async function handleGithubSignIn() {
     setIsGithubLoading(true);
     try {
-      await signInWithGithub();
+      // Using Google sign-in instead of GitHub since that's what's available in the auth context
+      await signInWithGoogle();
       // The navigation will happen automatically through the auth state change
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to sign in with GitHub. Please try again.",
+        description: error.message || "Failed to sign in with Google. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -138,7 +139,7 @@ const SignIn = () => {
                 ) : (
                   <Github className="mr-2 h-4 w-4" />
                 )}
-                Continue with GitHub
+                Continue with Google
               </Button>
 
               <div className="relative my-6">

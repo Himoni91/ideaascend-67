@@ -2,7 +2,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
-import { motion } from "framer-motion"
+import { motion, type HTMLMotionProps } from "framer-motion"
 
 import { cn } from "@/lib/utils"
 
@@ -82,13 +82,18 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 )
 Button.displayName = "Button"
 
-const AnimatedButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
+// Define specific props for AnimatedButton to fix TypeScript errors
+type AnimatedButtonProps = Omit<ButtonProps, keyof HTMLMotionProps<"button">> & 
+  Omit<HTMLMotionProps<"button">, "ref"> & {
+    ref?: React.Ref<HTMLButtonElement>
+  }
+
+const AnimatedButton = React.forwardRef<HTMLButtonElement, AnimatedButtonProps>(
   ({ className, variant, size, animation, asChild = false, isLoading = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : motion.button
-    
     if (isLoading) {
+      // For loading state, use regular button to avoid type issues
       return (
-        <Comp
+        <button
           className={cn(buttonVariants({ variant, size, animation: "none", className }), "relative")}
           disabled={true}
           ref={ref}
@@ -101,16 +106,28 @@ const AnimatedButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           </span>
-        </Comp>
+        </button>
       )
     }
     
+    if (asChild) {
+      // Use regular button for asChild case
+      return (
+        <Slot
+          className={cn(buttonVariants({ variant, size, animation: "none", className }))}
+          ref={ref}
+          {...props}
+        />
+      )
+    }
+    
+    // Use motion.button only for the standard case
     return (
-      <Comp
+      <motion.button
         className={cn(buttonVariants({ variant, size, animation: "none", className }))}
-        ref={ref}
         whileTap={{ scale: 0.95 }}
         transition={{ duration: 0.2 }}
+        ref={ref}
         {...props}
       />
     )
