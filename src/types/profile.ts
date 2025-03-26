@@ -16,4 +16,15 @@ export type ProfileType = {
   is_verified: boolean;
   created_at: string;
   updated_at: string;
+  
+  // Additional fields for UI/UX
+  level?: number;
+  xp?: number;
+  badges?: Array<{name: string, icon: string}>;
+  stats?: {
+    followers: number;
+    following: number;
+    ideas: number;
+    mentorSessions: number;
+  };
 };

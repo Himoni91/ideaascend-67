@@ -75,6 +75,14 @@ const App = () => (
                 </RouteGuard>
               } 
             />
+            <Route 
+              path="/profile/:id" 
+              element={
+                <RouteGuard requireAuth={true}>
+                  <Profile />
+                </RouteGuard>
+              } 
+            />
 
             {/* Auth Routes */}
             <Route 
