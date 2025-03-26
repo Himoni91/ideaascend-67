@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -13,7 +12,7 @@ import { Heart, MessageSquare, Share2, BarChart3, Bookmark } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { toast } from "sonner"; 
 import { useFollow } from "@/hooks/use-follow";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useLinkPreview } from "@/hooks/use-link-preview";
 import LinkPreview from "./LinkPreview";
 import PostPoll from "./PostPoll";
@@ -43,16 +42,13 @@ export default function EnhancedPostCard({
   const [showCommentsSection, setShowCommentsSection] = useState(showComments);
   const { linkPreview } = useLinkPreview(post.content);
   
-  // Check if content is long and needs to be truncated
   const isLongContent = post.content.length > 280;
   const displayContent = !showAllContent && isLongContent 
     ? post.content.substring(0, 280) + '...' 
     : post.content;
   
-  // Check if current user is the author
   const isAuthor = user?.id === post.user_id;
   
-  // Format the date
   const formattedDate = post.created_at 
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true }) 
     : "";
@@ -108,12 +104,10 @@ export default function EnhancedPostCard({
     if (onClickComment) {
       onClickComment(post.id);
     } else {
-      // Toggle comments section
       setShowCommentsSection(!showCommentsSection);
     }
   };
 
-  // Render a more compact version if compact prop is true
   if (compact) {
     return (
       <Card className="overflow-hidden border-none shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -208,12 +202,10 @@ export default function EnhancedPostCard({
             )}
           </div>
           
-          {/* Link Preview */}
           {linkPreview && !post.link_preview && (
             <LinkPreview preview={linkPreview} />
           )}
           
-          {/* Poll Display */}
           {post.poll && (
             <PostPoll postId={post.id} />
           )}
@@ -318,7 +310,6 @@ export default function EnhancedPostCard({
         </Button>
       </CardFooter>
       
-      {/* Inline comments section */}
       <AnimatePresence>
         {showCommentsSection && (
           <motion.div

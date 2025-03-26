@@ -26,6 +26,7 @@ export default function CreatePostCard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { categories } = useCategories();
   const { createPost } = usePosts();
+  const contentRef = useRef<HTMLDivElement>(null);
   
   const handleCreatePost = async () => {
     if (!content.trim() && !selectedFile) return;
@@ -59,14 +60,19 @@ export default function CreatePostCard() {
         content,
         categoryIds: selectedCategoryIds,
         mediaUrl,
-        mediaType
+        mediaType,
+        pollData
       });
       
       // Clear form
       setContent("");
+      if (contentRef.current) {
+        contentRef.current.textContent = "";
+      }
       setSelectedCategoryIds([]);
       setSelectedFile(null);
       setImagePreview(null);
+      setPollData(null);
     } catch (error: any) {
       toast.error(`Error creating post: ${error.message}`);
     } finally {
@@ -172,14 +178,15 @@ export default function CreatePostCard() {
           
           <div className="flex-1">
             <div 
+              ref={contentRef}
               contentEditable={true}
               role="textbox"
               className="min-h-[80px] w-full p-2.5 focus:outline-none rounded-md border border-input bg-background hover:bg-accent/10 placeholder:text-muted-foreground resize-none"
-              placeholder="Share what's on your mind..."
               onInput={(e) => setContent(e.currentTarget.textContent || "")}
               data-gramm="false"
               data-gramm_editor="false"
               data-enable-grammarly="false"
+              aria-placeholder="Share what's on your mind..."
             >
             </div>
             

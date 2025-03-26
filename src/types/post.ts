@@ -62,7 +62,9 @@ export type Post = {
   view_count: number | null;
   trending_score: number | null;
   created_at: string;
-  author?: ProfileType;
+  author?: Omit<ProfileType, 'badges'> & {
+    badges?: any; // Allow any type for badges from JSON
+  };
   categories?: PostCategory[];
   userReaction?: PostReaction | null;
   isTrending?: boolean;

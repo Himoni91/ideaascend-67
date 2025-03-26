@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePosts } from "@/hooks/use-posts";
+import { Post } from "@/types/post";
 
 export default function PostDetailPage() {
   const { id } = useParams();
@@ -117,13 +118,15 @@ export default function PostDetailPage() {
       // Increment view count
       await supabase.rpc('increment_view_count', { post_id: id });
       
-      return {
+      const transformedPost: Post = {
         ...data,
         categories,
         userReaction,
         poll,
         isTrending: data.trending_score > 50 // Arbitrary threshold
       };
+      
+      return transformedPost;
     },
     enabled: !!id
   });

@@ -1,6 +1,5 @@
 
 import { useState } from "react";
-import { useCategories } from "@/hooks/use-categories";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,27 +10,29 @@ import {
 import { Check, Plus, Trash } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PostCategory } from "@/types/post";
 
 interface CategorySelectorProps {
-  selectedCategories: string[];
+  selectedCategoryIds: string[];
   onChange: (selectedIds: string[]) => void;
   showClearButton?: boolean;
   maxDisplay?: number;
+  categories: PostCategory[];
 }
 
 export default function CategorySelector({
-  selectedCategories,
+  selectedCategoryIds,
   onChange,
   showClearButton = true,
   maxDisplay = 3,
+  categories,
 }: CategorySelectorProps) {
-  const { categories, isLoading } = useCategories();
   const [open, setOpen] = useState(false);
 
   const handleToggleCategory = (categoryId: string) => {
-    const newSelection = selectedCategories.includes(categoryId)
-      ? selectedCategories.filter(id => id !== categoryId)
-      : [...selectedCategories, categoryId];
+    const newSelection = selectedCategoryIds.includes(categoryId)
+      ? selectedCategoryIds.filter(id => id !== categoryId)
+      : [...selectedCategoryIds, categoryId];
 
     onChange(newSelection);
   };
@@ -41,7 +42,7 @@ export default function CategorySelector({
   };
 
   // Get names of selected categories for display
-  const selectedCategoryNames = selectedCategories
+  const selectedCategoryNames = selectedCategoryIds
     .map(id => categories.find(cat => cat.id === id)?.name)
     .filter(Boolean);
 
@@ -64,14 +65,14 @@ export default function CategorySelector({
 
     return (
       <div className="flex flex-wrap gap-1 mt-2">
-        {selectedCategories.map(id => {
+        {selectedCategoryIds.map(id => {
           const category = categories.find(cat => cat.id === id);
           if (!category) return null;
           
           return (
             <Badge 
               key={category.id} 
-              style={{ backgroundColor: category.color || undefined }}
+              style={{ backgroundColor: category.color ? `${category.color}20` : undefined }}
               className="flex items-center gap-1"
             >
               {category.icon && <span>{category.icon}</span>}
@@ -88,7 +89,7 @@ export default function CategorySelector({
             </Badge>
           );
         })}
-        {showClearButton && selectedCategories.length > 0 && (
+        {showClearButton && selectedCategoryIds.length > 0 && (
           <Button
             variant="ghost"
             size="sm"
@@ -120,7 +121,7 @@ export default function CategorySelector({
         <PopoverContent className="w-full p-0" align="start">
           <ScrollArea className="h-[300px]">
             <div className="p-2">
-              {isLoading ? (
+              {categories.length === 0 ? (
                 <div className="p-4 text-center">Loading categories...</div>
               ) : (
                 <div className="grid grid-cols-1 gap-1">
@@ -130,7 +131,7 @@ export default function CategorySelector({
                       variant="ghost"
                       className={cn(
                         "w-full justify-start text-left",
-                        selectedCategories.includes(category.id) && "bg-muted"
+                        selectedCategoryIds.includes(category.id) && "bg-muted"
                       )}
                       onClick={() => handleToggleCategory(category.id)}
                     >
@@ -139,7 +140,7 @@ export default function CategorySelector({
                           <span className="mr-2">{category.icon}</span>
                         )}
                         <span className="flex-grow truncate">{category.name}</span>
-                        {selectedCategories.includes(category.id) && (
+                        {selectedCategoryIds.includes(category.id) && (
                           <Check className="h-4 w-4 ml-2" />
                         )}
                       </div>
