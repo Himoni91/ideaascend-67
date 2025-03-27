@@ -1,4 +1,3 @@
-
 import { ProfileType } from "./profile";
 
 export type PitchCategory = 

@@ -39,12 +39,11 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-
   return (
     <ThemeProvider defaultTheme="system" storageKey="idolyst-theme">
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <BrowserRouter>
+        <BrowserRouter>
+          <AuthProvider>
             <Routes>
               {/* Auth Routes */}
               <Route path="/auth" element={<AuthLayout />}>
@@ -132,8 +131,8 @@ function App() {
             <PageTransition>
               <div></div> {/* Empty div ensures children prop is provided */}
             </PageTransition>
-          </BrowserRouter>
-        </AuthProvider>
+          </AuthProvider>
+        </BrowserRouter>
       </QueryClientProvider>
     </ThemeProvider>
   );
