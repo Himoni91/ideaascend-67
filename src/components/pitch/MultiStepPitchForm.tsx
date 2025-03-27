@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm, FormProvider } from "react-hook-form";
@@ -7,7 +6,7 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { 
   ArrowLeft, ArrowRight, Check, Lightbulb, Users, 
-  PenTool, Tag, Upload, RocketIcon, Info
+  PenTool, Tag, Upload, RocketIcon, Info, X
 } from "lucide-react";
 import { toast } from "sonner";
 import {

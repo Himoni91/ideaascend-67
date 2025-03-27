@@ -32,7 +32,7 @@ export interface Pitch {
   trending_score: number;
   is_premium: boolean;
   created_at: string;
-  updated_at: string;
+  updated_at?: string; // Make this optional since it might not be returned from the DB
   author?: ProfileType;
   user_vote?: 'up' | 'down' | null;
   
