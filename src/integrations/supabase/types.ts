@@ -624,6 +624,44 @@ export type Database = {
           },
         ]
       }
+      post_analytics: {
+        Row: {
+          created_at: string | null
+          id: string
+          post_id: string
+          referral_source: string | null
+          unique_viewers: number | null
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          post_id: string
+          referral_source?: string | null
+          unique_viewers?: number | null
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          post_id?: string
+          referral_source?: string | null
+          unique_viewers?: number | null
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_analytics_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_categories: {
         Row: {
           category_id: string
@@ -783,6 +821,38 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "post_reposts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_views: {
+        Row: {
+          id: string
+          is_anonymous: boolean | null
+          post_id: string
+          viewed_at: string | null
+          viewer_id: string | null
+        }
+        Insert: {
+          id?: string
+          is_anonymous?: boolean | null
+          post_id: string
+          viewed_at?: string | null
+          viewer_id?: string | null
+        }
+        Update: {
+          id?: string
+          is_anonymous?: boolean | null
+          post_id?: string
+          viewed_at?: string | null
+          viewer_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_views_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "posts"

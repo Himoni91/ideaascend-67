@@ -1,13 +1,13 @@
 
-import { EnhancedLinkPreview } from "@/hooks/use-enhanced-link-preview";
 import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink, Image as ImageIcon, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import type { EnhancedLinkPreview as EnhancedLinkPreviewType } from "@/hooks/use-enhanced-link-preview";
 
 interface LinkPreviewProps {
-  preview: EnhancedLinkPreview;
+  preview: EnhancedLinkPreviewType;
   className?: string;
   compact?: boolean;
 }

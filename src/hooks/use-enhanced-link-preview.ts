@@ -1,65 +1,66 @@
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-
-// Regular expression to match URLs in text
-const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+import { useState, useEffect } from "react";
+import { useLinkPreview } from "./use-link-preview";
 
 export interface EnhancedLinkPreview {
   url: string;
   title: string;
   description: string;
   image: string | null;
-  domain: string;
   favicon: string | null;
   siteName: string | null;
-  mediaType: string;
+  domain: string;
+  mediaType: "link" | "image" | "video" | "audio";
 }
 
 export function useEnhancedLinkPreview(content: string) {
   const [linkPreview, setLinkPreview] = useState<EnhancedLinkPreview | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  
+  const { preview } = useLinkPreview(content);
+
   useEffect(() => {
-    // Reset state when content changes
-    setLinkPreview(null);
-    setError(null);
-    
-    const extractUrl = () => {
-      if (!content) return null;
-      
-      // Extract the first URL from the content
-      const matches = content.match(URL_REGEX);
-      return matches ? matches[0] : null;
-    };
-    
-    const fetchLinkPreview = async (url: string) => {
-      setIsLoading(true);
-      try {
-        // Use the enhanced link preview edge function
-        const { data, error } = await supabase.functions.invoke('enhanced-link-preview', {
-          body: { url }
-        });
-        
-        if (error) throw new Error(error.message);
-        
-        if (data) {
-          setLinkPreview(data);
-        }
-      } catch (err: any) {
-        console.error('Error fetching link preview:', err);
-        setError(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    const url = extractUrl();
-    if (url) {
-      fetchLinkPreview(url);
+    if (!preview) {
+      setLinkPreview(null);
+      return;
     }
-  }, [content]);
-  
-  return { linkPreview, isLoading, error };
+
+    // Extract domain from URL
+    let domain = "";
+    try {
+      const url = new URL(preview.url);
+      domain = url.hostname.replace("www.", "");
+    } catch (e) {
+      console.error("Invalid URL:", preview.url);
+    }
+
+    // Determine media type based on URL pattern or content
+    let mediaType: "link" | "image" | "video" | "audio" = "link";
+    if (preview.url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
+      mediaType = "image";
+    } else if (preview.url.match(/\.(mp4|webm|mov|avi|wmv)$/i) || 
+        preview.url.includes("youtube.com/watch") || 
+        preview.url.includes("youtu.be/") ||
+        preview.url.includes("vimeo.com")) {
+      mediaType = "video";
+    } else if (preview.url.match(/\.(mp3|wav|ogg|flac)$/i) || 
+        preview.url.includes("spotify.com") ||
+        preview.url.includes("soundcloud.com")) {
+      mediaType = "audio";
+    }
+
+    // Create enhanced preview
+    const enhanced: EnhancedLinkPreview = {
+      url: preview.url,
+      title: preview.title || domain,
+      description: preview.description || "",
+      image: preview.image,
+      favicon: null, // We could add favicon fetching here in the future
+      siteName: preview.domain || null,
+      domain,
+      mediaType
+    };
+
+    setLinkPreview(enhanced);
+  }, [preview]);
+
+  return { linkPreview };
 }

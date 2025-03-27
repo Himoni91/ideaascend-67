@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -93,7 +92,7 @@ export default function EnhancedPostCard({
     const authorId = post.author?.id;
     if (!authorId) return;
     
-    if (isFollowing && typeof isFollowing === 'function') {
+    if (isFollowing) {
       const isFollowingAuthor = isFollowing(authorId);
       if (isFollowingAuthor) {
         unfollowUser(authorId);
@@ -216,7 +215,6 @@ export default function EnhancedPostCard({
             </Badge>
           )}
           
-          {/* View count badge */}
           {viewCount > 0 && (
             <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/30">
               <Eye className="h-3 w-3 mr-1" />

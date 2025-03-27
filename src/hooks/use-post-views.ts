@@ -43,7 +43,7 @@ export function usePostViews(postId?: string) {
     }
   });
 
-  // Get unique viewers count for a post
+  // Get view count for a post
   const { data: viewersCount } = useQuery({
     queryKey: ["post-views-count", postId],
     queryFn: async () => {

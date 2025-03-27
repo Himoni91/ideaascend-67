@@ -12,6 +12,19 @@ interface PostAnalyticsProps {
   postId: string;
 }
 
+interface PostAnalyticsData {
+  views: number;
+  unique_viewers: number;
+  referral_source?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ViewHistoryItem {
+  date: string;
+  views: number;
+}
+
 export default function PostAnalytics({ postId }: PostAnalyticsProps) {
   const { theme } = useTheme();
   
@@ -25,7 +38,7 @@ export default function PostAnalytics({ postId }: PostAnalyticsProps) {
         .single();
         
       if (error) throw error;
-      return data;
+      return data as PostAnalyticsData;
     },
     enabled: !!postId,
   });
@@ -56,7 +69,7 @@ export default function PostAnalytics({ postId }: PostAnalyticsProps) {
       return Object.entries(viewsByDay).map(([date, count]) => ({
         date,
         views: count,
-      }));
+      })) as ViewHistoryItem[];
     },
     enabled: !!postId,
   });

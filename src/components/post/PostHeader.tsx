@@ -1,126 +1,83 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { ProfileType } from "@/types/profile";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
-import { TrendingUp, CheckCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useProfile } from "@/hooks/use-profile";
-import { motion } from "framer-motion";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { BarChart3, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { useFollow } from "@/hooks/use-follow";
+import { useAuth } from "@/contexts/AuthContext";
+import { Badge } from "@/components/ui/badge";
+import type { ProfileType } from "@/types/profile";
 
 interface PostHeaderProps {
-  author: ProfileType;
-  timestamp: string;
+  author?: Omit<ProfileType, 'badges'> & {
+    badges?: any;
+  };
+  timestamp?: string;
   isTrending?: boolean;
-  compact?: boolean;
+  onFollowClick?: () => void;
 }
 
-export default function PostHeader({ 
-  author, 
-  timestamp, 
-  isTrending, 
-  compact = false 
-}: PostHeaderProps) {
+export default function PostHeader({ author, timestamp, isTrending, onFollowClick }: PostHeaderProps) {
+  const { isFollowing } = useFollow();
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [isHovered, setIsHovered] = useState(false);
-  const { followUser, unfollowUser, isFollowing, isLoading } = useProfile();
+  
+  if (!author) return null;
+  
+  const formattedTime = timestamp 
+    ? formatDistanceToNow(new Date(timestamp), { addSuffix: true }) 
+    : "";
   
   const isCurrentUser = user?.id === author.id;
-  const isFollowingAuthor = author?.id && typeof isFollowing === 'function' ? isFollowing(author.id) : false;
-  
-  const handleFollowToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isLoading || !user || !author?.id) return;
-    
-    if (isFollowingAuthor) {
-      unfollowUser(author.id);
-    } else {
-      followUser(author.id);
-    }
-  };
-  
-  const handleAuthorClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (author?.id) {
-      navigate(`/profile/${author.id}`);
-    }
-  };
+  const isFollowingAuthor = author?.id ? isFollowing(author.id) : false;
 
   return (
-    <div 
-      className="flex items-start justify-between mb-3" 
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div 
-        className="flex items-center cursor-pointer group" 
-        onClick={handleAuthorClick}
-      >
-        <Avatar className={cn("h-10 w-10", compact && "h-8 w-8")}>
-          <AvatarImage 
-            src={author?.avatar_url || undefined} 
-            alt={author?.full_name || author?.username || "User"}
-          />
-          <AvatarFallback>
-            {author?.full_name?.[0] || author?.username?.[0] || "U"}
-          </AvatarFallback>
+    <div className="flex items-start justify-between">
+      <Link to={`/profile/${author.username}`} className="flex items-center group">
+        <Avatar className="h-10 w-10 mr-3 border group-hover:border-primary transition-colors">
+          <AvatarImage src={author.avatar_url || undefined} alt={author.full_name || author.username} />
+          <AvatarFallback>{author.full_name?.charAt(0) || author.username?.charAt(0) || "U"}</AvatarFallback>
         </Avatar>
-        <div className="ml-3">
+        
+        <div>
           <div className="flex items-center">
-            <p className={cn("font-medium group-hover:text-primary transition-colors", 
-              compact ? "text-xs" : "text-sm")}>
-              {author?.full_name || author?.username}
-            </p>
-            {author?.is_verified && (
-              <Badge variant="outline" className="ml-1 px-1 py-0 text-xs">
-                <CheckCircle className="h-3 w-3 text-primary" />
+            <span className="font-medium group-hover:text-primary transition-colors">
+              {author.full_name || author.username}
+            </span>
+            
+            {author.is_verified && (
+              <CheckCircle2 className="h-4 w-4 text-blue-500 ml-1" />
+            )}
+            
+            {isTrending && (
+              <Badge variant="outline" className="ml-2 bg-orange-100 text-orange-800 border-orange-200 text-xs dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/30">
+                <BarChart3 className="h-3 w-3 mr-1" />
+                Trending
               </Badge>
             )}
           </div>
           
-          {author?.byline && (
-            <p className="text-xs text-muted-foreground">{author.byline}</p>
-          )}
-          
-          <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-            <span>{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
-            {!author?.byline && author?.position && !compact && (
-              <span className="hidden sm:inline">{author.position}</span>
-            )}
-            {isTrending && (
-              <span className="flex items-center text-amber-500">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                Trending
-              </span>
+          <div className="flex items-center">
+            <span className="text-sm text-muted-foreground">{author.byline || author.position}</span>
+            {timestamp && (
+              <>
+                <span className="mx-1 text-muted-foreground">•</span>
+                <span className="text-xs text-muted-foreground">{formattedTime}</span>
+              </>
             )}
           </div>
         </div>
-      </div>
-
-      {!isCurrentUser && user && (
-        <motion.div
-          initial={{ opacity: compact ? 0 : 1 }}
-          animate={{ opacity: compact && isHovered ? 1 : compact ? 0 : 1 }}
-          transition={{ duration: 0.2 }}
+      </Link>
+      
+      {!isCurrentUser && (
+        <Button
+          variant={isFollowingAuthor ? "outline" : "default"}
+          size="sm"
+          className="text-xs h-8"
+          onClick={onFollowClick}
         >
-          <Button
-            variant={isFollowingAuthor ? "outline" : "default"}
-            size="sm"
-            className={cn(
-              "rounded-full text-xs h-8",
-              compact && "h-7 px-2.5 py-1"
-            )}
-            onClick={handleFollowToggle}
-            disabled={isLoading}
-          >
-            {isFollowingAuthor ? "Following" : "Follow"}
-          </Button>
-        </motion.div>
+          {isFollowingAuthor ? "Following" : "Follow"}
+        </Button>
       )}
     </div>
   );
