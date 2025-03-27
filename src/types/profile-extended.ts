@@ -66,6 +66,8 @@ export interface ExtendedProfileType extends ProfileType {
   verification_status?: 'unverified' | 'pending' | 'verified' | 'rejected' | null;
   verification_documents?: any[] | null;
   public_email?: boolean | null;
+  profile_header_url?: string | null;
+  profile_completion_percentage?: number | null;
 }
 
 export interface UserRole {

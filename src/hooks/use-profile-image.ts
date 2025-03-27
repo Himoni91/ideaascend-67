@@ -28,18 +28,18 @@ export function useProfileImage() {
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;
       
-      // Upload the file
+      // Upload the file without onUploadProgress (not supported in this version)
       const { data, error } = await supabase.storage
         .from('profile_images')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: true,
-          onUploadProgress: (progress) => {
-            setProgress(Math.round((progress.loaded / progress.total) * 100));
-          }
+          upsert: true
         });
         
       if (error) throw error;
+      
+      // Simulate progress for better UX
+      setProgress(100);
       
       // Get the public URL
       const { data: { publicUrl } } = supabase.storage

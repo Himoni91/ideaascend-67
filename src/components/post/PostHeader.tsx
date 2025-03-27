@@ -31,11 +31,11 @@ export default function PostHeader({
   const { followUser, unfollowUser, isFollowing, isLoading } = useProfile();
   
   const isCurrentUser = user?.id === author.id;
-  const isFollowingAuthor = isFollowing(author.id);
+  const isFollowingAuthor = author?.id ? isFollowing(author.id) : false;
   
   const handleFollowToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isLoading || !user) return;
+    if (isLoading || !user || !author?.id) return;
     
     if (isFollowingAuthor) {
       unfollowUser(author.id);

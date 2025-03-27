@@ -17,6 +17,7 @@ export type ProfileType = {
   created_at: string;
   updated_at: string;
   byline: string | null;
+  profile_completion_percentage?: number;
   
   // Additional fields for UI/UX
   level: number;

@@ -117,7 +117,6 @@ export default function EnhancedProfile() {
                   isOpen={isEditModalOpen}
                   onClose={() => setIsEditModalOpen(false)}
                   onSave={handleSaveProfile}
-                  onUploadAvatar={uploadAvatar}
                 />
               )}
             </>

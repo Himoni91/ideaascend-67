@@ -119,20 +119,16 @@ export const useProfile = (profileId?: string) => {
 
   // Fetch followers and following
   const fetchConnections = async () => {
-    if (!userId || !profile) return;
+    if (!userId || !profile) return { followers: [], following: [] };
     
     try {
-      // Fetch followers
-      const { data: followers, error: followersError } = await supabase
+      // Fetch followers - using a safer query structure
+      const { data: followersData, error: followersError } = await supabase
         .from("user_follows")
         .select(`
-          follower:follower_id(
-            id,
-            username,
-            full_name,
-            avatar_url,
-            is_mentor,
-            is_verified
+          follower_id,
+          followers:profiles!user_follows_follower_id_fkey(
+            id, username, full_name, avatar_url, is_mentor, is_verified
           )
         `)
         .eq("following_id", userId)
@@ -140,17 +136,13 @@ export const useProfile = (profileId?: string) => {
       
       if (followersError) throw followersError;
       
-      // Fetch following
-      const { data: following, error: followingError } = await supabase
+      // Fetch following - using a safer query structure
+      const { data: followingData, error: followingError } = await supabase
         .from("user_follows")
         .select(`
-          following:following_id(
-            id,
-            username,
-            full_name,
-            avatar_url,
-            is_mentor,
-            is_verified
+          following_id,
+          following:profiles!user_follows_following_id_fkey(
+            id, username, full_name, avatar_url, is_mentor, is_verified
           )
         `)
         .eq("follower_id", userId)
@@ -158,9 +150,18 @@ export const useProfile = (profileId?: string) => {
       
       if (followingError) throw followingError;
       
+      // Process and convert data to proper types
+      const followers = followersData.map(f => {
+        return f.followers as unknown as ProfileType;
+      });
+      
+      const following = followingData.map(f => {
+        return f.following as unknown as ProfileType;
+      });
+      
       return { 
-        followers: followers.map(f => f.follower) as ProfileType[], 
-        following: following.map(f => f.following) as ProfileType[] 
+        followers: followers.filter(Boolean), 
+        following: following.filter(Boolean)
       };
     } catch (error) {
       console.error("Error fetching connections:", error);
