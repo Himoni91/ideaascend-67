@@ -67,7 +67,7 @@ export function VerificationStatus() {
       transition={{ duration: 0.3 }}
       className="space-y-4"
     >
-      <Alert variant="warning" className="bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800">
+      <Alert variant="destructive" className="bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Email Not Verified</AlertTitle>
         <AlertDescription className="flex flex-col space-y-2">

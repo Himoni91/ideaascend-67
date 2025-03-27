@@ -41,16 +41,18 @@ export function useAuthState() {
           // Add default values for required fields
           level: data.level || 1,
           xp: data.xp || 0,
-          badges: data.badges || [
-            { name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true },
-          ],
-          stats: data.stats || {
-            followers: 0,
-            following: 0,
-            ideas: 0,
-            mentorSessions: 0,
-            posts: 0
-          }
+          badges: Array.isArray(data.badges) 
+            ? data.badges 
+            : [{ name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true }],
+          stats: typeof data.stats === 'object' && data.stats !== null 
+            ? data.stats as ProfileType['stats']
+            : {
+                followers: 0,
+                following: 0,
+                ideas: 0,
+                mentorSessions: 0,
+                posts: 0
+              }
         };
         return completeProfile;
       }
