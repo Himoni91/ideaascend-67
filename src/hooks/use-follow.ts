@@ -88,6 +88,7 @@ export function useFollow() {
     isFollowedLoading,
     followUser: followUserMutation.mutate,
     unfollowUser: unfollowUserMutation.mutate,
-    followedUsers
+    followedUsers,
+    isLoading: followUserMutation.isPending || unfollowUserMutation.isPending || isFollowedLoading
   };
 }

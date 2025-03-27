@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -14,11 +13,10 @@ export const useProfile = (profileId?: string) => {
   const userId = profileId || user?.id;
   const isCurrentUser = userId === user?.id;
   const [isUpdating, setIsUpdating] = useState(false);
-  const { followUser, unfollowUser, isFollowing, isLoading: isFollowLoading } = useFollow(profileId);
+  const { followUser, unfollowUser, isFollowing, isLoading: isFollowLoading } = useFollow();
 
   // Helper function to parse and convert JSON to strongly typed formats
   const formatProfileData = (data: any): ProfileType => {
-    // Default values
     const defaultBadges = [
       { name: "New Member", icon: "👋", description: "Welcome to Idolyst", earned: true }
     ];
@@ -32,7 +30,6 @@ export const useProfile = (profileId?: string) => {
       rank: Math.floor(Math.random() * 100) + 1
     };
 
-    // Parse badges from JSON
     let badges = defaultBadges;
     try {
       if (data.badges) {
@@ -46,7 +43,6 @@ export const useProfile = (profileId?: string) => {
       console.error("Error parsing badges:", e);
     }
 
-    // Parse stats from JSON
     let stats = defaultStats;
     try {
       if (data.stats) {
@@ -61,7 +57,6 @@ export const useProfile = (profileId?: string) => {
       console.error("Error parsing stats:", e);
     }
 
-    // Return formatted profile
     return {
       ...data,
       level: data.level || Math.floor(Math.random() * 5) + 1,
@@ -111,7 +106,6 @@ export const useProfile = (profileId?: string) => {
       
       if (error) throw error;
       
-      // Format the data with proper type conversions
       return formatProfileData(data);
     },
     enabled: !!userId,
@@ -122,7 +116,6 @@ export const useProfile = (profileId?: string) => {
     if (!userId || !profile) return { followers: [], following: [] };
     
     try {
-      // Fetch followers - using a safer query structure
       const { data: followersData, error: followersError } = await supabase
         .from("user_follows")
         .select(`
@@ -136,7 +129,6 @@ export const useProfile = (profileId?: string) => {
       
       if (followersError) throw followersError;
       
-      // Fetch following - using a safer query structure
       const { data: followingData, error: followingError } = await supabase
         .from("user_follows")
         .select(`
@@ -150,7 +142,6 @@ export const useProfile = (profileId?: string) => {
       
       if (followingError) throw followingError;
       
-      // Process and convert data to proper types
       const followers = followersData.map(f => {
         return f.followers as unknown as ProfileType;
       });

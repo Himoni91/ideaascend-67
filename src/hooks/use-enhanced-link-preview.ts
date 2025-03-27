@@ -15,7 +15,7 @@ export interface EnhancedLinkPreview {
 
 export function useEnhancedLinkPreview(content: string) {
   const [linkPreview, setLinkPreview] = useState<EnhancedLinkPreview | null>(null);
-  const { preview } = useLinkPreview(content);
+  const { linkPreview: preview, isLoading, error } = useLinkPreview(content);
 
   useEffect(() => {
     if (!preview) {
@@ -52,7 +52,7 @@ export function useEnhancedLinkPreview(content: string) {
       url: preview.url,
       title: preview.title || domain,
       description: preview.description || "",
-      image: preview.image,
+      image: preview.image || null,
       favicon: null, // We could add favicon fetching here in the future
       siteName: preview.domain || null,
       domain,
@@ -62,5 +62,5 @@ export function useEnhancedLinkPreview(content: string) {
     setLinkPreview(enhanced);
   }, [preview]);
 
-  return { linkPreview };
+  return { linkPreview, isLoading, error };
 }

@@ -19,10 +19,10 @@ export default function FollowButton({
   className = "",
   showIcon = true
 }: FollowButtonProps) {
-  const { isFollowing, isLoading, followUser, unfollowUser } = useFollow(userId);
+  const { isFollowing, isLoading, followUser, unfollowUser } = useFollow();
   
   const handleFollowAction = () => {
-    if (isFollowing) {
+    if (isFollowing(userId)) {
       unfollowUser(userId);
     } else {
       followUser(userId);
@@ -31,7 +31,7 @@ export default function FollowButton({
   
   return (
     <Button
-      variant={isFollowing ? "outline" : variant}
+      variant={isFollowing(userId) ? "outline" : variant}
       size={size}
       onClick={handleFollowAction}
       disabled={isLoading}
@@ -49,7 +49,7 @@ export default function FollowButton({
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             Loading
           </motion.div>
-        ) : isFollowing ? (
+        ) : isFollowing(userId) ? (
           <motion.div
             key="following"
             initial={{ opacity: 0, scale: 0.8 }}
