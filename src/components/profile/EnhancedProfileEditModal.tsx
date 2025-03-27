@@ -11,12 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ExtendedProfileType } from "@/types/profile-extended";
 import { toast } from "sonner";
 import { 
-  UploadCloud, 
+  Camera, 
+  Upload, 
   X, 
   Briefcase, 
   Building, 
@@ -24,20 +24,22 @@ import {
   Link as LinkIcon, 
   Linkedin, 
   Twitter, 
-  Mail, 
   User, 
   Pencil,
-  CheckCircle
+  CheckCircle,
+  Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { useProfileImage } from "@/hooks/use-profile-image";
+import { Separator } from "@/components/ui/separator";
 
 interface EnhancedProfileEditModalProps {
   profile: ExtendedProfileType | null;
   isOpen: boolean;
   onClose: () => void;
   onSave: (updatedProfile: Partial<ExtendedProfileType>) => Promise<void>;
-  onUploadAvatar: (file: File) => Promise<string>;
 }
 
 export default function EnhancedProfileEditModal({
@@ -45,14 +47,13 @@ export default function EnhancedProfileEditModal({
   isOpen,
   onClose,
   onSave,
-  onUploadAvatar,
 }: EnhancedProfileEditModalProps) {
   const [formData, setFormData] = useState<Partial<ExtendedProfileType>>({});
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("basic");
-  const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { uploadProfileImage, deleteProfileImage, isUploading, progress } = useProfileImage();
 
   useEffect(() => {
     if (profile) {
@@ -105,15 +106,23 @@ export default function EnhancedProfileEditModal({
     setAvatarPreview(profile?.avatar_url || null);
   };
 
+  const handleDeleteAvatar = async () => {
+    const confirmed = window.confirm("Are you sure you want to delete your profile image?");
+    if (!confirmed) return;
+    
+    const success = await deleteProfileImage();
+    if (success) {
+      setAvatarPreview(null);
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
       let avatarUrl = profile?.avatar_url;
 
       if (avatarFile) {
-        setIsUploading(true);
-        avatarUrl = await onUploadAvatar(avatarFile);
-        setIsUploading(false);
+        avatarUrl = await uploadProfileImage(avatarFile);
       }
 
       const updatedProfile = {
@@ -148,32 +157,44 @@ export default function EnhancedProfileEditModal({
           </TabsList>
           
           <TabsContent value="basic" className="space-y-6 pt-4">
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-4">
               <div className="relative">
-                <Avatar className="h-24 w-24 border-2 border-border">
+                <Avatar className="h-32 w-32 border-2 border-border">
                   <AvatarImage src={avatarPreview || undefined} />
-                  <AvatarFallback className="text-xl bg-muted">
+                  <AvatarFallback className="text-3xl bg-muted">
                     {profile?.full_name?.charAt(0) || "U"}
                   </AvatarFallback>
+                  
+                  <Label
+                    htmlFor="avatar-upload"
+                    className="absolute bottom-0 right-0 cursor-pointer bg-primary text-primary-foreground rounded-full p-2 shadow-md hover:bg-primary/90 transition-colors"
+                  >
+                    <Camera className="h-4 w-4" />
+                  </Label>
                 </Avatar>
                 {avatarFile && (
                   <motion.button
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1"
+                    className="absolute top-0 right-0 bg-destructive text-white rounded-full p-1.5"
                     onClick={clearAvatarSelection}
                   >
                     <X size={16} />
                   </motion.button>
                 )}
+                
+                {profile?.avatar_url && !avatarFile && (
+                  <motion.button
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute top-0 right-0 bg-destructive/80 text-white rounded-full p-1.5"
+                    onClick={handleDeleteAvatar}
+                  >
+                    <Trash2 size={16} />
+                  </motion.button>
+                )}
               </div>
-              <Label
-                htmlFor="avatar-upload"
-                className="cursor-pointer text-sm text-primary flex items-center hover:underline"
-              >
-                <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
-                Change Avatar
-              </Label>
+              
               <Input
                 id="avatar-upload"
                 type="file"
@@ -181,7 +202,26 @@ export default function EnhancedProfileEditModal({
                 className="hidden"
                 onChange={handleAvatarChange}
               />
+              
+              {isUploading && (
+                <div className="w-full max-w-xs">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span>Uploading...</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+              )}
+              
+              {!isUploading && avatarFile && (
+                <div className="text-sm text-muted-foreground flex items-center">
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  New image will be uploaded when you save
+                </div>
+              )}
             </div>
+
+            <Separator />
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -257,7 +297,7 @@ export default function EnhancedProfileEditModal({
 
             <div className="space-y-2">
               <Label htmlFor="bio" className="flex items-center">
-                <Briefcase className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                <User className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
                 Short Bio
               </Label>
               <Textarea
@@ -341,23 +381,6 @@ export default function EnhancedProfileEditModal({
                 />
               </div>
             </div>
-            
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="public_email" className="flex items-center cursor-pointer">
-                  <Mail className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                  Make Email Public
-                </Label>
-                <Switch
-                  id="public_email"
-                  checked={!!formData.public_email}
-                  onCheckedChange={(checked) => handleSwitchChange('public_email', checked)}
-                />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                When enabled, other users will be able to see and contact you via your email address.
-              </p>
-            </div>
           </TabsContent>
         </Tabs>
 
@@ -391,7 +414,7 @@ export default function EnhancedProfileEditModal({
                 >
                   {avatarFile ? (
                     <>
-                      <UploadCloud className="mr-2 h-4 w-4" /> Save & Upload
+                      <Upload className="mr-2 h-4 w-4" /> Save & Upload
                     </>
                   ) : (
                     "Save Changes"

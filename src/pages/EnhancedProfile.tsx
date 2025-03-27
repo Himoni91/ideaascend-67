@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useExtendedProfile } from "@/hooks/use-extended-profile";
 import AppLayout from "@/components/layout/AppLayout";
@@ -9,6 +9,8 @@ import EnhancedProfileEditModal from "@/components/profile/EnhancedProfileEditMo
 import ProfileOnboarding from "@/components/profile/ProfileOnboarding";
 import ProfileVerification from "@/components/profile/ProfileVerification";
 import ProfileConnections from "@/components/profile/ProfileConnections";
+import ProfileCompletionTracker from "@/components/profile/ProfileCompletionTracker";
+import ProfileViewers from "@/components/profile/ProfileViewers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -101,6 +103,8 @@ export default function EnhancedProfile() {
                 </div>
                 <div>
                   <div className="space-y-6 sticky top-20">
+                    {isOwnProfile && <ProfileCompletionTracker />}
+                    {isOwnProfile && <ProfileViewers />}
                     <ProfileVerification profile={profile} />
                     <ProfileConnections profile={profile} />
                   </div>

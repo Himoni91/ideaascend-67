@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -13,7 +14,7 @@ export const useProfile = (profileId?: string) => {
   const userId = profileId || user?.id;
   const isCurrentUser = userId === user?.id;
   const [isUpdating, setIsUpdating] = useState(false);
-  const { followUser, unfollowUser, isFollowing, isLoading: isFollowLoading } = useFollow();
+  const { followUser, unfollowUser, isFollowing, isLoading: isFollowLoading } = useFollow(profileId);
 
   // Helper function to parse and convert JSON to strongly typed formats
   const formatProfileData = (data: any): ProfileType => {
@@ -70,6 +71,28 @@ export const useProfile = (profileId?: string) => {
     } as ProfileType;
   };
 
+  // Record profile view when viewing someone else's profile
+  useEffect(() => {
+    const recordProfileView = async () => {
+      if (profileId && user?.id && profileId !== user.id) {
+        try {
+          await supabase
+            .from("profile_views")
+            .insert({
+              profile_id: profileId,
+              viewer_id: user.id
+            });
+        } catch (error) {
+          console.error("Error recording profile view:", error);
+        }
+      }
+    };
+    
+    if (profileId && user?.id && profileId !== user.id) {
+      recordProfileView();
+    }
+  }, [profileId, user?.id]);
+
   // Fetch profile data
   const { 
     data: profile, 
@@ -98,31 +121,51 @@ export const useProfile = (profileId?: string) => {
   const fetchConnections = async () => {
     if (!userId || !profile) return;
     
-    // In production, these would be real API calls
-    // For MVP, we'll simulate the connection data
-    const followers = Array(profile.stats?.followers || 0)
-      .fill(null)
-      .map((_, i) => ({
-        id: `follower-${i}`,
-        username: `user${i}`,
-        full_name: `User ${i}`,
-        avatar_url: null,
-        is_mentor: Math.random() > 0.8,
-        is_verified: Math.random() > 0.7
-      })).slice(0, 10) as ProfileType[];
-    
-    const following = Array(profile.stats?.following || 0)
-      .fill(null)
-      .map((_, i) => ({
-        id: `following-${i}`,
-        username: `mentor${i}`,
-        full_name: `Mentor ${i}`,
-        avatar_url: null,
-        is_mentor: Math.random() > 0.5,
-        is_verified: Math.random() > 0.6
-      })).slice(0, 10) as ProfileType[];
-    
-    return { followers, following };
+    try {
+      // Fetch followers
+      const { data: followers, error: followersError } = await supabase
+        .from("user_follows")
+        .select(`
+          follower:follower_id(
+            id,
+            username,
+            full_name,
+            avatar_url,
+            is_mentor,
+            is_verified
+          )
+        `)
+        .eq("following_id", userId)
+        .limit(10);
+      
+      if (followersError) throw followersError;
+      
+      // Fetch following
+      const { data: following, error: followingError } = await supabase
+        .from("user_follows")
+        .select(`
+          following:following_id(
+            id,
+            username,
+            full_name,
+            avatar_url,
+            is_mentor,
+            is_verified
+          )
+        `)
+        .eq("follower_id", userId)
+        .limit(10);
+      
+      if (followingError) throw followingError;
+      
+      return { 
+        followers: followers.map(f => f.follower) as ProfileType[], 
+        following: following.map(f => f.following) as ProfileType[] 
+      };
+    } catch (error) {
+      console.error("Error fetching connections:", error);
+      return { followers: [], following: [] };
+    }
   };
 
   // Update profile
@@ -213,18 +256,18 @@ export const useProfile = (profileId?: string) => {
     try {
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const filePath = `${user.id}/${fileName}`;
       
       setIsUpdating(true);
       
       const { error: uploadError } = await supabase.storage
-        .from("profiles")
+        .from("profile_images")
         .upload(filePath, file, { upsert: true });
         
       if (uploadError) throw uploadError;
       
       const { data } = supabase.storage
-        .from("profiles")
+        .from("profile_images")
         .getPublicUrl(filePath);
         
       return data.publicUrl;
@@ -266,6 +309,21 @@ export const useProfile = (profileId?: string) => {
     enabled: !!(profileId || user?.id),
   });
   
+  // Get profile views count
+  const { data: profileViewsCount = 0 } = useQuery({
+    queryKey: ["profile-views-count", profileId || user?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("profile_views")
+        .select("*", { count: "exact", head: true })
+        .eq("profile_id", profileId || user?.id);
+        
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!(profileId || user?.id),
+  });
+  
   // Check if the current user is the profile owner
   const isOwnProfile = user?.id === profileId || !profileId;
 
@@ -278,6 +336,7 @@ export const useProfile = (profileId?: string) => {
     isUpdating,
     followersCount,
     followingCount,
+    profileViewsCount,
     isOwnProfile,
     followUser,
     unfollowUser,

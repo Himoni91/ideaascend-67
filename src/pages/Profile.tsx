@@ -6,12 +6,15 @@ import AppLayout from "@/components/layout/AppLayout";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import ProfileContent from "@/components/profile/ProfileContent";
 import ProfileEditModal from "@/components/profile/ProfileEditModal";
+import ProfileViewers from "@/components/profile/ProfileViewers";
+import ProfileCompletionTracker from "@/components/profile/ProfileCompletionTracker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/ui/page-transition";
 import { ArrowLeft } from "lucide-react";
 import { ProfileType } from "@/types/profile";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export default function Profile() {
   const { username } = useParams<{ username: string }>();
@@ -24,6 +27,7 @@ export default function Profile() {
     isLoading,
     error,
     updateProfile,
+    uploadAvatar,
     isOwnProfile
   } = useProfile(username ? username : undefined);
 
@@ -51,8 +55,10 @@ export default function Profile() {
     try {
       await updateProfile(updatedProfile);
       setIsEditModalOpen(false);
+      toast.success("Profile updated successfully");
     } catch (error) {
       console.error("Error updating profile:", error);
+      toast.error("Failed to update profile");
     }
   };
 
@@ -77,13 +83,20 @@ export default function Profile() {
               <Skeleton className="h-96 w-full rounded-xl" />
             </div>
           ) : profile ? (
-            <>
-              <ProfileHeader 
-                profile={profile} 
-                isCurrentUser={isOwnProfile} 
-                onEdit={handleEdit} 
-              />
-              <ProfileContent profile={profile} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2 space-y-6">
+                <ProfileHeader 
+                  profile={profile} 
+                  isCurrentUser={isOwnProfile} 
+                  onEdit={handleEdit} 
+                />
+                <ProfileContent profile={profile} />
+              </div>
+              
+              <div className="space-y-6">
+                {isOwnProfile && <ProfileCompletionTracker />}
+                {isOwnProfile && <ProfileViewers />}
+              </div>
               
               {isOwnProfile && (
                 <ProfileEditModal
@@ -93,7 +106,7 @@ export default function Profile() {
                   onSave={handleSaveProfile}
                 />
               )}
-            </>
+            </div>
           ) : null}
         </div>
       </PageTransition>
