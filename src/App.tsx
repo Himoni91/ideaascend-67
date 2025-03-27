@@ -17,12 +17,13 @@ import ResetPassword from "@/pages/ResetPassword";
 import Launchpad from "@/pages/Index";  // Using Index as Launchpad for now
 import MentorSpace from "@/pages/MentorSpace";
 import Ascend from "@/pages/Ascend";
-import EnhancedProfile from "@/pages/Profile";  // Using Profile instead of profile/[username]
+import Profile from "@/pages/Profile";  // Regular profile page
+import ProfileSettings from "@/pages/ProfileSettings"; // Profile settings page
 import Discover from "@/pages/Discover";
 import Calendar from "@/pages/Calendar";
 import Analytics from "@/pages/Analytics";
 import Achievements from "@/pages/Achievements";
-import MentorProfile from "@/pages/Profile";  // Using Profile instead of mentor/[username]
+import MentorProfile from "@/pages/MentorProfile";  // Mentor profile page
 import PostDetailPage from "@/pages/post/[id]";
 import Help from "@/pages/Help";
 import NotFound from "@/pages/NotFound";
@@ -40,7 +41,7 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="idolyst-theme">
+    <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
@@ -82,11 +83,24 @@ function App() {
                   <PitchDetail />
                 </RouteGuard>
               } />
-              <Route path="/profile/:username" element={
+              
+              {/* Profile Routes */}
+              <Route path="/profile" element={
                 <RouteGuard>
-                  <EnhancedProfile />
+                  <Profile />
                 </RouteGuard>
               } />
+              <Route path="/profile/settings" element={
+                <RouteGuard>
+                  <ProfileSettings />
+                </RouteGuard>
+              } />
+              <Route path="/profile/:username" element={
+                <RouteGuard>
+                  <Profile />
+                </RouteGuard>
+              } />
+              
               <Route path="/discover" element={
                 <RouteGuard>
                   <Discover />
@@ -107,11 +121,14 @@ function App() {
                   <Achievements />
                 </RouteGuard>
               } />
+              
+              {/* Mentor Routes */}
               <Route path="/mentor/:username" element={
                 <RouteGuard>
                   <MentorProfile />
                 </RouteGuard>
               } />
+              
               <Route path="/post/:id" element={
                 <RouteGuard>
                   <PostDetailPage />
