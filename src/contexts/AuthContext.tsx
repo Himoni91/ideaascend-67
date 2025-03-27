@@ -1,16 +1,18 @@
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { ProfileType } from "@/types/profile";
+import { useAuthState } from "@/hooks/use-auth-state";
 
 type AuthContextType = {
   session: Session | null;
   user: User | null;
   profile: ProfileType | null;
   isLoading: boolean;
+  error: Error | null;
   signUp: (email: string, password: string, metadata?: { full_name?: string }) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -18,87 +20,23 @@ type AuthContextType = {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  refreshSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<ProfileType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const authState = useAuthState();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [authError, setAuthError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    // Set up auth state listener FIRST to prevent missing auth events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log("Auth state changed:", event);
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer profile fetching to prevent deadlocks
-        if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-        }
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setIsLoading(false);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  async function fetchProfile(userId: string) {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (error) {
-        console.error("Error fetching profile:", error);
-      } else if (data) {
-        // Create a complete ProfileType object with default values for missing fields
-        const completeProfile: ProfileType = {
-          ...data,
-          // Add default values for the new required fields
-          level: 1,
-          xp: 0,
-          badges: [
-            { name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true },
-          ],
-          stats: {
-            followers: 0,
-            following: 0,
-            ideas: 0,
-            mentorSessions: 0,
-            posts: 0
-          }
-        };
-        setProfile(completeProfile);
-      }
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-    }
-  }
+  const handleError = (error: any, defaultMessage: string) => {
+    const errorMessage = error.message || defaultMessage;
+    console.error("Auth error:", error);
+    setAuthError(new Error(errorMessage));
+    return errorMessage;
+  };
 
   async function signUp(email: string, password: string, metadata?: { full_name?: string }) {
     try {
@@ -120,9 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       navigate("/auth/verification");
     } catch (error: any) {
+      const message = handleError(error, "An unexpected error occurred during sign up");
       toast({
         title: "Error creating account",
-        description: error.message || "An unexpected error occurred",
+        description: message,
         variant: "destructive",
       });
       throw error;
@@ -145,9 +84,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       navigate("/");
     } catch (error: any) {
+      const message = handleError(error, "Invalid email or password");
       toast({
         title: "Sign in failed",
-        description: error.message || "Invalid email or password",
+        description: message,
         variant: "destructive",
       });
       throw error;
@@ -165,9 +105,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
     } catch (error: any) {
+      const message = handleError(error, "An unexpected error occurred during Google sign in");
       toast({
         title: "Google sign in failed",
-        description: error.message || "An unexpected error occurred",
+        description: message,
         variant: "destructive",
       });
       throw error;
@@ -185,9 +126,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
     } catch (error: any) {
+      const message = handleError(error, "An unexpected error occurred during LinkedIn sign in");
       toast({
         title: "LinkedIn sign in failed",
-        description: error.message || "An unexpected error occurred",
+        description: message,
         variant: "destructive",
       });
       throw error;
@@ -206,9 +148,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       navigate("/");
     } catch (error: any) {
+      const message = handleError(error, "An unexpected error occurred during sign out");
       toast({
         title: "Sign out failed",
-        description: error.message || "An unexpected error occurred",
+        description: message,
         variant: "destructive",
       });
     }
@@ -229,9 +172,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       navigate("/auth/check-email");
     } catch (error: any) {
+      const message = handleError(error, "An unexpected error occurred during password reset");
       toast({
         title: "Password reset failed",
-        description: error.message || "An unexpected error occurred",
+        description: message,
         variant: "destructive",
       });
       throw error;
@@ -253,9 +197,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       navigate("/auth/sign-in");
     } catch (error: any) {
+      const message = handleError(error, "An unexpected error occurred during password update");
       toast({
         title: "Password update failed",
-        description: error.message || "An unexpected error occurred",
+        description: message,
         variant: "destructive",
       });
       throw error;
@@ -263,10 +208,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const value = {
-    session,
-    user,
-    profile,
-    isLoading,
+    ...authState,
+    error: authError || authState.error,
     signUp,
     signIn,
     signInWithGoogle,
@@ -274,6 +217,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     resetPassword,
     updatePassword,
+    refreshSession: authState.refreshSession,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

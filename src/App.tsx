@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext"; 
 import { RouteGuard } from "@/components/auth/RouteGuard";
+import { AuthStatus } from "@/components/auth/AuthStatus";
 
 // Pages
 import Index from "./pages/Index";
@@ -34,7 +34,14 @@ import UpdatePassword from "./pages/auth/UpdatePassword";
 import Verification from "./pages/auth/Verification";
 import Callback from "./pages/auth/Callback";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30000,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -44,6 +51,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
+            <AuthStatus />
             <Routes>
               {/* Protected Routes */}
               <Route 
