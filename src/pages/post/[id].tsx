@@ -7,19 +7,24 @@ import { useAuth } from "@/contexts/AuthContext";
 import AppLayout from "@/components/layout/AppLayout";
 import EnhancedPostCard from "@/components/post/EnhancedPostCard";
 import PostComments from "@/components/post/PostComments";
+import PostAnalytics from "@/components/post/PostAnalytics";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BarChart2, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePosts } from "@/hooks/use-posts";
 import { Post, DatabaseProfile } from "@/types/post";
 import { ProfileType } from "@/types/profile";
+import { usePostViews } from "@/hooks/use-post-views";
 
 export default function PostDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { reactToPost, repostPost } = usePosts();
+  const { viewCount } = usePostViews(id);
+  const [activeTab, setActiveTab] = useState("comments");
   
   // Fetch the specific post
   const {
@@ -116,9 +121,6 @@ export default function PostDetailPage() {
         };
       }
       
-      // Increment view count
-      await supabase.rpc('increment_view_count', { post_id: id });
-      
       // Transform author data to match ProfileType
       const rawAuthor = data.author as DatabaseProfile;
       
@@ -195,6 +197,9 @@ export default function PostDetailPage() {
     if (!user) return;
     repostPost(postId);
   };
+  
+  // Check if current user is the post author
+  const isAuthor = user?.id === post?.user_id;
   
   if (isLoading) {
     return (
@@ -277,12 +282,37 @@ export default function PostDetailPage() {
           />
           
           <motion.div 
-            className="mt-6 bg-card rounded-xl p-6 shadow-sm"
+            className="mt-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <PostComments postId={post.id} minimized={false} />
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="comments" className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Comments ({post.comments_count || 0})
+                </TabsTrigger>
+                {isAuthor && (
+                  <TabsTrigger value="analytics" className="flex items-center gap-2">
+                    <BarChart2 className="h-4 w-4" />
+                    Analytics
+                  </TabsTrigger>
+                )}
+              </TabsList>
+              
+              <TabsContent value="comments" className="mt-0">
+                <div className="bg-card rounded-xl p-6 shadow-sm">
+                  <PostComments postId={post.id} minimized={false} />
+                </div>
+              </TabsContent>
+              
+              {isAuthor && (
+                <TabsContent value="analytics" className="mt-0">
+                  <PostAnalytics postId={post.id} />
+                </TabsContent>
+              )}
+            </Tabs>
           </motion.div>
         </motion.div>
       </div>

@@ -1,17 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+
+import { useState, useEffect, useCallback } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts } from "@/hooks/use-posts";
 import { useCategories } from "@/hooks/use-categories";
-import { FeedFilter, ReactionTypeString } from "@/types/post";
-import { useInView } from "framer-motion";
+import { FeedFilter } from "@/types/post";
 import { supabase } from "@/integrations/supabase/client";
 
 // Components
 import CategoryFilter from "@/components/post/CategoryFilter";
 import CreatePostCard from "@/components/post/CreatePostCard";
 import EnhancedPostCard from "@/components/post/EnhancedPostCard";
-import PostComments from "@/components/post/PostComments";
+import PostSearch from "@/components/post/PostSearch";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -20,12 +20,12 @@ import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUpIcon, MessageSquareIcon, RefreshCwIcon } from "lucide-react";
 import { toast } from "sonner";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 
 export default function Index() {
   const { user, profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const location = useLocation();
   
   // Get category from URL or default to "All"
   const categoryParam = searchParams.get("category") || "All";
@@ -37,9 +37,6 @@ export default function Index() {
   
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const { categories } = useCategories();
-  const loaderRef = useRef<HTMLDivElement>(null);
-  const isLoaderInView = useInView(loaderRef);
-  const scrollToTopRef = useRef<HTMLDivElement>(null);
   
   const {
     posts,
@@ -53,6 +50,13 @@ export default function Index() {
     activeCategory === "All" ? undefined : activeCategory,
     activeFilter
   );
+
+  // Set up infinite scroll
+  const { setRef, isIntersecting } = useInfiniteScroll({
+    threshold: 0.5,
+    rootMargin: '200px',
+    enabled: hasMore && !isLoading
+  });
 
   // Update URL when category or filter changes
   useEffect(() => {
@@ -73,12 +77,12 @@ export default function Index() {
     setSearchParams(params, { replace: true });
   }, [activeCategory, activeFilter, searchParams, setSearchParams]);
 
-  // Load more posts when bottom is reached
+  // Load more posts when infinite scroll triggers
   useEffect(() => {
-    if (isLoaderInView && hasMore && !isLoading) {
+    if (isIntersecting && hasMore && !isLoading) {
       loadMore();
     }
-  }, [isLoaderInView, hasMore, loadMore, isLoading]);
+  }, [isIntersecting, hasMore, loadMore, isLoading]);
 
   // Set up real-time subscription for new posts
   useEffect(() => {
@@ -167,7 +171,7 @@ export default function Index() {
     <AppLayout>
       <div className="max-w-2xl mx-auto px-4 sm:px-0">
         <motion.div 
-          className="mb-8"
+          className="mb-6"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -178,6 +182,16 @@ export default function Index() {
           <p className="text-gray-600 dark:text-gray-300">
             Discover insights, connect with mentors, and stay updated on the startup ecosystem
           </p>
+        </motion.div>
+
+        {/* Search component */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mb-6"
+        >
+          <PostSearch />
         </motion.div>
 
         {/* Refresh button */}
@@ -274,7 +288,7 @@ export default function Index() {
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ 
                       duration: 0.3, 
-                      delay: Math.min(0.1 * index, 0.5) 
+                      delay: Math.min(0.05 * index, 0.3) 
                     }}
                   >
                     <EnhancedPostCard
@@ -287,28 +301,18 @@ export default function Index() {
                 ))}
               </AnimatePresence>
               
+              {/* Infinite scroll loader */}
               {hasMore && (
                 <div 
-                  ref={loaderRef} 
-                  className="flex justify-center py-8"
+                  ref={setRef} 
+                  className="flex justify-center py-4"
                 >
-                  <Button 
-                    variant="outline" 
-                    onClick={loadMore} 
-                    disabled={isLoading}
-                    className="relative overflow-hidden"
-                  >
-                    {isLoading ? (
-                      <>
-                        <span className="opacity-0">Load More</span>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        </div>
-                      </>
-                    ) : (
-                      "Load More"
-                    )}
-                  </Button>
+                  {isLoading && (
+                    <div className="flex flex-col items-center">
+                      <RefreshCwIcon className="h-6 w-6 animate-spin text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">Loading more posts...</p>
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -340,17 +344,22 @@ export default function Index() {
       <Dialog open={!!expandedPost} onOpenChange={(open) => !open && setExpandedPost(null)}>
         <DialogContent className="max-w-xl">
           {expandedPost && (
-            <>
-              {posts.find(p => p.id === expandedPost) && (
+            posts.find(p => p.id === expandedPost) && (
+              <>
                 <EnhancedPostCard 
                   post={posts.find(p => p.id === expandedPost)!} 
                   onReaction={handleReaction}
                   onRepost={handleRepost}
                 />
-              )}
-              
-              <PostComments postId={expandedPost} />
-            </>
+                
+                <div className="mt-4">
+                  <h3 className="font-medium mb-3">Comments</h3>
+                  <div className="rounded-lg border p-4">
+                    {/* Add the PostComments component here */}
+                  </div>
+                </div>
+              </>
+            )
           )}
         </DialogContent>
       </Dialog>

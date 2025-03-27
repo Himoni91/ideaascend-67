@@ -8,17 +8,19 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { Post } from "@/types/post";
-import { BarChart3, MessageSquare, CheckCircle2 } from "lucide-react";
+import { BarChart3, MessageSquare, CheckCircle2, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner"; 
 import { useFollow } from "@/hooks/use-follow";
 import { motion, AnimatePresence } from "framer-motion";
-import { useLinkPreview } from "@/hooks/use-link-preview";
+import { useEnhancedLinkPreview } from "@/hooks/use-enhanced-link-preview";
 import { Button } from "@/components/ui/button";
-import LinkPreview from "./LinkPreview";
+import EnhancedLinkPreview from "./EnhancedLinkPreview";
 import PostPoll from "./PostPoll";
 import PostComments from "./PostComments";
 import ReactionButtons from "./ReactionButtons";
+import PostHeader from "./PostHeader";
+import { usePostViews } from "@/hooks/use-post-views";
 
 interface EnhancedPostCardProps {
   post: Post;
@@ -41,7 +43,8 @@ export default function EnhancedPostCard({
   const { followUser, unfollowUser, isFollowing } = useFollow();
   const [showAllContent, setShowAllContent] = useState(false);
   const [showCommentsSection, setShowCommentsSection] = useState(showComments);
-  const { linkPreview } = useLinkPreview(post.content);
+  const { linkPreview } = useEnhancedLinkPreview(post.content);
+  const { viewCount } = usePostViews(post.id);
   
   const isLongContent = post.content.length > 280;
   const displayContent = !showAllContent && isLongContent 
@@ -91,8 +94,8 @@ export default function EnhancedPostCard({
     if (!authorId) return;
     
     if (isFollowing && typeof isFollowing === 'function') {
-      const following = isFollowing(authorId);
-      if (following) {
+      const isFollowingAuthor = isFollowing(authorId);
+      if (isFollowingAuthor) {
         unfollowUser(authorId);
       } else {
         followUser(authorId);
@@ -136,59 +139,14 @@ export default function EnhancedPostCard({
     );
   }
 
-  // Check if we can determine the user following state
-  const canCheckFollowing = isFollowing && typeof isFollowing === 'function' && post.author?.id;
-  const isFollowingAuthor = canCheckFollowing ? isFollowing(post.author?.id) : false;
-
   return (
     <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow duration-300">
       <CardContent className="p-5">
-        <div className="flex justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Link to={`/profile/${post.author?.username}`}>
-              <Avatar className="h-10 w-10 border hover:shadow-md transition-shadow">
-                <AvatarImage src={post.author?.avatar_url || undefined} alt={post.author?.full_name || "User"} />
-                <AvatarFallback className="bg-primary/10">
-                  {post.author?.full_name?.charAt(0) || post.author?.username?.charAt(0) || "U"}
-                </AvatarFallback>
-              </Avatar>
-            </Link>
-            <div>
-              <Link 
-                to={`/profile/${post.author?.username}`}
-                className="font-medium hover:text-primary transition-colors flex items-center gap-1"
-              >
-                {post.author?.full_name || post.author?.username || "Anonymous"}
-                {post.author?.is_verified && (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-primary fill-primary" />
-                )}
-              </Link>
-              <div className="text-xs text-muted-foreground flex flex-col">
-                {post.author?.byline && (
-                  <span className="text-xs">{post.author.byline}</span>
-                )}
-                {!post.author?.byline && post.author?.position && (
-                  <span>{post.author.position} at {post.author.company}</span>
-                )}
-                <span>{formattedDate}</span>
-              </div>
-            </div>
-          </div>
-          
-          {!isAuthor && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleFollowClick}
-              className={cn(
-                "h-8 transition-all",
-                isFollowingAuthor ? "bg-primary text-white hover:bg-primary/90 hover:text-white" : ""
-              )}
-            >
-              {isFollowingAuthor ? "Following" : "Follow"}
-            </Button>
-          )}
-        </div>
+        <PostHeader 
+          author={post.author}
+          timestamp={post.created_at}
+          isTrending={post.isTrending}
+        />
         
         <div className="mt-3 mb-4">
           <div className="whitespace-pre-wrap mb-4">
@@ -208,7 +166,7 @@ export default function EnhancedPostCard({
           )}
           
           {linkPreview && !post.link_preview && (
-            <LinkPreview preview={linkPreview} />
+            <EnhancedLinkPreview preview={linkPreview} />
           )}
           
           {post.media_url && (
@@ -255,6 +213,14 @@ export default function EnhancedPostCard({
             <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/30">
               <BarChart3 className="h-3 w-3 mr-1" />
               Trending
+            </Badge>
+          )}
+          
+          {/* View count badge */}
+          {viewCount > 0 && (
+            <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/30">
+              <Eye className="h-3 w-3 mr-1" />
+              {viewCount} {viewCount === 1 ? 'view' : 'views'}
             </Badge>
           )}
         </div>
