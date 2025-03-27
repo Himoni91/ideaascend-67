@@ -60,7 +60,7 @@ export default function PitchComments({
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Textarea
-          placeholder="Add your comment..."
+          placeholder="Add your feedback..."
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           className="min-h-[100px] resize-none"
@@ -77,7 +77,7 @@ export default function PitchComments({
             ) : (
               <Send className="h-4 w-4" />
             )}
-            Submit Comment
+            Submit Feedback
           </Button>
         </div>
       </form>
@@ -87,9 +87,9 @@ export default function PitchComments({
           <Card>
             <CardContent className="p-6 text-center">
               <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
-              <h3 className="text-lg font-medium mb-1">No comments yet</h3>
+              <h3 className="text-lg font-medium mb-1">No feedback yet</h3>
               <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                Be the first to comment on this idea
+                Be the first to provide feedback on this idea
               </p>
             </CardContent>
           </Card>

@@ -6,7 +6,7 @@ import {
   SlidersHorizontal,
   TrendingUp,
   Clock,
-  ThumbsUp,
+  ArrowUp,
   Search,
   X
 } from "lucide-react";
@@ -103,7 +103,7 @@ export default function PitchHub() {
     switch (sortBy) {
       case 'newest': return <Clock className="h-4 w-4" />;
       case 'trending': return <TrendingUp className="h-4 w-4" />;
-      case 'votes': return <ThumbsUp className="h-4 w-4" />;
+      case 'votes': return <ArrowUp className="h-4 w-4" />;
     }
   };
   
@@ -197,7 +197,7 @@ export default function PitchHub() {
                       <span className="hidden sm:inline">Trending</span>
                     </TabsTrigger>
                     <TabsTrigger value="votes" className="flex items-center gap-1">
-                      <ThumbsUp className="h-3.5 w-3.5" />
+                      <ArrowUp className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Top Voted</span>
                     </TabsTrigger>
                   </TabsList>

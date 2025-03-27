@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -103,8 +104,9 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
           target_audience: pitch.target_audience || '',
           solution: pitch.solution || '',
           author: formattedAuthor,
-          user_vote: userVotes[pitch.id] || null
-        } as unknown as Pitch;
+          user_vote: userVotes[pitch.id] || null,
+          updated_at: pitch.updated_at || pitch.created_at, // Add updated_at field with fallback
+        } as Pitch;
       }) || [];
 
       // Get total count for pagination
@@ -239,8 +241,9 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         target_audience: data.target_audience || '',
         solution: data.solution || '',
         author: data.author ? formatProfileData(data.author) : undefined,
-        user_vote: null
-      } as unknown as Pitch;
+        user_vote: null,
+        updated_at: data.updated_at || data.created_at, // Add updated_at field with fallback
+      } as Pitch;
       
       return formattedPitch;
     },
@@ -347,6 +350,8 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
     return useQuery({
       queryKey: ["pitch", pitchId],
       queryFn: async () => {
+        if (!pitchId) throw new Error("Pitch ID is required");
+        
         const { data, error } = await supabase
           .from("pitches")
           .select(`
@@ -396,8 +401,9 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
           target_audience: data.target_audience || '', 
           solution: data.solution || '', 
           author: data.author ? formatProfileData(data.author) : undefined,
-          user_vote: userVote
-        } as unknown as Pitch;
+          user_vote: userVote,
+          updated_at: data.updated_at || data.created_at, // Add updated_at field with fallback
+        } as Pitch;
         
         return formattedPitch;
       },
@@ -495,10 +501,10 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["pitch-comments", variables.pitchId] });
-      toast.success("Comment added successfully");
+      toast.success("Feedback added successfully");
     },
     onError: (error: any) => {
-      toast.error(`Failed to add comment: ${error.message}`);
+      toast.error(`Failed to add feedback: ${error.message}`);
     }
   });
 
@@ -589,7 +595,8 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
           problem_statement: pitch.description,
           target_audience: pitch.target_audience || '',
           solution: pitch.solution || '',
-          author: pitch.author ? formatProfileData(pitch.author) : undefined
+          author: pitch.author ? formatProfileData(pitch.author) : undefined,
+          updated_at: pitch.updated_at || pitch.created_at // Add updated_at field with fallback
         })) as Pitch[];
       },
       staleTime: 1000 * 60 * 5,

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { ThumbsUp, ThumbsDown, MessageSquare, Star, Rocket } from "lucide-react";
+import { ArrowUp, ArrowDown, MessageSquare, Star, Rocket } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -99,7 +99,7 @@ export default function PitchCard({ pitch, onVote, compact = false }: PitchCardP
           <CardFooter className="p-3 pt-0 flex justify-between items-center border-t">
             <div className="flex items-center gap-3">
               <div className="flex items-center">
-                <ThumbsUp className={cn(
+                <ArrowUp className={cn(
                   "h-3.5 w-3.5 mr-1",
                   pitch.user_vote === 'up' ? "text-primary fill-primary" : "text-muted-foreground"
                 )} />
@@ -205,7 +205,7 @@ export default function PitchCard({ pitch, onVote, compact = false }: PitchCardP
                 )}
                 onClick={(e) => handleVote(e, 'up')}
               >
-                <ThumbsUp className={cn(
+                <ArrowUp className={cn(
                   "h-4 w-4 mr-1.5",
                   pitch.user_vote === 'up' && "fill-primary-foreground"
                 )} />
@@ -221,7 +221,7 @@ export default function PitchCard({ pitch, onVote, compact = false }: PitchCardP
                 )}
                 onClick={(e) => handleVote(e, 'down')}
               >
-                <ThumbsDown className={cn(
+                <ArrowDown className={cn(
                   "h-4 w-4",
                   pitch.user_vote === 'down' && "fill-primary-foreground"
                 )} />
@@ -230,7 +230,7 @@ export default function PitchCard({ pitch, onVote, compact = false }: PitchCardP
             
             <div className="flex items-center">
               <MessageSquare className="h-4 w-4 mr-1.5 text-muted-foreground" />
-              <span className="text-sm">{pitch.comments_count} Comments</span>
+              <span className="text-sm">{pitch.comments_count} Feedback</span>
             </div>
           </div>
           
