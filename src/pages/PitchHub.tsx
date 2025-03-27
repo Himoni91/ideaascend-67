@@ -35,9 +35,10 @@ import {
 import { PitchCategory } from "@/types/pitch";
 import { usePitches } from "@/hooks/use-pitches";
 import { useAuth } from "@/contexts/AuthContext";
-import SubmitPitchForm from "@/components/pitch/SubmitPitchForm";
 import PitchCard from "@/components/pitch/PitchCard";
 import PitchLeaderboard from "@/components/pitch/PitchLeaderboard";
+import MultiStepPitchForm from "@/components/pitch/MultiStepPitchForm";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const PITCH_CATEGORIES: PitchCategory[] = [
   'AI',
@@ -61,6 +62,8 @@ export default function PitchHub() {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [sortBy, setSortBy] = useState<'newest' | 'trending' | 'votes'>('newest');
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isMobile = useIsMobile();
   
   const { 
     pitches, 
@@ -83,9 +86,15 @@ export default function PitchHub() {
       return;
     }
     
+    setIsSubmitting(true);
+    
     createPitch(data, {
       onSuccess: () => {
         setIsSubmitDialogOpen(false);
+        setIsSubmitting(false);
+      },
+      onError: () => {
+        setIsSubmitting(false);
       }
     });
   };
@@ -109,7 +118,7 @@ export default function PitchHub() {
   
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto px-4 lg:px-8">
         <div className="mb-6 md:flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-idolyst-blue to-idolyst-indigo">
@@ -337,7 +346,7 @@ export default function PitchHub() {
       
       {/* Submit Idea Dialog */}
       <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className={`${isMobile ? 'w-[calc(100%-32px)] p-4' : 'sm:max-w-xl'} max-h-[calc(100vh-40px)] overflow-y-auto`}>
           <DialogHeader>
             <DialogTitle>Submit Your Startup Idea</DialogTitle>
             <DialogDescription>
@@ -345,9 +354,10 @@ export default function PitchHub() {
             </DialogDescription>
           </DialogHeader>
           
-          <SubmitPitchForm
+          <MultiStepPitchForm
             onSubmit={handleSubmitPitch}
-            isSubmitting={false}
+            isSubmitting={isSubmitting}
+            onCancel={() => setIsSubmitDialogOpen(false)}
           />
         </DialogContent>
       </Dialog>

@@ -535,7 +535,15 @@ export type Database = {
           user_id?: string
           votes_count?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pitches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       poll_options: {
         Row: {
