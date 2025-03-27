@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Pitch, PitchFormData, PitchVote, PitchComment, MentorReview } from "@/types/pitch";
 import { useAuth } from "@/contexts/AuthContext";
@@ -102,7 +102,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
           ...pitch,
           author: formattedAuthor,
           user_vote: userVotes[pitch.id] || null
-        } as Pitch;
+        } as unknown as Pitch;
       }) || [];
 
       // Get total count for pagination
@@ -235,7 +235,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         ...data,
         author: data.author ? formatProfileData(data.author) : undefined,
         user_vote: null
-      } as Pitch;
+      } as unknown as Pitch;
       
       return formattedPitch;
     },
@@ -367,17 +367,21 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
           }
         }
         
-        // Record view
-        await supabase.rpc('increment_pitch_view', { 
-          pitch_id: pitchId,
-          viewer_id: user?.id
-        });
+        // Record view using custom function
+        try {
+          await supabase.rpc('increment_pitch_view', { 
+            pitch_id: pitchId,
+            viewer_id: user?.id || null
+          });
+        } catch (e) {
+          console.error("Failed to record view:", e);
+        }
         
         const formattedPitch = {
           ...data,
           author: data.author ? formatProfileData(data.author) : undefined,
           user_vote: userVote
-        } as Pitch;
+        } as unknown as Pitch;
         
         return formattedPitch;
       },
@@ -552,5 +556,3 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
     refetch
   };
 }
-
-import { useEffect } from "react";

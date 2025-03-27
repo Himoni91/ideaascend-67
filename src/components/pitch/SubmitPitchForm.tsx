@@ -169,8 +169,14 @@ export default function SubmitPitchForm({ onSubmit, isSubmitting }: SubmitPitchF
 
   const handleSubmitPitch = (values: z.infer<typeof formSchema>) => {
     const pitchData: PitchFormData = {
-      ...values,
-      media_file: mediaFile
+      title: values.title,
+      problem_statement: values.problem_statement,
+      target_audience: values.target_audience,
+      solution: values.solution,
+      category: values.category,
+      tags: values.tags,
+      media_file: mediaFile,
+      is_premium: values.is_premium
     };
     
     onSubmit(pitchData);

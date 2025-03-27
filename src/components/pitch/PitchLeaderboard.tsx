@@ -107,7 +107,7 @@ export default function PitchLeaderboard({ pitches, isLoading, title = "Top Idea
               <div className="flex-1 min-w-0">
                 <div className="flex items-center">
                   <h4 className="font-medium text-sm truncate">{pitch.title}</h4>
-                  <Badge variant="outline" size="sm" className="ml-2 text-xs">
+                  <Badge variant="outline" className="ml-2 text-xs">
                     {pitch.category}
                   </Badge>
                 </div>

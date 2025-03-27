@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -51,7 +52,7 @@ export default function BottomNav() {
       .channel('unread-messages')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'messages', filter: `recipient_id=eq.${user.id}` },
-        (payload) => {
+        () => {
           fetchUnreadCount();
         })
       .subscribe();

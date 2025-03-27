@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   Rocket,
@@ -270,7 +269,7 @@ export default function PitchHub() {
                     >
                       <PitchCard 
                         pitch={pitch} 
-                        onVote={votePitch}
+                        onVote={(voteType) => votePitch({ pitchId: pitch.id, voteType })}
                       />
                     </motion.div>
                   ))}
