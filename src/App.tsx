@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,7 +13,7 @@ import { AuthStatus } from "@/components/auth/AuthStatus";
 import Index from "./pages/Index";
 import PostDetailPage from "./pages/post/[id]";
 import PitchHub from "./pages/PitchHub";
-import PitchHubIdea from "./pages/PitchHubIdea";
+import PitchHubIdeaDetail from "./pages/PitchHubIdeaDetail";
 import MentorSpace from "./pages/MentorSpace";
 import MentorProfile from "./pages/MentorProfile";
 import Ascend from "./pages/Ascend";
@@ -82,7 +83,7 @@ const App = () => (
                 path="/pitch-hub/:id" 
                 element={
                   <RouteGuard requireAuth={true}>
-                    <PitchHubIdea />
+                    <PitchHubIdeaDetail />
                   </RouteGuard>
                 } 
               />

@@ -3,7 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { 
   Home, Users, Lightbulb, Sparkles, Settings, LogOut, 
-  User, Calendar, BarChart, Award, HelpCircle, Compass
+  User, Calendar, BarChart, Award, HelpCircle, Compass,
+  Rocket
 } from "lucide-react";
 import { UserProfileMenu } from "../auth/UserProfileMenu";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/theme/mode-toggle";
 import { Logo } from "@/components/ui/logo";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { motion } from "framer-motion";
 
 const Sidebar = () => {
   const location = useLocation();
@@ -28,8 +30,13 @@ const Sidebar = () => {
 
   const navItems = [
     { name: "Home", icon: Home, path: "/" },
+    { 
+      name: "Pitch Hub", 
+      icon: Rocket, 
+      path: "/pitch-hub",
+      highlight: true 
+    },
     { name: "Mentor Space", icon: Users, path: "/mentor-space" },
-    { name: "Pitch Hub", icon: Lightbulb, path: "/pitch-hub" },
     { name: "Ascend", icon: Sparkles, path: "/ascend" },
     { name: "Discover", icon: Compass, path: "/discover" },
   ];
@@ -66,21 +73,40 @@ const Sidebar = () => {
               "flex items-center px-3 py-2 rounded-md text-sm transition-colors group relative overflow-hidden",
               isActive(item.path) 
                 ? "bg-primary/10 text-primary font-medium" 
-                : "text-foreground/60 hover:text-foreground hover:bg-accent/50"
+                : item.highlight
+                  ? "text-foreground hover:text-foreground hover:bg-accent/50"
+                  : "text-foreground/60 hover:text-foreground hover:bg-accent/50"
             )}
           >
             {isActive(item.path) && (
               <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
             )}
-            <item.icon 
+            <motion.div
+              whileHover={{ scale: 1.1 }}
               className={cn(
-                "h-4 w-4 mr-3 transition-transform", 
-                isActive(item.path) 
-                  ? "text-primary" 
-                  : "text-muted-foreground group-hover:text-foreground"
-              )} 
-            />
-            <span className={isActive(item.path) ? "text-foreground" : ""}>{item.name}</span>
+                "mr-3 flex items-center justify-center h-5 w-5",
+                item.highlight && !isActive(item.path) && "text-idolyst-blue"
+              )}
+            >
+              <item.icon 
+                className={cn(
+                  "h-4 w-4 transition-transform", 
+                  isActive(item.path) 
+                    ? "text-primary" 
+                    : item.highlight
+                      ? "text-idolyst-blue"
+                      : "text-muted-foreground group-hover:text-foreground"
+                )} 
+              />
+            </motion.div>
+            <span className={isActive(item.path) ? "text-foreground" : ""}>
+              {item.name}
+            </span>
+            {item.highlight && !isActive(item.path) && (
+              <span className="ml-auto text-xs bg-idolyst-blue/10 text-idolyst-blue px-1.5 py-0.5 rounded-full">
+                New
+              </span>
+            )}
           </Link>
         ))}
         

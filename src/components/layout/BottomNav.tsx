@@ -1,133 +1,213 @@
-
-import { Link, useLocation } from "react-router-dom";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { Home, Users, Rocket, Sparkles, Menu, X, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 
-const BottomNav = () => {
+export default function BottomNav() {
   const location = useLocation();
-  const path = location.pathname;
-
-  const isActive = (route: string) => {
-    return path === route;
-  };
+  const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  
+  const navItems = [
+    { path: "/", label: "Home", icon: Home },
+    { path: "/mentor-space", label: "Mentor", icon: Users },
+    { path: "/pitch-hub", label: "Pitch", icon: Rocket, highlight: true },
+    { path: "/ascend", label: "Ascend", icon: Sparkles },
+    { path: "/messages", label: "Messages", icon: MessageSquare, badge: unreadCount },
+  ];
+  
+  const isActive = (path: string) => location.pathname === path;
+  
+  // Fetch unread message count
+  useEffect(() => {
+    if (!user) return;
+    
+    // Example: fetch unread count from supabase
+    const fetchUnreadCount = async () => {
+      try {
+        const { count } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('recipient_id', user.id)
+          .eq('is_read', false);
+          
+        setUnreadCount(count || 0);
+      } catch (error) {
+        console.error('Error fetching unread count:', error);
+      }
+    };
+    
+    fetchUnreadCount();
+    
+    // Set up realtime subscription for new messages
+    const channel = supabase
+      .channel('unread-messages')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'messages', filter: `recipient_id=eq.${user.id}` },
+        (payload) => {
+          fetchUnreadCount();
+        })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   return (
-    <motion.nav 
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 pb-safe shadow-lg"
-      initial={{ y: 100 }}
-      animate={{ y: 0 }}
-      transition={{ duration: 0.3, delay: 0.2 }}
-    >
-      <div className="flex items-center justify-around h-16">
-        {/* Launchpad */}
-        <Link 
-          to="/" 
-          className={cn(
-            "flex flex-col items-center justify-center w-full h-full transition-colors duration-200",
-            isActive('/') ? 'text-idolyst-blue' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-          )}
-        >
-          <motion.div
-            whileTap={{ scale: 0.9 }}
-            transition={{ duration: 0.2 }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-              <polyline points="9 22 9 12 15 12 15 22"></polyline>
-            </svg>
-            <span className="text-xs mt-1 font-medium">Home</span>
-          </motion.div>
-        </Link>
-
-        {/* MentorSpace */}
-        <Link 
-          to="/mentor-space" 
-          className={cn(
-            "flex flex-col items-center justify-center w-full h-full transition-colors duration-200",
-            isActive('/mentor-space') ? 'text-idolyst-blue' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-          )}
-        >
-          <motion.div
-            whileTap={{ scale: 0.9 }}
-            transition={{ duration: 0.2 }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M5.3 18.7l5.3-5.3-5.3-5.3"></path>
-              <path d="m10.6 13.4 5.3-5.3"></path>
-            </svg>
-            <span className="text-xs mt-1 font-medium">Mentors</span>
-          </motion.div>
-        </Link>
-
-        {/* PitchHub - Center with highlight */}
-        <Link 
-          to="/pitch-hub" 
-          className="flex flex-col items-center justify-center w-full h-full relative"
-        >
-          <motion.div 
+    <>
+      <motion.nav
+        className="fixed bottom-0 left-0 right-0 h-16 bg-background border-t border-border flex items-center justify-around px-2 z-40"
+        initial={{ y: 100 }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", damping: 20, stiffness: 300 }}
+      >
+        {navItems.map((item) => (
+          <motion.button
+            key={item.path}
             className={cn(
-              "absolute -top-5 p-3 rounded-full shadow-md transition-all duration-300",
-              isActive('/pitch-hub') ? 'bg-idolyst-blue text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+              "flex flex-col items-center justify-center h-full w-16 relative",
+              isActive(item.path) ? "text-primary" : "text-muted-foreground"
             )}
+            onClick={() => navigate(item.path)}
             whileTap={{ scale: 0.9 }}
-            transition={{ duration: 0.2 }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"></path>
-              <path d="M9 18h6"></path>
-              <path d="M10 22h4"></path>
-            </svg>
-          </motion.div>
-          <span className="text-xs mt-6 font-medium">Pitch</span>
-        </Link>
-
-        {/* Ascend */}
-        <Link 
-          to="/ascend" 
-          className={cn(
-            "flex flex-col items-center justify-center w-full h-full transition-colors duration-200",
-            isActive('/ascend') ? 'text-idolyst-blue' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-          )}
+            {isActive(item.path) && (
+              <motion.span
+                className="absolute -top-1.5 w-8 h-1 bg-primary rounded-b-full"
+                layoutId="activeTab"
+                transition={{ type: "spring", damping: 30, stiffness: 400 }}
+              />
+            )}
+            
+            <motion.div
+              className={cn(
+                "flex items-center justify-center rounded-full h-10 w-10",
+                isActive(item.path) && "bg-primary/10",
+                item.highlight && !isActive(item.path) && "text-idolyst-blue"
+              )}
+              whileHover={{ scale: 1.1 }}
+            >
+              <item.icon className={cn(
+                "h-5 w-5",
+                item.highlight && !isActive(item.path) ? "text-idolyst-blue" : ""
+              )} />
+              
+              {item.badge && item.badge > 0 && (
+                <Badge 
+                  className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0"
+                >
+                  {item.badge > 9 ? '9+' : item.badge}
+                </Badge>
+              )}
+            </motion.div>
+            
+            <span className="text-xs mt-1">{item.label}</span>
+          </motion.button>
+        ))}
+        
+        <motion.button
+          className="flex flex-col items-center justify-center h-full w-16 text-muted-foreground relative"
+          onClick={() => setIsMenuOpen(true)}
+          whileTap={{ scale: 0.9 }}
         >
           <motion.div
-            whileTap={{ scale: 0.9 }}
-            transition={{ duration: 0.2 }}
+            className="flex items-center justify-center rounded-full h-10 w-10"
+            whileHover={{ scale: 1.1 }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m2 20 2-2h2l5-5 5 5h2l4 4"></path>
-              <path d="M18.5 5.5a2.5 2.5 0 0 0-5 0 2.5 2.5 0 0 0 5 0Z"></path>
-              <path d="M18.5 2.5V5"></path>
-              <path d="M18.5 8.5V11"></path>
-              <path d="M16 5.5H13.5"></path>
-              <path d="M18.5 5.5H21"></path>
-            </svg>
-            <span className="text-xs mt-1 font-medium">Ascend</span>
+            {user && profile ? (
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={profile.avatar_url || undefined} />
+                <AvatarFallback>{profile.full_name?.[0] || profile.username?.[0] || "U"}</AvatarFallback>
+              </Avatar>
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </motion.div>
-        </Link>
-
-        {/* Profile */}
-        <Link 
-          to="/profile" 
-          className={cn(
-            "flex flex-col items-center justify-center w-full h-full transition-colors duration-200",
-            isActive('/profile') ? 'text-idolyst-blue' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-          )}
-        >
-          <motion.div
-            whileTap={{ scale: 0.9 }}
-            transition={{ duration: 0.2 }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="8" r="5"></circle>
-              <path d="M20 21a8 8 0 0 0-16 0"></path>
-            </svg>
-            <span className="text-xs mt-1 font-medium">Profile</span>
-          </motion.div>
-        </Link>
-      </div>
-    </motion.nav>
+          <span className="text-xs mt-1">More</span>
+        </motion.button>
+      </motion.nav>
+      
+      <AnimatePresence>
+        {isMenuOpen && (
+          <>
+            <motion.div
+              className="fixed inset-0 bg-black/50 z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMenuOpen(false)}
+            />
+            
+            <motion.div
+              className="fixed bottom-0 left-0 right-0 bg-background border-t border-border rounded-t-xl p-4 z-50"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">More Options</h3>
+                <button
+                  onClick={() => setIsMenuOpen(false)}
+                  className="rounded-full p-2 hover:bg-muted"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-1">
+                <button
+                  className="w-full text-left py-3 px-4 rounded-lg hover:bg-muted flex items-center"
+                  onClick={() => {
+                    navigate('/profile');
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <Avatar className="h-8 w-8 mr-3">
+                    <AvatarImage src={profile?.avatar_url || undefined} />
+                    <AvatarFallback>{profile?.full_name?.[0] || profile?.username?.[0] || "U"}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="font-medium">
+                      {profile?.full_name || profile?.username || "Your Profile"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      View your profile
+                    </div>
+                  </div>
+                </button>
+                
+                {[
+                  { label: "Calendar", path: "/calendar" },
+                  { label: "Analytics", path: "/analytics" },
+                  { label: "Achievements", path: "/achievements" },
+                  { label: "Settings", path: "/profile/settings" },
+                  { label: "Help & Support", path: "/help" },
+                ].map((item) => (
+                  <button
+                    key={item.path}
+                    className="w-full text-left py-3 px-4 rounded-lg hover:bg-muted"
+                    onClick={() => {
+                      navigate(item.path);
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
-};
-
-export default BottomNav;
+}
