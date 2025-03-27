@@ -84,18 +84,18 @@ function App() {
                 </RouteGuard>
               } />
               
-              {/* Profile Routes */}
-              <Route path="/profile" element={
-                <RouteGuard>
-                  <Profile />
-                </RouteGuard>
-              } />
+              {/* Profile Routes - Important: Order matters for route matching */}
               <Route path="/profile/settings" element={
                 <RouteGuard>
                   <ProfileSettings />
                 </RouteGuard>
               } />
               <Route path="/profile/:username" element={
+                <RouteGuard>
+                  <Profile />
+                </RouteGuard>
+              } />
+              <Route path="/profile" element={
                 <RouteGuard>
                   <Profile />
                 </RouteGuard>
