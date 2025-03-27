@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -271,7 +270,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
       )
       .on('postgres_changes', 
           { event: '*', schema: 'public', table: 'post_reactions' },
-          (payload) => {
+          (payload: any) => {
             console.log('Reaction changed:', payload);
             if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
               const postId = payload.new?.post_id || payload.old?.post_id;
@@ -294,7 +293,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
       )
       .on('postgres_changes', 
           { event: '*', schema: 'public', table: 'post_comments' },
-          (payload) => {
+          (payload: any) => {
             console.log('Comment changed:', payload);
             if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
               const postId = payload.new?.post_id || payload.old?.post_id;

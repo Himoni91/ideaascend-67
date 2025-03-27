@@ -25,8 +25,8 @@ export default function CategoryFilter({
   return (
     <div className="relative mb-6">
       <ScrollArea 
-        className="pb-2 max-w-full" 
-        orientation="horizontal"
+        className="pb-2 max-w-full"
+        // Remove the orientation prop as it's not supported in the current ScrollArea component
       >
         <div className="flex space-x-2 pb-1 pt-1">
           <motion.div

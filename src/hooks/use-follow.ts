@@ -57,22 +57,22 @@ export function useFollow() {
           return { 
             follower_id: user.id, 
             following_id: userId,
-            alreadyFollowing: true
+            alreadyFollowing: true as const
           };
         }
         throw error;
       }
       
-      return data;
+      return { ...data, alreadyFollowing: false as const };
     },
     onSuccess: (data, userId) => {
-      // Only update state if not already following
-      if (!data.alreadyFollowing && !followingIds.includes(userId)) {
+      // Fixed type checking for alreadyFollowing property
+      if ('alreadyFollowing' in data && !data.alreadyFollowing && !followingIds.includes(userId)) {
         setFollowingIds(prev => [...prev, userId]);
         queryClient.invalidateQueries({ queryKey: ["following", user?.id] });
         queryClient.invalidateQueries({ queryKey: ["posts"] });
         toast.success("User followed successfully");
-      } else if (data.alreadyFollowing) {
+      } else if ('alreadyFollowing' in data && data.alreadyFollowing) {
         toast.info("You are already following this user");
       }
     },
