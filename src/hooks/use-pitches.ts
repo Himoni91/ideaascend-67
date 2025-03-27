@@ -369,9 +369,9 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         
         // Record view using custom function
         try {
-          await supabase.rpc('increment_pitch_view', { 
-            pitch_id: pitchId,
-            viewer_id: user?.id || null
+          // Use increment_view_count function for now as a workaround
+          await supabase.rpc('increment_view_count', { 
+            post_id: pitchId
           });
         } catch (e) {
           console.error("Failed to record view:", e);

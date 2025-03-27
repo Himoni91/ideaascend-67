@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
@@ -14,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface PitchCardProps {
   pitch: Pitch;
-  onVote?: (pitchId: string, voteType: 'up' | 'down') => void;
+  onVote?: (voteType: 'up' | 'down') => void;
   compact?: boolean;
 }
 
@@ -40,7 +39,7 @@ export default function PitchCard({ pitch, onVote, compact = false }: PitchCardP
     }
     
     if (onVote) {
-      onVote(pitch.id, voteType);
+      onVote(voteType);
     }
   };
   

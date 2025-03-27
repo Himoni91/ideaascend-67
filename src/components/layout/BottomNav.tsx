@@ -16,12 +16,13 @@ export default function BottomNav() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   
+  // Define nav items outside of render to avoid circular references
   const navItems = [
     { path: "/", label: "Home", icon: Home },
     { path: "/mentor-space", label: "Mentor", icon: Users },
     { path: "/pitch-hub", label: "Pitch", icon: Rocket, highlight: true },
     { path: "/ascend", label: "Ascend", icon: Sparkles },
-    { path: "/messages", label: "Messages", icon: MessageSquare, badge: unreadCount },
+    { path: "/messages", label: "Messages", icon: MessageSquare, badge: unreadCount > 0 ? unreadCount : undefined },
   ];
   
   const isActive = (path: string) => location.pathname === path;
