@@ -35,7 +35,7 @@ export default function EditPostModal({
   const { categories } = useCategories();
   
   const [content, setContent] = useState(post.content);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
     post.categories?.map(cat => cat.id) || []
   );
   const [mediaFile, setMediaFile] = useState<File | null>(null);
@@ -45,7 +45,7 @@ export default function EditPostModal({
   useEffect(() => {
     if (isOpen) {
       setContent(post.content);
-      setSelectedCategories(post.categories?.map(cat => cat.id) || []);
+      setSelectedCategoryIds(post.categories?.map(cat => cat.id) || []);
       setMediaPreview(post.media_url || null);
     }
   }, [isOpen, post]);
@@ -112,7 +112,7 @@ export default function EditPostModal({
       if (error) throw error;
       
       // Handle categories updates
-      if (selectedCategories.length > 0) {
+      if (selectedCategoryIds.length > 0) {
         // Delete existing categories first
         await supabase
           .from('post_categories')
@@ -120,7 +120,7 @@ export default function EditPostModal({
           .eq('post_id', post.id);
         
         // Insert new categories
-        const categoryInserts = selectedCategories.map(categoryId => ({
+        const categoryInserts = selectedCategoryIds.map(categoryId => ({
           post_id: post.id,
           category_id: categoryId
         }));
@@ -185,21 +185,17 @@ export default function EditPostModal({
           
           {mediaPreview && (
             <div className="relative rounded-md overflow-hidden">
-              <MediaPreview url={mediaPreview} type={mediaFile?.type || post.media_type || ''} />
-              <Button
-                size="icon"
-                variant="destructive"
-                className="absolute top-2 right-2 h-6 w-6 rounded-full"
-                onClick={handleRemoveMedia}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <MediaPreview 
+                file={mediaFile || new File([], "placeholder", { type: post.media_type || "" })} 
+                preview={mediaPreview} 
+                onRemove={handleRemoveMedia}
+              />
             </div>
           )}
           
           <CategorySelector
-            selectedCategories={selectedCategories}
-            onCategoryChange={setSelectedCategories}
+            selectedCategoryIds={selectedCategoryIds}
+            onChange={setSelectedCategoryIds}
             categories={categories}
           />
         </div>

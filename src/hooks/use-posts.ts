@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,6 +6,12 @@ import { Post, PostWithCategories, FeedFilter } from "@/types/post";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProfileType } from "@/types/profile";
+
+// Define a simple page-based response type for pagination
+type PageResponse<T> = {
+  data: T[];
+  hasMore: boolean;
+};
 
 export function usePosts(
   categoryName?: string,
@@ -591,19 +598,16 @@ export function usePosts(
 
   // Function to update a post in the cache
   const updatePost = useCallback((updatedPost: Post) => {
-    queryClient.setQueryData<InfiniteData<{ data: Post[] }>>(
+    queryClient.setQueryData(
       ['posts', categoryName, filter],
-      (oldData) => {
+      (oldData: PageResponse<Post> | undefined) => {
         if (!oldData) return oldData;
         
         return {
           ...oldData,
-          pages: oldData.pages.map(page => ({
-            ...page,
-            data: page.data.map(post => 
-              post.id === updatedPost.id ? updatedPost : post
-            )
-          }))
+          data: oldData.data.map(post => 
+            post.id === updatedPost.id ? updatedPost : post
+          )
         };
       }
     );
@@ -611,17 +615,14 @@ export function usePosts(
   
   // Function to delete a post from the cache
   const deletePost = useCallback((postId: string) => {
-    queryClient.setQueryData<InfiniteData<{ data: Post[] }>>(
+    queryClient.setQueryData(
       ['posts', categoryName, filter],
-      (oldData) => {
+      (oldData: PageResponse<Post> | undefined) => {
         if (!oldData) return oldData;
         
         return {
           ...oldData,
-          pages: oldData.pages.map(page => ({
-            ...page,
-            data: page.data.filter(post => post.id !== postId)
-          }))
+          data: oldData.data.filter(post => post.id !== postId)
         };
       }
     );
