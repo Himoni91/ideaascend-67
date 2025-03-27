@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -99,6 +100,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         
         return {
           ...pitch,
+          problem_statement: pitch.description, // Map description to problem_statement
           author: formattedAuthor,
           user_vote: userVotes[pitch.id] || null
         } as unknown as Pitch;
@@ -369,7 +371,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         
         // Record view using custom function
         try {
-          // Use increment_view_count function as a temporary workaround
+          // Use increment_pitch_view function we just created
           await supabase.rpc('increment_pitch_view', { 
             pitch_id: pitchId
           });

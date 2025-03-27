@@ -19,7 +19,7 @@ export interface Pitch {
   id: string;
   user_id: string;
   title: string;
-  problem_statement: string;
+  problem_statement: string; // Maps to 'description' in the database
   target_audience: string;
   solution: string;
   category: PitchCategory | string;
@@ -35,8 +35,9 @@ export interface Pitch {
   updated_at: string;
   author?: ProfileType;
   user_vote?: 'up' | 'down' | null;
-  // These fields map to 'description' in the database
-  description?: string; 
+  
+  // For database compatibility
+  description?: string; // This maps to problem_statement in our UI
 }
 
 export interface PitchComment {
