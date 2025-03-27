@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -379,7 +380,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
           }).catch(() => {
             // If RPC fails, fallback to direct update
             supabase.from('pitches')
-              .update({ trending_score: supabase.sql`trending_score + 1` })
+              .update({ trending_score: data.trending_score + 1 })
               .eq('id', pitchId);
           });
         } catch (e) {

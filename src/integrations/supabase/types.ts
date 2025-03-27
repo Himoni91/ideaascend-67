@@ -491,7 +491,9 @@ export type Database = {
           media_type: string | null
           media_url: string | null
           mentor_reviews_count: number | null
+          solution: string | null
           tags: string[] | null
+          target_audience: string | null
           title: string
           trending_score: number | null
           user_id: string
@@ -507,7 +509,9 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           mentor_reviews_count?: number | null
+          solution?: string | null
           tags?: string[] | null
+          target_audience?: string | null
           title: string
           trending_score?: number | null
           user_id: string
@@ -523,7 +527,9 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           mentor_reviews_count?: number | null
+          solution?: string | null
           tags?: string[] | null
+          target_audience?: string | null
           title?: string
           trending_score?: number | null
           user_id?: string
@@ -1388,6 +1394,13 @@ export type Database = {
         Returns: {
           role: string
         }[]
+      }
+      increment_pitch_view: {
+        Args: {
+          pitch_id: string
+          viewer_id?: string
+        }
+        Returns: undefined
       }
       increment_view_count: {
         Args: {
