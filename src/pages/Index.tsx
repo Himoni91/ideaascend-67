@@ -4,7 +4,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePosts } from "@/hooks/use-posts";
 import { useCategories } from "@/hooks/use-categories";
-import { FeedFilter } from "@/types/post";
+import { FeedFilter, Post } from "@/types/post";
 import { supabase } from "@/integrations/supabase/client";
 
 // Components
@@ -45,7 +45,9 @@ export default function Index() {
     loadMore,
     reactToPost,
     repostPost,
-    refetch
+    refetch,
+    updatePost,
+    deletePost
   } = usePosts(
     activeCategory === "All" ? undefined : activeCategory,
     activeFilter
@@ -127,6 +129,16 @@ export default function Index() {
   const handleRepost = useCallback((postId: string) => {
     repostPost(postId);
   }, [repostPost]);
+  
+  const handlePostUpdated = useCallback((updatedPost: Post) => {
+    updatePost(updatedPost);
+    toast.success("Post updated successfully");
+  }, [updatePost]);
+  
+  const handlePostDeleted = useCallback((postId: string) => {
+    deletePost(postId);
+    toast.success("Post deleted successfully");
+  }, [deletePost]);
 
   const handleRefresh = useCallback(() => {
     refetch();
@@ -296,6 +308,8 @@ export default function Index() {
                       onClickComment={() => handleCommentClick(post.id)}
                       onReaction={handleReaction}
                       onRepost={handleRepost}
+                      onPostUpdated={handlePostUpdated}
+                      onPostDeleted={handlePostDeleted}
                     />
                   </motion.div>
                 ))}
@@ -350,6 +364,11 @@ export default function Index() {
                   post={posts.find(p => p.id === expandedPost)!} 
                   onReaction={handleReaction}
                   onRepost={handleRepost}
+                  onPostUpdated={handlePostUpdated}
+                  onPostDeleted={postId => {
+                    handlePostDeleted(postId);
+                    setExpandedPost(null);
+                  }}
                 />
                 
                 <div className="mt-4">

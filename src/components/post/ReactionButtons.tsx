@@ -11,7 +11,6 @@ import {
   ThumbsUp,
   MessageSquare,
   Share2,
-  BookmarkPlus,
   Repeat
 } from "lucide-react";
 import {
@@ -96,28 +95,108 @@ export default function ReactionButtons({
   if (compact) {
     return (
       <div className="flex items-center space-x-2 text-muted-foreground">
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "h-7 w-7 rounded-full",
-            post.userReaction?.reaction_type === "like" && "text-primary"
-          )}
-          onClick={() => handleReactionClick("like")}
-        >
-          <ThumbsUp className="h-3.5 w-3.5" />
-        </Button>
-        <span className="text-xs">{post.likes_count || 0}</span>
+        <Popover open={showReactions} onOpenChange={setShowReactions}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-8 w-8 rounded-full",
+                post.userReaction && "text-primary hover:text-primary"
+              )}
+            >
+              {post.userReaction ? (
+                <span className="text-lg">
+                  {reactionTypes.find(
+                    (r) => r.name === post.userReaction?.reaction_type
+                  )?.icon || "👍"}
+                </span>
+              ) : (
+                <ThumbsUp className="h-4 w-4" />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="p-1 flex bg-background/80 backdrop-blur-lg border rounded-full"
+            align="start"
+          >
+            <AnimatePresence>
+              <div className="flex gap-1">
+                {reactionTypes.map((reaction) => (
+                  <TooltipProvider key={reaction.id} delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <motion.button
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          exit={{ scale: 0 }}
+                          whileHover={{ 
+                            scale: 1.2, 
+                            y: -5,
+                            transition: { type: "spring", stiffness: 400, damping: 10 }
+                          }}
+                          onClick={() => handleReactionClick(reaction.name)}
+                          className={cn(
+                            "text-2xl p-2 rounded-full hover:bg-muted transition-all",
+                            post.userReaction?.reaction_type === reaction.name &&
+                              "bg-primary/10"
+                          )}
+                          style={{
+                            color: reaction.color || "currentColor",
+                          }}
+                        >
+                          {reaction.icon}
+                        </motion.button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <span className="capitalize">{reaction.name}</span>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ))}
+              </div>
+            </AnimatePresence>
+          </PopoverContent>
+        </Popover>
+        
+        <span className="text-xs font-medium">{post.likes_count || 0}</span>
         
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 rounded-full"
+          className="h-8 w-8 rounded-full"
           onClick={onClickComment}
         >
-          <MessageSquare className="h-3.5 w-3.5" />
+          <MessageSquare className="h-4 w-4" />
         </Button>
-        <span className="text-xs">{post.comments_count || 0}</span>
+        
+        <span className="text-xs font-medium">{post.comments_count || 0}</span>
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-8 w-8 rounded-full",
+            post.isReposted && "text-green-500"
+          )}
+          onClick={handleRepostClick}
+        >
+          <Repeat className={cn(
+            "h-4 w-4",
+            post.isReposted && "text-green-500"
+          )} />
+        </Button>
+        
+        <span className="text-xs font-medium">{post.reposts_count || 0}</span>
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-full"
+          onClick={handleShare}
+        >
+          <Share2 className="h-4 w-4" />
+        </Button>
       </div>
     );
   }

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -7,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { Post } from "@/types/post";
-import { BarChart3, MessageSquare, CheckCircle2, Eye } from "lucide-react";
+import { BarChart3, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner"; 
 import { useFollow } from "@/hooks/use-follow";
@@ -19,7 +20,10 @@ import PostPoll from "./PostPoll";
 import PostComments from "./PostComments";
 import ReactionButtons from "./ReactionButtons";
 import PostHeader from "./PostHeader";
+import PostActionsMenu from "./PostActionsMenu";
+import EditPostModal from "./EditPostModal";
 import { usePostViews } from "@/hooks/use-post-views";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface EnhancedPostCardProps {
   post: Post;
@@ -28,6 +32,8 @@ interface EnhancedPostCardProps {
   compact?: boolean;
   onClickComment?: (postId: string) => void;
   showComments?: boolean;
+  onPostUpdated?: (updatedPost: Post) => void;
+  onPostDeleted?: (postId: string) => void;
 }
 
 export default function EnhancedPostCard({ 
@@ -36,14 +42,18 @@ export default function EnhancedPostCard({
   onRepost,
   compact = false, 
   onClickComment,
-  showComments = false
+  showComments = false,
+  onPostUpdated,
+  onPostDeleted
 }: EnhancedPostCardProps) {
   const { user } = useAuth();
   const { followUser, unfollowUser, isFollowing } = useFollow();
   const [showAllContent, setShowAllContent] = useState(false);
   const [showCommentsSection, setShowCommentsSection] = useState(showComments);
+  const [showEditModal, setShowEditModal] = useState(false);
   const { linkPreview } = useEnhancedLinkPreview(post.content);
   const { viewCount } = usePostViews(post.id);
+  const isMobile = useIsMobile();
   
   const isLongContent = post.content.length > 280;
   const displayContent = !showAllContent && isLongContent 
@@ -92,13 +102,10 @@ export default function EnhancedPostCard({
     const authorId = post.author?.id;
     if (!authorId) return;
     
-    if (isFollowing) {
-      const isFollowingAuthor = isFollowing(authorId);
-      if (isFollowingAuthor) {
-        unfollowUser(authorId);
-      } else {
-        followUser(authorId);
-      }
+    if (isFollowing(authorId)) {
+      unfollowUser(authorId);
+    } else {
+      followUser(authorId);
     }
   };
 
@@ -107,6 +114,22 @@ export default function EnhancedPostCard({
       onClickComment(post.id);
     } else {
       setShowCommentsSection(!showCommentsSection);
+    }
+  };
+  
+  const handleEditClick = () => {
+    setShowEditModal(true);
+  };
+  
+  const handlePostUpdated = (updatedPost: Post) => {
+    if (onPostUpdated) {
+      onPostUpdated(updatedPost);
+    }
+  };
+  
+  const handlePostDeleted = () => {
+    if (onPostDeleted) {
+      onPostDeleted(post.id);
     }
   };
 
@@ -141,11 +164,20 @@ export default function EnhancedPostCard({
   return (
     <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow duration-300">
       <CardContent className="p-5">
-        <PostHeader 
-          author={post.author}
-          timestamp={post.created_at}
-          isTrending={post.isTrending}
-        />
+        <div className="flex items-start justify-between">
+          <PostHeader 
+            author={post.author}
+            timestamp={post.created_at}
+            isTrending={post.isTrending}
+            onFollowClick={handleFollowClick}
+          />
+          
+          <PostActionsMenu 
+            post={post} 
+            onEdit={handleEditClick} 
+            onDelete={handlePostDeleted}
+          />
+        </div>
         
         <div className="mt-3 mb-4">
           <div className="whitespace-pre-wrap mb-4">
@@ -233,6 +265,7 @@ export default function EnhancedPostCard({
           onRepost={handleRepost}
           onClickComment={handleCommentClick}
           showComments={showCommentsSection}
+          compact={isMobile}
         />
       </CardFooter>
       
@@ -250,6 +283,13 @@ export default function EnhancedPostCard({
           </motion.div>
         )}
       </AnimatePresence>
+      
+      <EditPostModal
+        post={post}
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onPostUpdated={handlePostUpdated}
+      />
     </Card>
   );
 }

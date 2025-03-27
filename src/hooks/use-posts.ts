@@ -1,19 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Post, PostWithCategories, FeedFilter } from "@/types/post";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProfileType } from "@/types/profile";
 
-export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') {
+export function usePosts(
+  categoryName?: string,
+  filter: FeedFilter = 'all',
+  limit: number = 10
+) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const pageSize = 10;
 
-  const queryKey = ["posts", categoryName, feedFilter, currentPage, pageSize];
+  const queryKey = ["posts", categoryName, filter, currentPage, limit];
 
   const formatProfileData = (profileData: any): ProfileType => {
     const defaultBadges = [
@@ -73,15 +76,15 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           )
         `)
         .order('created_at', { ascending: false })
-        .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
+        .range((currentPage - 1) * limit, currentPage * limit - 1);
 
       if (categoryName && categoryName !== 'All') {
         query = query.eq('post_categories.category.name', categoryName);
       }
 
-      if (feedFilter === 'trending') {
+      if (filter === 'trending') {
         query = query.order('trending_score', { ascending: false });
-      } else if (feedFilter === 'following' && user) {
+      } else if (filter === 'following' && user) {
         const { data: followingData } = await supabase
           .from("user_follows")
           .select("following_id")
@@ -108,7 +111,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
           .select("*", { count: 'exact', head: true })
           .eq('category.name', categoryName);
         count = categoryCount;
-      } else if (feedFilter === 'following' && user) {
+      } else if (filter === 'following' && user) {
         const { data: followingData } = await supabase
           .from("user_follows")
           .select("following_id")
@@ -132,7 +135,7 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
         count = postsCount;
       }
 
-      const hasMore = count ? (currentPage * pageSize) < count : false;
+      const hasMore = count ? (currentPage * limit) < count : false;
 
       const transformedData = await Promise.all(data?.map(async (post) => {
         const formattedAuthor = formatProfileData(post.author);
@@ -586,6 +589,44 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     }
   };
 
+  // Function to update a post in the cache
+  const updatePost = useCallback((updatedPost: Post) => {
+    queryClient.setQueryData<InfiniteData<{ data: Post[] }>>(
+      ['posts', categoryName, filter],
+      (oldData) => {
+        if (!oldData) return oldData;
+        
+        return {
+          ...oldData,
+          pages: oldData.pages.map(page => ({
+            ...page,
+            data: page.data.map(post => 
+              post.id === updatedPost.id ? updatedPost : post
+            )
+          }))
+        };
+      }
+    );
+  }, [queryClient, categoryName, filter]);
+  
+  // Function to delete a post from the cache
+  const deletePost = useCallback((postId: string) => {
+    queryClient.setQueryData<InfiniteData<{ data: Post[] }>>(
+      ['posts', categoryName, filter],
+      (oldData) => {
+        if (!oldData) return oldData;
+        
+        return {
+          ...oldData,
+          pages: oldData.pages.map(page => ({
+            ...page,
+            data: page.data.filter(post => post.id !== postId)
+          }))
+        };
+      }
+    );
+  }, [queryClient, categoryName, filter]);
+
   return {
     posts: posts?.data || [],
     isLoading,
@@ -595,6 +636,8 @@ export function usePosts(categoryName?: string, feedFilter: FeedFilter = 'all') 
     createPost: createPost.mutate,
     reactToPost: reactToPost.mutate,
     repostPost: repostPost.mutate,
-    refetch
+    refetch,
+    updatePost,
+    deletePost
   };
 }

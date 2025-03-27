@@ -1,27 +1,28 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ProfileType } from "@/types/profile";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageSquare, ThumbsUp, Share2, MoreHorizontal, Filter, Image as ImageIcon } from "lucide-react";
+import { Filter } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Post } from "@/types/post";
+import EnhancedPostCard from "@/components/post/EnhancedPostCard";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 interface ProfilePostsProps {
   profile: ProfileType;
 }
 
 export default function ProfilePosts({ profile }: ProfilePostsProps) {
-  const [posts, setPosts] = useState<any[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("newest");
 
@@ -30,7 +31,16 @@ export default function ProfilePosts({ profile }: ProfilePostsProps) {
     try {
       let query = supabase
         .from('posts')
-        .select('*')
+        .select(`
+          *,
+          author:user_id(
+            id, username, full_name, avatar_url, is_verified, position, byline
+          ),
+          categories:post_categories(
+            id,
+            category:category_id(id, name, icon, color)
+          )
+        `)
         .eq('user_id', profile.id);
       
       if (filter === "newest") {
@@ -44,7 +54,14 @@ export default function ProfilePosts({ profile }: ProfilePostsProps) {
       const { data, error } = await query;
       
       if (error) throw error;
-      setPosts(data || []);
+      
+      // Format post data
+      const formattedPosts = data?.map(post => ({
+        ...post,
+        categories: post.categories?.map((c: any) => c.category) || []
+      })) || [];
+      
+      setPosts(formattedPosts as Post[]);
     } catch (error) {
       console.error("Error fetching posts:", error);
     } finally {
@@ -71,12 +88,67 @@ export default function ProfilePosts({ profile }: ProfilePostsProps) {
     };
   }, [profile.id, filter]);
 
+  const handleReaction = useCallback(async (postId: string, reactionType: string) => {
+    try {
+      // Check if user already reacted to this post
+      const { data: existingReaction } = await supabase
+        .from('post_reactions')
+        .select('*')
+        .eq('post_id', postId)
+        .eq('user_id', profile.id)
+        .single();
+      
+      if (existingReaction) {
+        // If same reaction, remove it (toggle off)
+        if (existingReaction.reaction_type === reactionType) {
+          await supabase
+            .from('post_reactions')
+            .delete()
+            .eq('id', existingReaction.id);
+        } else {
+          // If different reaction, update it
+          await supabase
+            .from('post_reactions')
+            .update({ reaction_type: reactionType })
+            .eq('id', existingReaction.id);
+        }
+      } else {
+        // Create new reaction
+        await supabase
+          .from('post_reactions')
+          .insert({
+            post_id: postId,
+            user_id: profile.id,
+            reaction_type: reactionType
+          });
+      }
+      
+      // Refetch posts to get updated reaction counts
+      fetchPosts();
+    } catch (error) {
+      console.error("Error handling reaction:", error);
+      toast.error("Failed to record reaction");
+    }
+  }, [profile.id]);
+  
+  const handlePostUpdated = useCallback((updatedPost: Post) => {
+    setPosts(prevPosts => 
+      prevPosts.map(post => post.id === updatedPost.id ? updatedPost : post)
+    );
+    toast.success("Post updated successfully");
+  }, []);
+  
+  const handlePostDeleted = useCallback((postId: string) => {
+    setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+    toast.success("Post deleted successfully");
+  }, []);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
         {Array.from({ length: 3 }).map((_, i) => (
           <Card key={i}>
-            <CardContent className="pt-6">
+            <div className="p-6">
               <div className="flex items-center mb-4">
                 <Skeleton className="h-10 w-10 rounded-full" />
                 <div className="ml-3">
@@ -87,14 +159,7 @@ export default function ProfilePosts({ profile }: ProfilePostsProps) {
               <Skeleton className="h-4 w-full mb-2" />
               <Skeleton className="h-4 w-full mb-2" />
               <Skeleton className="h-4 w-3/4" />
-            </CardContent>
-            <CardFooter>
-              <div className="flex gap-4 w-full">
-                <Skeleton className="h-6 w-20" />
-                <Skeleton className="h-6 w-20" />
-                <Skeleton className="h-6 w-20" />
-              </div>
-            </CardFooter>
+            </div>
           </Card>
         ))}
       </div>
@@ -152,7 +217,18 @@ export default function ProfilePosts({ profile }: ProfilePostsProps) {
       
       {posts.length === 0 ? (
         <div className="text-center py-12 border rounded-lg bg-muted/20">
-          <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
           <h3 className="text-lg font-medium mb-1">No posts yet</h3>
           <p className="text-sm text-muted-foreground max-w-sm mx-auto">
             {profile.id === profile.id 
@@ -169,73 +245,12 @@ export default function ProfilePosts({ profile }: ProfilePostsProps) {
         >
           {posts.map((post) => (
             <motion.div key={post.id} variants={item}>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center">
-                      <Avatar>
-                        <AvatarImage src={profile.avatar_url || undefined} alt={profile.full_name || profile.username} />
-                        <AvatarFallback>
-                          {profile.full_name?.charAt(0) || profile.username?.charAt(0) || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="ml-3">
-                        <p className="text-sm font-medium">{profile.full_name || profile.username}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                        </p>
-                      </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">More options</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Copy link</DropdownMenuItem>
-                        <DropdownMenuItem>Report</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <p className="text-sm">{post.content}</p>
-                    
-                    {post.media_url && (
-                      <div className="rounded-lg overflow-hidden border bg-muted/20 aspect-video flex items-center justify-center">
-                        {post.type === 'image' ? (
-                          <img 
-                            src={post.media_url} 
-                            alt="Post attachment" 
-                            className="object-cover w-full h-full" 
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center text-muted-foreground">
-                            <ImageIcon className="h-8 w-8 mb-2" />
-                            <span className="text-xs">Media attachment</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-                <CardFooter className="border-t py-3 flex justify-between">
-                  <Button variant="ghost" size="sm" className="text-muted-foreground">
-                    <ThumbsUp className="mr-1 h-4 w-4" />
-                    {post.likes_count}
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-muted-foreground">
-                    <MessageSquare className="mr-1 h-4 w-4" />
-                    {post.comments_count}
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-muted-foreground">
-                    <Share2 className="mr-1 h-4 w-4" />
-                    Share
-                  </Button>
-                </CardFooter>
-              </Card>
+              <EnhancedPostCard 
+                post={post}
+                onReaction={handleReaction}
+                onPostUpdated={handlePostUpdated}
+                onPostDeleted={handlePostDeleted}
+              />
             </motion.div>
           ))}
         </motion.div>
