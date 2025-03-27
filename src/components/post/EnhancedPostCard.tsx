@@ -90,10 +90,13 @@ export default function EnhancedPostCard({
     const authorId = post.author?.id;
     if (!authorId) return;
     
-    if (isFollowing(authorId)) {
-      unfollowUser(authorId);
-    } else {
-      followUser(authorId);
+    if (isFollowing && typeof isFollowing === 'function') {
+      const following = isFollowing(authorId);
+      if (following) {
+        unfollowUser(authorId);
+      } else {
+        followUser(authorId);
+      }
     }
   };
 
@@ -132,6 +135,10 @@ export default function EnhancedPostCard({
       </Card>
     );
   }
+
+  // Check if we can determine the user following state
+  const canCheckFollowing = isFollowing && typeof isFollowing === 'function' && post.author?.id;
+  const isFollowingAuthor = canCheckFollowing ? isFollowing(post.author?.id) : false;
 
   return (
     <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow duration-300">
@@ -175,10 +182,10 @@ export default function EnhancedPostCard({
               onClick={handleFollowClick}
               className={cn(
                 "h-8 transition-all",
-                post.author?.id && isFollowing(post.author.id) ? "bg-primary text-white hover:bg-primary/90 hover:text-white" : ""
+                isFollowingAuthor ? "bg-primary text-white hover:bg-primary/90 hover:text-white" : ""
               )}
             >
-              {post.author?.id && isFollowing(post.author.id) ? "Following" : "Follow"}
+              {isFollowingAuthor ? "Following" : "Follow"}
             </Button>
           )}
         </div>

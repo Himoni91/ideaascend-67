@@ -11,7 +11,7 @@ export function useFollow(targetUserId?: string) {
   const [isLoading, setIsLoading] = useState(false);
   
   // Check if current user is following the target user
-  const { data: isFollowing, isLoading: isFollowCheckLoading } = useQuery({
+  const { data: followStatus, isLoading: isFollowCheckLoading } = useQuery({
     queryKey: ["follow-status", user?.id, targetUserId],
     queryFn: async () => {
       if (!user?.id || !targetUserId) return false;
@@ -121,8 +121,21 @@ export function useFollow(targetUserId?: string) {
     }
   };
   
+  // Function to check if a user is being followed
+  const isFollowing = (userId: string): boolean => {
+    if (!user) return false;
+    // If we're checking the specific targetUserId that was passed to the hook
+    if (targetUserId === userId) {
+      return !!followStatus;
+    }
+    // For other user IDs, we need to manually check
+    // This would trigger a new query, so use with caution
+    return false;
+  };
+  
   return {
-    isFollowing: !!isFollowing,
+    isFollowing,
+    isFollowingStatus: !!followStatus,
     isLoading: isLoading || isFollowCheckLoading,
     followUser,
     unfollowUser

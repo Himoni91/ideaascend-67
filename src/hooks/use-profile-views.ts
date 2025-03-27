@@ -6,6 +6,20 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProfileType } from "@/types/profile";
 
+// Define a proper type for profile view data
+interface ProfileView {
+  id: string;
+  viewed_at: string;
+  viewer_id: string | null;
+  is_anonymous: boolean;
+  profiles?: {
+    id?: string;
+    username?: string;
+    full_name?: string;
+    avatar_url?: string | null;
+  } | null;
+}
+
 export function useProfileViews(profileId?: string) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -59,7 +73,14 @@ export function useProfileViews(profileId?: string) {
         
       if (error) throw error;
       
-      return data;
+      // Convert any potential errors to a safe format with default values
+      return (data || []).map((view: any): ProfileView => ({
+        id: view.id,
+        viewed_at: view.viewed_at,
+        viewer_id: view.viewer_id,
+        is_anonymous: view.is_anonymous,
+        profiles: view.profiles || null
+      }));
     },
     enabled: !!(profileId || user?.id),
   });

@@ -76,7 +76,7 @@ export default function ProfileViewers({ profileId, limit = 5 }: ProfileViewersP
                           <Avatar>
                             <AvatarImage src={view.profiles?.avatar_url || undefined} />
                             <AvatarFallback>
-                              {view.profiles?.full_name?.[0] || view.profiles?.username?.[0] || 'U'}
+                              {(view.profiles?.full_name?.[0] ?? '') || (view.profiles?.username?.[0] ?? '') || 'U'}
                             </AvatarFallback>
                           </Avatar>
                         )}
@@ -86,10 +86,10 @@ export default function ProfileViewers({ profileId, limit = 5 }: ProfileViewersP
                             <p className="text-sm font-medium">Anonymous Visitor</p>
                           ) : (
                             <Link 
-                              to={`/profile/${view.profiles?.username}`}
+                              to={`/profile/${view.profiles?.username ?? ''}`}
                               className="text-sm font-medium hover:underline"
                             >
-                              {view.profiles?.full_name || view.profiles?.username}
+                              {view.profiles?.full_name || view.profiles?.username || 'User'}
                             </Link>
                           )}
                           <p className="text-xs text-muted-foreground">
