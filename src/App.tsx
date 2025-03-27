@@ -6,14 +6,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RouteGuard } from "@/components/auth/RouteGuard";
-import { PageTransition } from "@/components/ui/page-transition";
+import { PageTransition } from "@/components/PageTransition";
 
 // Import pages
 import Index from "@/pages/Index";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
-import ResetPassword from "@/pages/auth/ForgotPassword"; // Using ForgotPassword as ResetPassword for now
+import ResetPassword from "@/pages/ResetPassword"; 
 import Launchpad from "@/pages/Index";  // Using Index as Launchpad for now
 import MentorSpace from "@/pages/MentorSpace";
 import Ascend from "@/pages/Ascend";
@@ -58,28 +58,80 @@ function App() {
               <Route path="/" element={<Index />} />
               
               {/* Protected Routes */}
-              <Route element={<RouteGuard />}>
-                <Route path="/launchpad" element={<Launchpad />} />
-                <Route path="/mentor-space" element={<MentorSpace />} />
-                <Route path="/ascend" element={<Ascend />} />
-                <Route path="/pitch-hub" element={<PitchHub />} />
-                <Route path="/pitch-hub/:id" element={<PitchDetail />} />
-                <Route path="/profile/:username" element={<EnhancedProfile />} />
-                <Route path="/discover" element={<Discover />} />
-                <Route path="/calendar" element={<Calendar />} />
-                <Route path="/analytics" element={<Analytics />} />
-                <Route path="/achievements" element={<Achievements />} />
-                <Route path="/mentor/:username" element={<MentorProfile />} />
-                <Route path="/post/:id" element={<PostDetailPage />} />
-                <Route path="/help" element={<Help />} />
-              </Route>
+              <Route path="/launchpad" element={
+                <RouteGuard>
+                  <Launchpad />
+                </RouteGuard>
+              } />
+              <Route path="/mentor-space" element={
+                <RouteGuard>
+                  <MentorSpace />
+                </RouteGuard>
+              } />
+              <Route path="/ascend" element={
+                <RouteGuard>
+                  <Ascend />
+                </RouteGuard>
+              } />
+              <Route path="/pitch-hub" element={
+                <RouteGuard>
+                  <PitchHub />
+                </RouteGuard>
+              } />
+              <Route path="/pitch-hub/:id" element={
+                <RouteGuard>
+                  <PitchDetail />
+                </RouteGuard>
+              } />
+              <Route path="/profile/:username" element={
+                <RouteGuard>
+                  <EnhancedProfile />
+                </RouteGuard>
+              } />
+              <Route path="/discover" element={
+                <RouteGuard>
+                  <Discover />
+                </RouteGuard>
+              } />
+              <Route path="/calendar" element={
+                <RouteGuard>
+                  <Calendar />
+                </RouteGuard>
+              } />
+              <Route path="/analytics" element={
+                <RouteGuard>
+                  <Analytics />
+                </RouteGuard>
+              } />
+              <Route path="/achievements" element={
+                <RouteGuard>
+                  <Achievements />
+                </RouteGuard>
+              } />
+              <Route path="/mentor/:username" element={
+                <RouteGuard>
+                  <MentorProfile />
+                </RouteGuard>
+              } />
+              <Route path="/post/:id" element={
+                <RouteGuard>
+                  <PostDetailPage />
+                </RouteGuard>
+              } />
+              <Route path="/help" element={
+                <RouteGuard>
+                  <Help />
+                </RouteGuard>
+              } />
 
               {/* 404 Route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
 
             <Toaster position="top-right" />
-            <PageTransition />
+            <PageTransition>
+              <div></div> {/* Empty div ensures children prop is provided */}
+            </PageTransition>
           </BrowserRouter>
         </AuthProvider>
       </QueryClientProvider>
