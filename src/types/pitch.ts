@@ -78,3 +78,11 @@ export interface PitchFormData {
   media_file?: File | null;
   is_premium?: boolean;
 }
+
+export interface PitchAnalytics {
+  views: number;
+  votes: number;
+  comments: number;
+  reviews: number;
+  trending_score: number;
+}

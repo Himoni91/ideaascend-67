@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -9,7 +10,8 @@ import {
   Eye,
   Award,
   Star,
-  Rocket
+  Rocket,
+  BarChart3
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -35,11 +37,12 @@ export default function PitchHubIdeaDetail() {
   const [isAddingComment, setIsAddingComment] = useState(false);
   const [isAddingReview, setIsAddingReview] = useState(false);
   
-  const { usePitch, usePitchComments, useMentorReviews, votePitch, addComment, addMentorReview } = usePitches();
+  const { usePitch, usePitchComments, useMentorReviews, votePitch, addComment, addMentorReview, useAnalytics } = usePitches();
   
   const { data: pitch, isLoading: isPitchLoading, error: pitchError } = usePitch(id!);
   const { data: comments, isLoading: isCommentsLoading } = usePitchComments(id!);
   const { data: reviews, isLoading: isReviewsLoading } = useMentorReviews(id!);
+  const { data: analytics, isLoading: isAnalyticsLoading } = useAnalytics(id!);
   
   // Check if user is a mentor
   const [isMentor, setIsMentor] = useState(false);
@@ -103,13 +106,14 @@ export default function PitchHubIdeaDetail() {
     addComment(
       { pitchId: id, content },
       {
-        onSuccess: () => {
+        onSettled: () => {
           setIsAddingComment(false);
+        },
+        onSuccess: () => {
           toast.success("Comment added successfully");
         },
-        onError: () => {
-          setIsAddingComment(false);
-          toast.error("Failed to add comment");
+        onError: (error: any) => {
+          toast.error(`Failed to add comment: ${error.message}`);
         }
       }
     );
@@ -139,13 +143,14 @@ export default function PitchHubIdeaDetail() {
     addMentorReview(
       { pitchId: id, content, rating },
       {
-        onSuccess: () => {
+        onSettled: () => {
           setIsAddingReview(false);
+        },
+        onSuccess: () => {
           toast.success("Review added successfully");
         },
-        onError: () => {
-          setIsAddingReview(false);
-          toast.error("Failed to add review");
+        onError: (error: any) => {
+          toast.error(`Failed to add review: ${error.message}`);
         }
       }
     );
@@ -285,6 +290,38 @@ export default function PitchHubIdeaDetail() {
                 </div>
               </div>
               
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="flex flex-col items-center justify-center p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ThumbsUp className="h-5 w-5 text-idolyst-blue" />
+                    <span className="text-lg font-semibold">{pitch.votes_count}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Votes</p>
+                </div>
+                
+                <div className="flex flex-col items-center justify-center p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageSquare className="h-5 w-5 text-idolyst-blue" />
+                    <span className="text-lg font-semibold">{pitch.comments_count}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Comments</p>
+                </div>
+                
+                <div className="flex flex-col items-center justify-center p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Eye className="h-5 w-5 text-idolyst-blue" />
+                    <span className="text-lg font-semibold">
+                      {isAnalyticsLoading ? (
+                        <Skeleton className="h-6 w-12" />
+                      ) : (
+                        analytics?.views || 0
+                      )}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Views</p>
+                </div>
+              </div>
+              
               <div className="space-y-6 mb-8">
                 <div>
                   <h2 className="text-lg font-semibold mb-2">Problem Statement</h2>
@@ -385,7 +422,7 @@ export default function PitchHubIdeaDetail() {
           </Card>
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-            <TabsList className="w-full sm:w-auto grid grid-cols-2">
+            <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:grid-cols-3">
               <TabsTrigger value="comments" className="gap-1.5">
                 <MessageSquare className="h-4 w-4" />
                 Comments {comments && `(${comments.length})`}
@@ -393,6 +430,10 @@ export default function PitchHubIdeaDetail() {
               <TabsTrigger value="reviews" className="gap-1.5">
                 <Star className="h-4 w-4" />
                 Mentor Reviews {reviews && `(${reviews.length})`}
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="gap-1.5">
+                <BarChart3 className="h-4 w-4" />
+                Analytics
               </TabsTrigger>
             </TabsList>
             
@@ -413,6 +454,64 @@ export default function PitchHubIdeaDetail() {
                 isSubmitting={isAddingReview}
                 canReview={isMentor && !hasReviewed}
               />
+            </TabsContent>
+            
+            <TabsContent value="analytics" className="pt-6">
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Idea Analytics</h3>
+                  
+                  {isAnalyticsLoading ? (
+                    <div className="space-y-4">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-32 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="flex flex-col p-4 bg-muted/30 rounded-lg">
+                          <span className="text-sm text-muted-foreground mb-1">Views</span>
+                          <span className="text-2xl font-semibold">{analytics?.views || 0}</span>
+                        </div>
+                        
+                        <div className="flex flex-col p-4 bg-muted/30 rounded-lg">
+                          <span className="text-sm text-muted-foreground mb-1">Votes</span>
+                          <span className="text-2xl font-semibold">{analytics?.votes || 0}</span>
+                        </div>
+                        
+                        <div className="flex flex-col p-4 bg-muted/30 rounded-lg">
+                          <span className="text-sm text-muted-foreground mb-1">Comments</span>
+                          <span className="text-2xl font-semibold">{analytics?.comments || 0}</span>
+                        </div>
+                        
+                        <div className="flex flex-col p-4 bg-muted/30 rounded-lg">
+                          <span className="text-sm text-muted-foreground mb-1">Reviews</span>
+                          <span className="text-2xl font-semibold">{analytics?.reviews || 0}</span>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">Trending Score</h4>
+                        <div className="w-full bg-muted rounded-full h-2.5">
+                          <div 
+                            className="bg-idolyst-blue h-2.5 rounded-full" 
+                            style={{ width: `${Math.min(100, (analytics?.trending_score || 0) / 2)}%` }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                          <span>0</span>
+                          <span>200</span>
+                        </div>
+                      </div>
+                      
+                      <div className="text-sm text-muted-foreground">
+                        <p>This idea ranks {pitch.votes_count > 20 ? 'high' : pitch.votes_count > 10 ? 'average' : 'low'} in community engagement compared to other ideas.</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </motion.div>

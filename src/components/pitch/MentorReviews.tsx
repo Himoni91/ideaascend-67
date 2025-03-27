@@ -1,178 +1,207 @@
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { useAuth } from "@/contexts/AuthContext";
-import { MentorReview } from "@/types/pitch";
+import { Star, Send } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Star } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { MentorReview } from "@/types/pitch";
+import { useAuth } from "@/contexts/AuthContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface MentorReviewsProps {
   reviews: MentorReview[];
   isLoading: boolean;
-  onAddReview?: (content: string, rating: number) => void;
-  isSubmitting?: boolean;
-  canReview?: boolean;
+  onAddReview: (content: string, rating: number) => void;
+  isSubmitting: boolean;
+  canReview: boolean;
 }
 
-export default function MentorReviews({ 
-  reviews, 
-  isLoading, 
-  onAddReview, 
-  isSubmitting = false,
-  canReview = false 
+export default function MentorReviews({
+  reviews,
+  isLoading,
+  onAddReview,
+  isSubmitting,
+  canReview
 }: MentorReviewsProps) {
   const { user } = useAuth();
-  const [reviewText, setReviewText] = useState("");
+  const [reviewContent, setReviewContent] = useState("");
   const [rating, setRating] = useState(5);
-  
-  const handleSubmitReview = () => {
-    if (!reviewText.trim()) return;
-    onAddReview?.(reviewText, rating);
-    setReviewText("");
+  const [hoveredRating, setHoveredRating] = useState(0);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewContent.trim()) return;
+    
+    onAddReview(reviewContent, rating);
+    setReviewContent("");
     setRating(5);
   };
-  
+
   if (isLoading) {
     return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-4">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                  <div className="flex gap-1 mb-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Skeleton key={i} className="h-4 w-4" />
+                    ))}
+                  </div>
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {user && canReview && onAddReview && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex gap-3">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={user.user_metadata?.avatar_url} />
-                <AvatarFallback>
-                  {user.user_metadata?.full_name?.[0] || user.email?.[0] || "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Rating</label>
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setRating(star)}
-                        className="focus:outline-none"
-                      >
-                        <Star
-                          className={`h-6 w-6 ${
-                            star <= rating 
-                              ? "text-amber-500 fill-amber-500" 
-                              : "text-muted-foreground"
-                          }`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <Textarea
-                  placeholder="Provide a detailed review of this pitch..."
-                  value={reviewText}
-                  onChange={(e) => setReviewText(e.target.value)}
-                  className="resize-none min-h-[120px]"
-                />
-                <div className="flex justify-end">
-                  <Button 
-                    onClick={handleSubmitReview}
-                    disabled={!reviewText.trim() || isSubmitting}
+      {canReview && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Submit Mentor Review</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-1">
+                <span className="mr-2 text-sm">Rating:</span>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Button
+                    key={star}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setRating(star)}
+                    onMouseEnter={() => setHoveredRating(star)}
+                    onMouseLeave={() => setHoveredRating(0)}
                   >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Submitting...
-                      </>
-                    ) : (
-                      "Submit Review"
-                    )}
+                    <Star
+                      className={`h-5 w-5 ${
+                        star <= (hoveredRating || rating)
+                          ? "text-yellow-400 fill-yellow-400"
+                          : "text-muted-foreground"
+                      }`}
+                    />
+                    <span className="sr-only">{star} stars</span>
                   </Button>
-                </div>
+                ))}
               </div>
-            </div>
-          </CardContent>
-        </Card>
+
+              <Textarea
+                placeholder="Share your professional opinion about this idea..."
+                value={reviewContent}
+                onChange={(e) => setReviewContent(e.target.value)}
+                className="min-h-[120px] resize-none"
+                disabled={isSubmitting}
+              />
+
+              <div className="flex justify-end">
+                <Button 
+                  type="submit" 
+                  disabled={!reviewContent.trim() || isSubmitting}
+                  className="gap-2"
+                >
+                  {isSubmitting ? (
+                    <div className="h-4 w-4 border-2 border-background border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  Submit Review
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
       )}
-      
-      <AnimatePresence>
+
+      <div className="space-y-4">
         {reviews.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="text-center py-12"
-          >
-            <h3 className="text-lg font-medium mb-2">No mentor reviews yet</h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              This pitch hasn't received feedback from mentors yet.
-            </p>
-          </motion.div>
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="flex justify-center mb-3">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star key={star} className="h-5 w-5 text-muted-foreground opacity-20" />
+                ))}
+              </div>
+              <h3 className="text-lg font-medium mb-1">No mentor reviews yet</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
+                This idea is waiting for professional mentor feedback
+              </p>
+              {user && !canReview && (
+                <Button variant="outline" size="sm" disabled>
+                  Only mentors can add reviews
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         ) : (
-          <div className="space-y-4">
+          <AnimatePresence>
             {reviews.map((review) => (
               <motion.div
                 key={review.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
               >
-                <Card className="overflow-hidden border-blue-200 dark:border-blue-700">
+                <Card>
                   <CardContent className="p-4">
-                    <div className="flex gap-3">
-                      <Avatar className="h-9 w-9">
+                    <div className="flex items-start gap-3">
+                      <Avatar>
                         <AvatarImage src={review.mentor?.avatar_url || undefined} />
-                        <AvatarFallback>
-                          {review.mentor?.full_name?.[0] || review.mentor?.username?.[0] || "M"}
-                        </AvatarFallback>
+                        <AvatarFallback>{review.mentor?.full_name?.[0] || review.mentor?.username?.[0] || "M"}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">
-                            {review.mentor?.full_name || review.mentor?.username || "Anonymous Mentor"}
-                          </span>
-                          <Badge className="bg-blue-500 hover:bg-blue-600">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">
+                              {review.mentor?.full_name || review.mentor?.username || "Anonymous Mentor"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
+                            </p>
+                          </div>
+                          <div className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">
                             Mentor
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
-                          </span>
+                          </div>
                         </div>
-                        <div className="flex mb-2">
+                        <div className="flex mt-2 mb-3">
                           {Array.from({ length: 5 }).map((_, i) => (
                             <Star
                               key={i}
                               className={`h-4 w-4 ${
-                                i < review.rating 
-                                  ? "text-amber-500 fill-amber-500" 
+                                i < review.rating
+                                  ? "text-yellow-400 fill-yellow-400"
                                   : "text-muted-foreground"
                               }`}
                             />
                           ))}
                         </div>
-                        <p className="text-sm whitespace-pre-wrap">
+                        <div className="text-sm whitespace-pre-line">
                           {review.content}
-                        </p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </motion.div>
             ))}
-          </div>
+          </AnimatePresence>
         )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 }

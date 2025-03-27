@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   Rocket,
@@ -31,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PitchCategory, PitchFormData } from "@/types/pitch";
+import { PitchCategory } from "@/types/pitch";
 import { usePitches } from "@/hooks/use-pitches";
 import { useAuth } from "@/contexts/AuthContext";
 import SubmitPitchForm from "@/components/pitch/SubmitPitchForm";
@@ -67,15 +68,16 @@ export default function PitchHub() {
     loadMore, 
     hasMore,
     createPitch,
-    votePitch
+    votePitch,
+    useTopPitches
   } = usePitches(
     selectedCategory === "All" ? undefined : selectedCategory,
     sortBy
   );
   
-  const isSubmitting = false; // Replace with actual submission state
+  const { data: topPitches, isLoading: isTopPitchesLoading } = useTopPitches('week', 5);
   
-  const handleSubmitPitch = (data: PitchFormData) => {
+  const handleSubmitPitch = (data: any) => {
     if (!user) {
       navigate("/auth/sign-in");
       return;
@@ -294,8 +296,8 @@ export default function PitchHub() {
             <div className="mt-8 lg:mt-0 space-y-6">
               <div className="lg:sticky lg:top-6">
                 <PitchLeaderboard
-                  pitches={pitches}
-                  isLoading={isLoading}
+                  pitches={topPitches || []}
+                  isLoading={isTopPitchesLoading}
                   title="Top Ideas This Week"
                   subtitle="The most popular startup ideas right now"
                 />
@@ -345,7 +347,7 @@ export default function PitchHub() {
           
           <SubmitPitchForm
             onSubmit={handleSubmitPitch}
-            isSubmitting={isSubmitting}
+            isSubmitting={false}
           />
         </DialogContent>
       </Dialog>

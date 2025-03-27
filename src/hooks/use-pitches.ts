@@ -101,6 +101,8 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         return {
           ...pitch,
           problem_statement: pitch.description, // Map description to problem_statement
+          target_audience: pitch.target_audience || '',
+          solution: pitch.solution || '',
           author: formattedAuthor,
           user_vote: userVotes[pitch.id] || null
         } as unknown as Pitch;
@@ -371,7 +373,6 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         
         // Record view using custom function
         try {
-          // Use increment_pitch_view function we just created
           await supabase.rpc('increment_pitch_view', { 
             pitch_id: pitchId
           });
@@ -383,8 +384,8 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         const formattedPitch = {
           ...data,
           problem_statement: data.description, // Map description to problem_statement
-          target_audience: data.target_audience || '', // Ensure field exists
-          solution: data.solution || '', // Ensure field exists
+          target_audience: data.target_audience || '', 
+          solution: data.solution || '', 
           author: data.author ? formatProfileData(data.author) : undefined,
           user_vote: userVote
         } as unknown as Pitch;
@@ -545,6 +546,79 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
     }
   };
 
+  // Get top pitches for leaderboard
+  const useTopPitches = (timeFrame: 'week' | 'month' | 'all' = 'week', limit: number = 5) => {
+    return useQuery({
+      queryKey: ["top-pitches", timeFrame, limit],
+      queryFn: async () => {
+        let query = supabase
+          .from("pitches")
+          .select(`
+            *,
+            author:profiles!pitches_user_id_fkey(*)
+          `)
+          .order('votes_count', { ascending: false })
+          .limit(limit);
+        
+        // Add time filter if needed
+        if (timeFrame === 'week') {
+          const oneWeekAgo = new Date();
+          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+          query = query.gte('created_at', oneWeekAgo.toISOString());
+        } else if (timeFrame === 'month') {
+          const oneMonthAgo = new Date();
+          oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+          query = query.gte('created_at', oneMonthAgo.toISOString());
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        return data.map(pitch => ({
+          ...pitch,
+          problem_statement: pitch.description,
+          target_audience: pitch.target_audience || '',
+          solution: pitch.solution || '',
+          author: pitch.author ? formatProfileData(pitch.author) : undefined
+        })) as Pitch[];
+      },
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 10,
+    });
+  };
+
+  // Get pitch analytics
+  const useAnalytics = (pitchId: string) => {
+    return useQuery({
+      queryKey: ["pitch-analytics", pitchId],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("pitches")
+          .select(`
+            votes_count,
+            comments_count,
+            mentor_reviews_count,
+            trending_score
+          `)
+          .eq("id", pitchId)
+          .single();
+          
+        if (error) throw error;
+        
+        return {
+          views: Math.floor(data.trending_score / 5), // Estimate views from trending score
+          votes: data.votes_count,
+          comments: data.comments_count,
+          reviews: data.mentor_reviews_count,
+          trending_score: data.trending_score
+        };
+      },
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 10,
+    });
+  };
+
   return {
     pitches: pitches?.data || [],
     isLoading,
@@ -559,6 +633,8 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
     useMentorReviews,
     addComment: addComment.mutate,
     addMentorReview: addMentorReview.mutate,
+    useTopPitches,
+    useAnalytics,
     refetch
   };
 }

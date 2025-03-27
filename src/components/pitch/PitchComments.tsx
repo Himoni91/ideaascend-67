@@ -1,16 +1,15 @@
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { useAuth } from "@/contexts/AuthContext";
-import { PitchComment } from "@/types/pitch";
+import { MessageSquare, Send } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { PitchComment } from "@/types/pitch";
+import { useAuth } from "@/contexts/AuthContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface PitchCommentsProps {
   comments: PitchComment[];
@@ -19,124 +18,126 @@ interface PitchCommentsProps {
   isSubmitting: boolean;
 }
 
-export default function PitchComments({ comments, isLoading, onAddComment, isSubmitting }: PitchCommentsProps) {
+export default function PitchComments({
+  comments,
+  isLoading,
+  onAddComment,
+  isSubmitting
+}: PitchCommentsProps) {
   const { user } = useAuth();
-  const [commentText, setCommentText] = useState("");
-  
-  const handleSubmitComment = () => {
-    if (!commentText.trim()) return;
-    onAddComment(commentText);
-    setCommentText("");
+  const [comment, setComment] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!comment.trim()) return;
+    
+    onAddComment(comment);
+    setComment("");
   };
-  
+
   if (isLoading) {
     return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {user && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex gap-3">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={user.user_metadata?.avatar_url} />
-                <AvatarFallback>
-                  {user.user_metadata?.full_name?.[0] || user.email?.[0] || "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 space-y-2">
-                <Textarea
-                  placeholder="Share your thoughts on this idea..."
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  className="resize-none min-h-[100px]"
-                />
-                <div className="flex justify-end">
-                  <Button 
-                    onClick={handleSubmitComment}
-                    disabled={!commentText.trim() || isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Posting...
-                      </>
-                    ) : (
-                      "Post Comment"
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      <AnimatePresence>
-        {comments.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="text-center py-12"
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Textarea
+          placeholder="Add your comment..."
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          className="min-h-[100px] resize-none"
+          disabled={!user || isSubmitting}
+        />
+        <div className="flex justify-end">
+          <Button 
+            type="submit" 
+            disabled={!user || !comment.trim() || isSubmitting}
+            className="gap-2"
           >
-            <h3 className="text-lg font-medium mb-2">No comments yet</h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Be the first to share your thoughts on this idea.
-            </p>
-          </motion.div>
+            {isSubmitting ? (
+              <div className="h-4 w-4 border-2 border-background border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            Submit Comment
+          </Button>
+        </div>
+      </form>
+
+      <div className="space-y-4">
+        {comments.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
+              <h3 className="text-lg font-medium mb-1">No comments yet</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                Be the first to comment on this idea
+              </p>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="space-y-4">
+          <AnimatePresence>
             {comments.map((comment) => (
               <motion.div
                 key={comment.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
               >
-                <Card className={cn(
-                  "overflow-hidden",
-                  comment.is_mentor_comment && "border-blue-200 dark:border-blue-700"
-                )}>
+                <Card>
                   <CardContent className="p-4">
-                    <div className="flex gap-3">
-                      <Avatar className="h-9 w-9">
+                    <div className="flex items-start gap-3">
+                      <Avatar>
                         <AvatarImage src={comment.author?.avatar_url || undefined} />
-                        <AvatarFallback>
-                          {comment.author?.full_name?.[0] || comment.author?.username?.[0] || "U"}
-                        </AvatarFallback>
+                        <AvatarFallback>{comment.author?.full_name?.[0] || comment.author?.username?.[0] || "U"}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">
-                            {comment.author?.full_name || comment.author?.username || "Anonymous"}
-                          </span>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">
+                              {comment.author?.full_name || comment.author?.username || "Anonymous"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                            </p>
+                          </div>
                           {comment.is_mentor_comment && (
-                            <Badge className="bg-blue-500 hover:bg-blue-600">
+                            <div className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">
                               Mentor
-                            </Badge>
+                            </div>
                           )}
-                          <span className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                          </span>
                         </div>
-                        <p className="text-sm whitespace-pre-wrap">
+                        <div className="mt-2 text-sm whitespace-pre-line">
                           {comment.content}
-                        </p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </motion.div>
             ))}
-          </div>
+          </AnimatePresence>
         )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 }
