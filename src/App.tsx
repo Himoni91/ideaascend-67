@@ -1,27 +1,28 @@
+
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { RouteGuard } from "@/guards/RouteGuard";
-import { PageTransition } from "@/components/PageTransition";
+import { RouteGuard } from "@/components/auth/RouteGuard";
+import { PageTransition } from "@/components/ui/page-transition";
 
 // Import pages
 import Index from "@/pages/Index";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
-import ResetPassword from "@/pages/auth/ResetPassword";
-import Launchpad from "@/pages/Launchpad";
+import ResetPassword from "@/pages/auth/ForgotPassword"; // Using ForgotPassword as ResetPassword for now
+import Launchpad from "@/pages/Index";  // Using Index as Launchpad for now
 import MentorSpace from "@/pages/MentorSpace";
 import Ascend from "@/pages/Ascend";
-import EnhancedProfile from "@/pages/profile/[username]";
+import EnhancedProfile from "@/pages/Profile";  // Using Profile instead of profile/[username]
 import Discover from "@/pages/Discover";
 import Calendar from "@/pages/Calendar";
 import Analytics from "@/pages/Analytics";
 import Achievements from "@/pages/Achievements";
-import MentorProfile from "@/pages/mentor/[username]";
+import MentorProfile from "@/pages/Profile";  // Using Profile instead of mentor/[username]
 import PostDetailPage from "@/pages/post/[id]";
 import Help from "@/pages/Help";
 import NotFound from "@/pages/NotFound";

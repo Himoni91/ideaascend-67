@@ -32,12 +32,13 @@ export interface Pitch {
   trending_score: number;
   is_premium: boolean;
   created_at: string;
-  updated_at?: string; // Optional since it might not be returned from the DB
+  updated_at?: string; // Made optional to resolve TypeScript errors
   author?: ProfileType;
   user_vote?: 'up' | 'down' | null;
   
   // For database compatibility
   description?: string; // This maps to problem_statement in our UI
+  follower_count?: number;
 }
 
 export interface PitchComment {
