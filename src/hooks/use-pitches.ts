@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -373,16 +372,19 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
           }
         }
         
-        // Record view using RPC function if available, catch error silently if function doesn't exist
+        // Record view using RPC function if available
         try {
-          await supabase.rpc('increment_pitch_view', { 
+          // Try to use the RPC function first
+          const rpcResult = await supabase.rpc('increment_pitch_view', { 
             pitch_id: pitchId
-          }).catch(() => {
-            // If RPC fails, fallback to direct update
-            supabase.from('pitches')
+          });
+          
+          // If RPC call fails, fall back to direct update
+          if (rpcResult.error) {
+            await supabase.from('pitches')
               .update({ trending_score: data.trending_score + 1 })
               .eq('id', pitchId);
-          });
+          }
         } catch (e) {
           console.error("Failed to record view:", e);
         }
