@@ -448,6 +448,35 @@ export type Database = {
           },
         ]
       }
+      pitch_followers: {
+        Row: {
+          created_at: string
+          id: string
+          pitch_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pitch_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pitch_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pitch_followers_pitch_id_fkey"
+            columns: ["pitch_id"]
+            isOneToOne: false
+            referencedRelation: "pitches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pitch_votes: {
         Row: {
           created_at: string
@@ -486,6 +515,7 @@ export type Database = {
           comments_count: number | null
           created_at: string
           description: string
+          follower_count: number | null
           id: string
           is_premium: boolean | null
           media_type: string | null
@@ -504,6 +534,7 @@ export type Database = {
           comments_count?: number | null
           created_at?: string
           description: string
+          follower_count?: number | null
           id?: string
           is_premium?: boolean | null
           media_type?: string | null
@@ -522,6 +553,7 @@ export type Database = {
           comments_count?: number | null
           created_at?: string
           description?: string
+          follower_count?: number | null
           id?: string
           is_premium?: boolean | null
           media_type?: string | null
@@ -1293,6 +1325,36 @@ export type Database = {
           },
         ]
       }
+      user_reputation: {
+        Row: {
+          created_at: string
+          feedback_contributions: number
+          id: string
+          pitch_contributions: number
+          reputation_score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          feedback_contributions?: number
+          id?: string
+          pitch_contributions?: number
+          reputation_score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          feedback_contributions?: number
+          id?: string
+          pitch_contributions?: number
+          reputation_score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -1395,6 +1457,59 @@ export type Database = {
         }
         Returns: boolean
       }
+      follow_pitch: {
+        Args: {
+          p_user_id: string
+          p_pitch_id: string
+        }
+        Returns: boolean
+      }
+      get_pitch_follower_count: {
+        Args: {
+          p_pitch_id: string
+        }
+        Returns: number
+      }
+      get_top_contributors: {
+        Args: {
+          p_limit?: number
+        }
+        Returns: {
+          id: string
+          user_id: string
+          reputation_score: number
+          pitch_contributions: number
+          feedback_contributions: number
+          created_at: string
+          updated_at: string
+          profile: Json
+        }[]
+      }
+      get_user_followed_pitches: {
+        Args: {
+          user_id: string
+        }
+        Returns: {
+          id: string
+          user_id: string
+          pitch_id: string
+          created_at: string
+        }[]
+      }
+      get_user_reputation: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: {
+          id: string
+          user_id: string
+          reputation_score: number
+          pitch_contributions: number
+          feedback_contributions: number
+          created_at: string
+          updated_at: string
+        }[]
+      }
       get_user_roles: {
         Args: {
           user_id: string
@@ -1415,6 +1530,13 @@ export type Database = {
           post_id: string
         }
         Returns: undefined
+      }
+      unfollow_pitch: {
+        Args: {
+          p_user_id: string
+          p_pitch_id: string
+        }
+        Returns: boolean
       }
     }
     Enums: {
