@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { ProfileType } from "@/types/profile";
+import { Json } from "@/integrations/supabase/types";
 
 type AuthState = {
   session: Session | null;
@@ -36,24 +37,72 @@ export function useAuthState() {
       
       if (data) {
         // Create a complete ProfileType object with default values for missing fields
+        const defaultBadge = { name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true };
+        const defaultStats = {
+          followers: 0,
+          following: 0,
+          ideas: 0,
+          mentorSessions: 0,
+          posts: 0
+        };
+        
+        // Handle badges conversion - ensure it's an array of the right structure
+        let formattedBadges: ProfileType['badges'] = [defaultBadge];
+        
+        if (data.badges) {
+          try {
+            if (Array.isArray(data.badges)) {
+              // Verify each item has the required structure before assigning
+              formattedBadges = data.badges.filter((badge: any) => 
+                typeof badge === 'object' && 
+                badge !== null && 
+                'name' in badge && 
+                'icon' in badge && 
+                'description' in badge && 
+                'earned' in badge
+              ) as ProfileType['badges'];
+              
+              // If the filter removed all items, use the default
+              if (formattedBadges.length === 0) {
+                formattedBadges = [defaultBadge];
+              }
+            }
+          } catch (e) {
+            console.error("Error parsing badges:", e);
+            formattedBadges = [defaultBadge];
+          }
+        }
+        
+        // Handle stats conversion
+        let formattedStats: ProfileType['stats'] = defaultStats;
+        
+        if (data.stats && typeof data.stats === 'object' && data.stats !== null) {
+          try {
+            formattedStats = {
+              ...defaultStats,
+              ...Object.entries(data.stats as object).reduce((acc, [key, value]) => {
+                if (['followers', 'following', 'ideas', 'mentorSessions', 'posts', 'rank'].includes(key)) {
+                  acc[key as keyof ProfileType['stats']] = 
+                    typeof value === 'number' ? value : 
+                    typeof value === 'string' ? parseInt(value, 10) || 0 : 0;
+                }
+                return acc;
+              }, {} as Record<keyof ProfileType['stats'], number>)
+            };
+          } catch (e) {
+            console.error("Error parsing stats:", e);
+          }
+        }
+        
         const completeProfile: ProfileType = {
           ...data,
           // Add default values for required fields
-          level: data.level || 1,
-          xp: data.xp || 0,
-          badges: Array.isArray(data.badges) 
-            ? data.badges 
-            : [{ name: "New Member", icon: "👋", description: "Joined Idolyst", earned: true }],
-          stats: typeof data.stats === 'object' && data.stats !== null 
-            ? data.stats as ProfileType['stats']
-            : {
-                followers: 0,
-                following: 0,
-                ideas: 0,
-                mentorSessions: 0,
-                posts: 0
-              }
+          level: typeof data.level === 'number' ? data.level : 1,
+          xp: typeof data.xp === 'number' ? data.xp : 0,
+          badges: formattedBadges,
+          stats: formattedStats
         };
+        
         return completeProfile;
       }
       
