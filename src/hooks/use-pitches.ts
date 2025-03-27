@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -207,13 +206,13 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         mediaType = pitchData.media_file.type;
       }
       
-      // Create the pitch
+      // Create the pitch - fixed field names to match database schema
       const { data, error } = await supabase
         .from("pitches")
         .insert({
           user_id: user.id,
           title: pitchData.title,
-          problem_statement: pitchData.problem_statement,
+          description: pitchData.problem_statement, // Map problem_statement to description
           target_audience: pitchData.target_audience,
           solution: pitchData.solution,
           category: pitchData.category,
@@ -230,9 +229,10 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         
       if (error) throw error;
       
-      // Format the response
+      // Format the response and map fields correctly
       const formattedPitch = {
         ...data,
+        problem_statement: data.description, // Map description to problem_statement
         author: data.author ? formatProfileData(data.author) : undefined,
         user_vote: null
       } as unknown as Pitch;
@@ -369,16 +369,20 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         
         // Record view using custom function
         try {
-          // Use increment_view_count function for now as a workaround
-          await supabase.rpc('increment_view_count', { 
-            post_id: pitchId
+          // Use increment_view_count function as a temporary workaround
+          await supabase.rpc('increment_pitch_view', { 
+            pitch_id: pitchId
           });
         } catch (e) {
           console.error("Failed to record view:", e);
         }
         
+        // Map fields correctly
         const formattedPitch = {
           ...data,
+          problem_statement: data.description, // Map description to problem_statement
+          target_audience: data.target_audience || '', // Ensure field exists
+          solution: data.solution || '', // Ensure field exists
           author: data.author ? formatProfileData(data.author) : undefined,
           user_vote: userVote
         } as unknown as Pitch;

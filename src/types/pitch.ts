@@ -35,6 +35,8 @@ export interface Pitch {
   updated_at: string;
   author?: ProfileType;
   user_vote?: 'up' | 'down' | null;
+  // These fields map to 'description' in the database
+  description?: string; 
 }
 
 export interface PitchComment {

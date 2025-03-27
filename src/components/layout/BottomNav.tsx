@@ -9,6 +9,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 
+type NavItem = {
+  path: string;
+  label: string;
+  icon: React.ElementType;
+  highlight?: boolean;
+  badge?: number;
+};
+
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -16,8 +24,8 @@ export default function BottomNav() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   
-  // Define nav items outside of render to avoid circular references
-  const navItems = [
+  // Define nav items with explicit typing to avoid circular references
+  const navItems: NavItem[] = [
     { path: "/", label: "Home", icon: Home },
     { path: "/mentor-space", label: "Mentor", icon: Users },
     { path: "/pitch-hub", label: "Pitch", icon: Rocket, highlight: true },

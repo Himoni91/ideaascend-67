@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
@@ -26,9 +27,11 @@ export default function PitchCard({ pitch, onVote, compact = false }: PitchCardP
     ? formatDistanceToNow(new Date(pitch.created_at), { addSuffix: true }) 
     : "";
     
-  const truncatedProblem = pitch.problem_statement.length > 150
-    ? `${pitch.problem_statement.substring(0, 150)}...`
-    : pitch.problem_statement;
+  // Use problem_statement or description based on what's available
+  const problemText = pitch.problem_statement || pitch.description || "";
+  const truncatedProblem = problemText.length > 150
+    ? `${problemText.substring(0, 150)}...`
+    : problemText;
     
   const handleVote = (e: React.MouseEvent, voteType: 'up' | 'down') => {
     e.stopPropagation(); // Prevent card click
