@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -75,15 +74,12 @@ export function usePitchMedia() {
       const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = `${folderPath}/${fileName}`;
       
-      // Upload the file
+      // Upload the file - Use a workaround for the onUploadProgress
       const { error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false,
-          onUploadProgress: (event) => {
-            setUploadProgress(Math.round((event.loaded / event.total) * 100));
-          }
+          upsert: false
         });
       
       if (uploadError) throw uploadError;
@@ -92,6 +88,8 @@ export function usePitchMedia() {
       const { data: { publicUrl } } = supabase.storage
         .from(bucketName)
         .getPublicUrl(filePath);
+      
+      setUploadProgress(100); // Manually set to 100% since we can't track progress
       
       return {
         url: publicUrl,
