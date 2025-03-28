@@ -1,3 +1,4 @@
+
 export type ProfileType = {
   id: string;
   username: string;
@@ -21,7 +22,6 @@ export type ProfileType = {
   
   // Additional fields that may be added by the backend
   professional_headline?: string | null;
-  profile_header_url?: string | null;
   
   // Mentor-specific fields
   mentor_bio?: string | null;
@@ -41,6 +41,8 @@ export type ProfileType = {
     mentorSessions: number;
     posts: number;
     rank?: number; // Leaderboard position
+    mentorRating?: number; // Average mentor rating
+    mentorReviews?: number; // Number of reviews received
   };
   followers?: ProfileType[];
   following?: ProfileType[];

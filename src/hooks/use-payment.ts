@@ -1,7 +1,7 @@
 
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PaymentOptions {
   amount: number;
@@ -14,129 +14,94 @@ interface PaymentOptions {
 
 export function usePayment() {
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
 
-  const createPaymentOrder = async (provider: string, options: PaymentOptions) => {
+  const payWithRazorpay = async ({
+    amount,
+    currency = 'INR',
+    description,
+    metadata,
+    onSuccess,
+    onError
+  }: PaymentOptions) => {
     setIsLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("payment-integration", {
-        body: {
-          provider,
-          amount: options.amount,
-          currency: options.currency || "INR",
-          description: options.description,
-          metadata: options.metadata || {}
-        }
-      });
 
-      if (error) throw error;
-      return data;
+    try {
+      // For mock implementation, we'll simulate a successful payment
+      // In production, you would integrate with Razorpay's SDK
+      console.log('Processing payment with Razorpay:', { amount, currency, description });
+      
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Generate a mock payment ID
+      const paymentId = `rzp_${Math.random().toString(36).substring(2, 15)}`;
+      
+      if (onSuccess) {
+        await onSuccess(paymentId);
+      }
+      
+      return paymentId;
     } catch (error) {
-      console.error("Payment error:", error);
-      if (options.onError) options.onError(error);
+      console.error('Payment error:', error);
+      if (onError) {
+        onError(error);
+      }
       throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const payWithRazorpay = async (options: PaymentOptions) => {
-    try {
-      const data = await createPaymentOrder("razorpay", options);
-      
-      // Load Razorpay script if not already loaded
-      if (!(window as any).Razorpay) {
-        await new Promise<void>((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = "https://checkout.razorpay.com/v1/checkout.js";
-          script.async = true;
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error("Failed to load Razorpay SDK"));
-          document.body.appendChild(script);
-        });
-      }
+  const payWithPaypal = async ({
+    amount,
+    currency = 'USD',
+    description,
+    metadata,
+    onSuccess,
+    onError
+  }: PaymentOptions) => {
+    setIsLoading(true);
 
-      // Open Razorpay checkout
-      const rzp = new (window as any).Razorpay({
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: options.amount * 100, // paise
-        currency: options.currency || "INR",
-        name: "Idolyst",
-        description: options.description,
-        order_id: data.order_id,
-        handler: async function (response: any) {
-          // Payment successful
-          const paymentId = response.razorpay_payment_id;
-          if (options.onSuccess) await options.onSuccess(paymentId);
-        },
-        prefill: {
-          name: "User",
-          email: "user@example.com"
-        },
-        theme: {
-          color: "#7c3aed"
-        },
-        modal: {
-          ondismiss: function() {
-            toast.error("Payment cancelled");
-          }
-        }
-      });
+    try {
+      // For mock implementation, we'll simulate a successful payment
+      // In production, you would integrate with PayPal's SDK
+      console.log('Processing payment with PayPal:', { amount, currency, description });
       
-      rzp.open();
-      return data;
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Generate a mock payment ID
+      const paymentId = `pp_${Math.random().toString(36).substring(2, 15)}`;
+      
+      if (onSuccess) {
+        await onSuccess(paymentId);
+      }
+      
+      return paymentId;
     } catch (error) {
-      console.error("Razorpay payment error:", error);
-      toast.error("Payment processing failed. Please try again.");
-      if (options.onError) options.onError(error);
+      console.error('Payment error:', error);
+      if (onError) {
+        onError(error);
+      }
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const payWithPaypal = async (options: PaymentOptions) => {
-    try {
-      const data = await createPaymentOrder("paypal", options);
-      
-      // Open PayPal in a new window
-      const paypalWindow = window.open(data.approval_url, "_blank");
-      
-      // If window is blocked, provide a manual link
-      if (!paypalWindow) {
-        toast("Please click the link to complete payment", {
-          action: {
-            label: "Open PayPal",
-            onClick: () => window.open(data.approval_url, "_blank")
-          }
-        });
-      }
-      
-      // We would need a webhook or callback to handle the success case
-      // For now, we'll assume it's handled separately
-      
-      return data;
-    } catch (error) {
-      console.error("PayPal payment error:", error);
-      toast.error("Payment processing failed. Please try again.");
-      if (options.onError) options.onError(error);
-      throw error;
-    }
-  };
-
-  const createFreePayment = async (options: PaymentOptions) => {
-    try {
-      const data = await createPaymentOrder("free", options);
-      if (options.onSuccess) await options.onSuccess(data.payment_id);
-      return data.payment_id;
-    } catch (error) {
-      console.error("Free payment error:", error);
-      if (options.onError) options.onError(error);
-      throw error;
-    }
+  const createFreePayment = async ({
+    description,
+    metadata
+  }: Omit<PaymentOptions, 'amount' | 'currency'>) => {
+    // For free payments, just generate a reference ID
+    return `free_${Math.random().toString(36).substring(2, 15)}`;
   };
 
   return {
-    isLoading,
     payWithRazorpay,
     payWithPaypal,
-    createFreePayment
+    createFreePayment,
+    isLoading
   };
 }

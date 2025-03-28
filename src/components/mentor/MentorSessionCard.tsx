@@ -1,38 +1,15 @@
 
-import { useMemo } from "react";
-import { format, parseISO, differenceInMinutes, isBefore, isAfter } from "date-fns";
+import { format, parseISO, isPast, isFuture } from "date-fns";
 import { motion } from "framer-motion";
-import { 
-  Calendar, 
-  Clock, 
-  MessageSquare,
-  CheckCircle2,
-  XCircle,
-  PlayCircle,
-  AlertCircle,
-  ExternalLink,
-  MoreHorizontal
-} from "lucide-react";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Calendar, Clock, Video, MessageSquare, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { MentorSession } from "@/types/mentor";
+import { ProfileType } from "@/types/profile";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface MentorSessionCardProps {
   session: MentorSession;
@@ -40,74 +17,48 @@ interface MentorSessionCardProps {
   onUpdateStatus: (sessionId: string, status: string) => Promise<void>;
 }
 
-export default function MentorSessionCard({ 
-  session, 
-  userRole, 
-  onUpdateStatus 
-}: MentorSessionCardProps) {
-  const otherParty = userRole === "mentor" ? session.mentee : session.mentor;
+export default function MentorSessionCard({ session, userRole, onUpdateStatus }: MentorSessionCardProps) {
+  const [isUpdating, setIsUpdating] = useState(false);
   
-  const statusColor = useMemo(() => {
-    switch(session.status) {
-      case "scheduled": return "bg-blue-50 text-blue-700 border-blue-200";
-      case "in-progress": return "bg-amber-50 text-amber-700 border-amber-200";
-      case "completed": return "bg-green-50 text-green-700 border-green-200";
-      case "cancelled": return "bg-red-50 text-red-700 border-red-200";
-      case "rescheduled": return "bg-purple-50 text-purple-700 border-purple-200";
-      default: return "bg-gray-50 text-gray-700 border-gray-200";
-    }
-  }, [session.status]);
-  
-  const statusIcon = useMemo(() => {
-    switch(session.status) {
-      case "scheduled": return <Calendar className="h-4 w-4 text-blue-500" />;
-      case "in-progress": return <PlayCircle className="h-4 w-4 text-amber-500" />;
-      case "completed": return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-      case "cancelled": return <XCircle className="h-4 w-4 text-red-500" />;
-      case "rescheduled": return <AlertCircle className="h-4 w-4 text-purple-500" />;
-      default: return <Calendar className="h-4 w-4" />;
-    }
-  }, [session.status]);
-  
-  const sessionDuration = useMemo(() => {
-    const startTime = parseISO(session.start_time);
-    const endTime = parseISO(session.end_time);
-    return differenceInMinutes(endTime, startTime);
-  }, [session.start_time, session.end_time]);
-  
-  const isUpcoming = useMemo(() => {
-    const startTime = parseISO(session.start_time);
-    return isBefore(new Date(), startTime) && session.status !== "cancelled";
-  }, [session.start_time, session.status]);
-  
-  const isPast = useMemo(() => {
-    const endTime = parseISO(session.end_time);
-    return isAfter(new Date(), endTime);
-  }, [session.end_time]);
-  
-  const canStart = useMemo(() => {
-    if (session.status !== "scheduled") return false;
-    
-    const startTime = parseISO(session.start_time);
-    const now = new Date();
-    const timeToStart = differenceInMinutes(startTime, now);
-    
-    // Can start 5 minutes before scheduled time
-    return timeToStart <= 5 && !isPast;
-  }, [session.status, session.start_time, isPast]);
-  
-  const canComplete = useMemo(() => {
-    return session.status === "in-progress" && isPast;
-  }, [session.status, isPast]);
-  
-  const canCancel = useMemo(() => {
-    return isUpcoming && session.status === "scheduled";
-  }, [isUpcoming, session.status]);
+  const otherParty: ProfileType | undefined = userRole === "mentor" ? session.mentee : session.mentor;
+  const startTime = parseISO(session.start_time);
+  const endTime = parseISO(session.end_time);
+  const isUpcoming = isFuture(startTime);
+  const isPastSession = isPast(endTime);
   
   const handleUpdateStatus = async (status: string) => {
-    await onUpdateStatus(session.id, status);
+    setIsUpdating(true);
+    try {
+      await onUpdateStatus(session.id, status);
+      toast.success(`Session ${status} successfully`);
+    } catch (error) {
+      console.error("Failed to update session:", error);
+      toast.error("Failed to update session status");
+    } finally {
+      setIsUpdating(false);
+    }
   };
-
+  
+  // Get status badge variant and label
+  const getStatusInfo = () => {
+    switch (session.status) {
+      case "scheduled":
+        return { variant: "outline", label: "Scheduled" };
+      case "in-progress":
+        return { variant: "default", label: "In Progress" };
+      case "completed":
+        return { variant: "success", label: "Completed" };
+      case "cancelled":
+        return { variant: "destructive", label: "Cancelled" };
+      case "rescheduled":
+        return { variant: "warning", label: "Rescheduled" };
+      default:
+        return { variant: "outline", label: session.status };
+    }
+  };
+  
+  const statusInfo = getStatusInfo();
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -115,126 +66,112 @@ export default function MentorSessionCard({
       transition={{ duration: 0.3 }}
     >
       <Card className="overflow-hidden">
-        <CardHeader className="pb-4">
-          <div className="flex justify-between items-start">
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-start gap-4">
             <div>
               <CardTitle className="text-lg">{session.title}</CardTitle>
-              <CardDescription>{session.session_type} Session</CardDescription>
+              <CardDescription className="mt-1 flex items-center">
+                <Calendar className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                {format(startTime, "EEEE, MMMM d, yyyy")}
+              </CardDescription>
             </div>
-            <Badge 
-              variant="outline" 
-              className={`${statusColor} uppercase flex items-center space-x-1 px-2 py-1`}
-            >
-              {statusIcon}
-              <span>{session.status}</span>
-            </Badge>
+            <Badge variant={statusInfo.variant as any}>{statusInfo.label}</Badge>
           </div>
         </CardHeader>
         
-        <CardContent className="pb-4">
-          <div className="flex items-start gap-4 mb-4">
-            <Avatar className="h-9 w-9">
-              <AvatarImage src={otherParty?.avatar_url || undefined} />
-              <AvatarFallback>{otherParty?.full_name?.charAt(0) || otherParty?.username?.charAt(0) || (userRole === "mentor" ? "M" : "U")}</AvatarFallback>
-            </Avatar>
+        <CardContent className="pb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <h4 className="text-sm font-medium">
-                {userRole === "mentor" ? "Mentee" : "Mentor"}: {otherParty?.full_name || otherParty?.username}
-              </h4>
-              {otherParty?.position && otherParty?.company && (
-                <p className="text-xs text-muted-foreground">
-                  {otherParty.position} at {otherParty.company}
+              <div className="flex items-center mb-3">
+                <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                <span className="text-sm">
+                  {format(startTime, "h:mm a")} - {format(endTime, "h:mm a")}
+                </span>
+              </div>
+              
+              {session.description && (
+                <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                  {session.description}
                 </p>
               )}
-            </div>
-          </div>
-          
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center text-sm">
-              <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-              <span>
-                {format(parseISO(session.start_time), 'EEEE, MMMM d, yyyy')}
-              </span>
-            </div>
-            
-            <div className="flex items-center text-sm">
-              <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-              <span>
-                {format(parseISO(session.start_time), 'h:mm a')} - {format(parseISO(session.end_time), 'h:mm a')} ({sessionDuration} minutes)
-              </span>
-            </div>
-            
-            {session.description && (
-              <div className="mt-2 text-sm text-muted-foreground">
-                <p className="line-clamp-2">{session.description}</p>
+              
+              <div className="flex items-center">
+                <Badge variant="outline" className="mr-2">{session.session_type}</Badge>
+                {session.payment_status === "completed" && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    Paid
+                  </Badge>
+                )}
               </div>
-            )}
+            </div>
+            
+            <div className="flex flex-col sm:items-end justify-between">
+              <div className="flex items-center mb-3">
+                <Avatar className="h-8 w-8 mr-2">
+                  <AvatarImage src={otherParty?.avatar_url || undefined} />
+                  <AvatarFallback>{otherParty?.full_name?.charAt(0) || otherParty?.username?.charAt(0) || "U"}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium">{otherParty?.full_name || otherParty?.username}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {userRole === "mentor" ? "Mentee" : "Mentor"}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
         
-        <CardFooter className="flex justify-between pt-2 pb-4 border-t">
-          <div className="flex gap-2">
-            {session.session_url && (
-              <Button variant="outline" size="sm" asChild>
-                <a href={session.session_url} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Join
-                </a>
-              </Button>
-            )}
-            
-            <Button variant="outline" size="sm">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Message
+        <CardFooter className="pt-2 flex flex-wrap gap-2">
+          {isUpdating ? (
+            <Button disabled className="w-full sm:w-auto">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Updating...
             </Button>
-          </div>
-          
-          <div>
-            {canStart && (
-              <Button 
-                variant="default" 
-                size="sm"
-                onClick={() => handleUpdateStatus("in-progress")}
-              >
-                <PlayCircle className="h-4 w-4 mr-2" />
-                Start Session
-              </Button>
-            )}
-            
-            {canComplete && (
-              <Button 
-                variant="default" 
-                size="sm"
-                onClick={() => handleUpdateStatus("completed")}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Complete
-              </Button>
-            )}
-            
-            {canCancel && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <MoreHorizontal className="h-4 w-4" />
+          ) : (
+            <>
+              {isUpcoming && session.status === "scheduled" && (
+                <>
+                  <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => handleUpdateStatus("in-progress")}>
+                    <Video className="mr-2 h-4 w-4" />
+                    Start Session
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Session Actions</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    className="text-red-600"
-                    onClick={() => handleUpdateStatus("cancelled")}
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Cancel Session
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+                  <Button variant="outline" className="flex-1 sm:flex-none">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Message
+                  </Button>
+                  <Button variant="destructive" size="sm" className="flex-1 sm:flex-none" onClick={() => handleUpdateStatus("cancelled")}>
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Cancel
+                  </Button>
+                </>
+              )}
+              
+              {session.status === "in-progress" && (
+                <>
+                  <Button variant="outline" className="flex-1 sm:flex-none">
+                    <Video className="mr-2 h-4 w-4" />
+                    Join Session
+                  </Button>
+                  <Button variant="default" className="flex-1 sm:flex-none" onClick={() => handleUpdateStatus("completed")}>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Complete Session
+                  </Button>
+                </>
+              )}
+              
+              {session.status === "completed" && userRole === "mentee" && (
+                <Button variant="outline" className="flex-1 sm:flex-none">
+                  <Star className="mr-2 h-4 w-4" />
+                  Leave Review
+                </Button>
+              )}
+            </>
+          )}
         </CardFooter>
       </Card>
     </motion.div>
   );
 }
+
+import { Star } from "lucide-react";

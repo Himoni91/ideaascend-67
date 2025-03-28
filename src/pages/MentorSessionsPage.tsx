@@ -6,7 +6,7 @@ import {
   Calendar, 
   Clock, 
   Filter, 
-  SearchIcon,
+  Search as SearchIcon,
   CheckCircle, 
   XCircle, 
   LayoutList,
@@ -41,10 +41,7 @@ export default function MentorSessionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
   
-  const { 
-    useMentorSessions, 
-    updateSessionStatus 
-  } = useMentor();
+  const { useMentorSessions, updateSessionStatus } = useMentor();
   
   const { data: scheduledSessions, isLoading: isLoadingScheduled } = useMentorSessions("scheduled");
   const { data: inProgressSessions, isLoading: isLoadingInProgress } = useMentorSessions("in-progress");
@@ -54,7 +51,7 @@ export default function MentorSessionsPage() {
   // Handle session status update
   const handleUpdateSessionStatus = async (sessionId: string, status: string) => {
     try {
-      await useMentor().updateSessionStatus({
+      await updateSessionStatus({
         sessionId,
         status,
         notes: ""

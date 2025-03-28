@@ -11,8 +11,7 @@ import {
   MentorReviewExtended,
   MentorSessionTypeInfo,
   MentorFilter,
-  MentorAnalytics,
-  MentorPaymentProvider
+  MentorAnalytics
 } from "@/types/mentor";
 import { ProfileType } from "@/types/profile";
 import { formatProfileData, formatAvailabilitySlotData, formatSessionData, formatReviewData } from "@/lib/data-utils";
@@ -94,29 +93,16 @@ export function useMentor() {
       queryFn: async () => {
         if (!mentorId) throw new Error("Mentor ID is required");
         
-        // Using custom SQL query because of the current project state
-        const { data, error } = await supabase.rpc('get_mentor_availability', {
-          p_mentor_id: mentorId
-        });
+        const { data, error } = await supabase
+          .from("mentor_availability_slots")
+          .select("*")
+          .eq("mentor_id", mentorId)
+          .gte("start_time", new Date().toISOString())
+          .order("start_time", { ascending: true });
           
         if (error) throw error;
         
-        // If no data, try fallback to fetch from table directly
-        if (!data || data.length === 0) {
-          const { data: slotData, error: slotError } = await supabase
-            .from("mentor_availability_slots")
-            .select("*")
-            .eq("mentor_id", mentorId)
-            .eq("is_booked", false)
-            .gte("start_time", new Date().toISOString())
-            .order("start_time", { ascending: true });
-
-          if (slotError) throw slotError;
-          
-          return slotData ? slotData.map(slot => formatAvailabilitySlotData(slot)) : [];
-        }
-        
-        return data.map((slot: any) => formatAvailabilitySlotData(slot));
+        return data.map(slot => formatAvailabilitySlotData(slot));
       },
       enabled: !!mentorId,
     });
@@ -305,7 +291,7 @@ export function useMentor() {
       title: string;
       description?: string;
       session_type: string;
-      payment_provider?: MentorPaymentProvider;
+      payment_provider?: string;
       payment_id?: string;
       payment_amount?: number;
     }
@@ -444,92 +430,6 @@ export function useMentor() {
     return formatReviewData({...data, mentor_id: sessionData.mentor_id});
   };
 
-  // Get mentor analytics
-  const useMentorAnalytics = () => {
-    return useQuery({
-      queryKey: ["mentor-analytics"],
-      queryFn: async () => {
-        if (!user) throw new Error("User must be logged in");
-        
-        // Get total sessions count
-        const { count: totalSessions, error: sessionsError } = await supabase
-          .from("mentor_sessions")
-          .select("*", { count: "exact", head: true })
-          .eq("mentor_id", user.id);
-          
-        if (sessionsError) throw sessionsError;
-        
-        // Get completed sessions count
-        const { count: completedSessions, error: completedError } = await supabase
-          .from("mentor_sessions")
-          .select("*", { count: "exact", head: true })
-          .eq("mentor_id", user.id)
-          .eq("status", "completed");
-          
-        if (completedError) throw completedError;
-        
-        // Get average rating
-        const { data: reviewsData, error: reviewsError } = await supabase
-          .from("session_reviews")
-          .select("rating")
-          .eq("mentor_id", user.id);
-          
-        if (reviewsError) throw reviewsError;
-        
-        let averageRating = 0;
-        if (reviewsData && reviewsData.length > 0) {
-          const sum = reviewsData.reduce((acc, review) => acc + review.rating, 0);
-          averageRating = sum / reviewsData.length;
-        }
-        
-        // Get total earnings
-        const { data: earningsData, error: earningsError } = await supabase
-          .from("mentor_sessions")
-          .select("payment_amount")
-          .eq("mentor_id", user.id)
-          .eq("payment_status", "completed");
-          
-        if (earningsError) throw earningsError;
-        
-        const totalEarnings = earningsData?.reduce((acc, session) => acc + (session.payment_amount || 0), 0) || 0;
-        
-        // Get upcoming sessions
-        const { count: upcomingSessions, error: upcomingError } = await supabase
-          .from("mentor_sessions")
-          .select("*", { count: "exact", head: true })
-          .eq("mentor_id", user.id)
-          .eq("status", "scheduled")
-          .gte("start_time", new Date().toISOString());
-          
-        if (upcomingError) throw upcomingError;
-        
-        // Get unique mentees count
-        const { data: menteesData, error: menteesError } = await supabase
-          .from("mentor_sessions")
-          .select("mentee_id, count")
-          .eq("mentor_id", user.id)
-          .eq("status", "completed");
-          
-        if (menteesError) throw menteesError;
-        
-        // Count unique mentees
-        const uniqueMentees = menteesData ? [...new Set(menteesData.map(m => m.mentee_id))].length : 0;
-        
-        return {
-          total_sessions: totalSessions || 0,
-          completed_sessions: completedSessions || 0,
-          average_rating: averageRating,
-          total_earnings: totalEarnings,
-          session_duration_total: 0, // Would need additional calculations
-          upcoming_sessions: upcomingSessions || 0,
-          repeat_mentees: uniqueMentees,
-          reviews_count: reviewsData?.length || 0
-        } as MentorAnalytics;
-      },
-      enabled: !!user,
-    });
-  };
-
   // Setup mentor profile with session types
   const setupMentorProfile = async ({ bio, hourlyRate, sessionTypes, specialties }: { 
     bio: string; 
@@ -574,7 +474,6 @@ export function useMentor() {
     bookMentorSession,
     updateSessionStatus,
     submitSessionReview,
-    useMentorAnalytics,
     setupMentorProfile
   };
 }

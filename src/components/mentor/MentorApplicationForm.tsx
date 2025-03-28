@@ -4,7 +4,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { motion } from "framer-motion";
-import { Trash2, Plus, Briefcase, Certificate, Globe, Link } from "lucide-react";
+import { Trash2, Plus, Briefcase, GraduationCap, Globe, Link } from "lucide-react";
 import { 
   Form, 
   FormControl, 
@@ -250,7 +250,7 @@ export default function MentorApplicationForm({ profile, onSubmit, isSubmitting 
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-medium flex items-center">
-                  <Certificate className="mr-2 h-5 w-5 text-primary" />
+                  <GraduationCap className="mr-2 h-5 w-5 text-primary" />
                   Certifications & Credentials
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
