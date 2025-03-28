@@ -16,6 +16,10 @@ const PitchDetail = lazy(() => import("@/pages/PitchDetail"));
 const PitchHubIdea = lazy(() => import("@/pages/PitchHubIdea"));
 const PitchHubIdeaDetail = lazy(() => import("@/pages/PitchHubIdeaDetail"));
 
+// Ascend Module Routes
+const AscendPage = lazy(() => import("@/pages/Ascend"));
+const ChallengeDetailPage = lazy(() => import("@/pages/ChallengeDetail"));
+
 // Mentor Space Routes
 const MentorSpacePage = lazy(() => import("@/pages/MentorSpacePage"));
 const MentorProfilePage = lazy(() => import("@/pages/MentorProfilePage"));
@@ -108,6 +112,23 @@ const router = createBrowserRouter([
     element: (
       <Suspense fallback={<Loading />}>
         <PitchHubIdeaDetail />
+      </Suspense>
+    ),
+  },
+  // Ascend Module Routes
+  {
+    path: "/ascend",
+    element: (
+      <Suspense fallback={<Loading />}>
+        <AscendPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: "/ascend/challenge/:challengeId",
+    element: (
+      <Suspense fallback={<Loading />}>
+        <ChallengeDetailPage />
       </Suspense>
     ),
   },

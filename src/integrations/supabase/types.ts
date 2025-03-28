@@ -66,6 +66,65 @@ export type Database = {
         }
         Relationships: []
       }
+      challenges: {
+        Row: {
+          badge_id: string | null
+          category: string
+          completion_criteria: Json | null
+          created_at: string
+          description: string
+          difficulty: string
+          end_date: string | null
+          id: string
+          is_active: boolean
+          is_featured: boolean | null
+          requirements: Json | null
+          start_date: string | null
+          title: string
+          xp_reward: number
+        }
+        Insert: {
+          badge_id?: string | null
+          category: string
+          completion_criteria?: Json | null
+          created_at?: string
+          description: string
+          difficulty: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean | null
+          requirements?: Json | null
+          start_date?: string | null
+          title: string
+          xp_reward?: number
+        }
+        Update: {
+          badge_id?: string | null
+          category?: string
+          completion_criteria?: Json | null
+          created_at?: string
+          description?: string
+          difficulty?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean | null
+          requirements?: Json | null
+          start_date?: string | null
+          title?: string
+          xp_reward?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_participants: {
         Row: {
           conversation_id: string
@@ -163,6 +222,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ideas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_progress"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -292,6 +358,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "mentor_availability_slots_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "user_progress"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       mentor_reviews: {
@@ -376,6 +449,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentor_session_types_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "user_progress"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -775,6 +855,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pitches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_progress"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       poll_options: {
@@ -994,6 +1081,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_progress"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       post_reactions: {
@@ -1042,6 +1136,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_progress"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1157,6 +1258,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_progress"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       profile_views: {
@@ -1188,6 +1296,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_views_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_progress"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1489,6 +1604,50 @@ export type Database = {
           },
         ]
       }
+      user_challenges: {
+        Row: {
+          challenge_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          progress: Json
+          started_at: string | null
+          status: Database["public"]["Enums"]["challenge_status"]
+          user_id: string
+          xp_earned: number | null
+        }
+        Insert: {
+          challenge_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          progress?: Json
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["challenge_status"]
+          user_id: string
+          xp_earned?: number | null
+        }
+        Update: {
+          challenge_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          progress?: Json
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["challenge_status"]
+          user_id?: string
+          xp_earned?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_challenges_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_follows: {
         Row: {
           created_at: string
@@ -1517,11 +1676,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "user_follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "user_progress"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "user_follows_following_id_fkey"
             columns: ["following_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_follows_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "user_progress"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1647,9 +1820,59 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_progress: {
+        Row: {
+          avatar_url: string | null
+          badges_earned: number | null
+          challenges_completed: number | null
+          full_name: string | null
+          level: number | null
+          profile_completion_percentage: number | null
+          total_challenges_started: number | null
+          total_xp_earned: number | null
+          user_id: string | null
+          username: string | null
+          xp: number | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          badges_earned?: never
+          challenges_completed?: never
+          full_name?: string | null
+          level?: number | null
+          profile_completion_percentage?: number | null
+          total_challenges_started?: never
+          total_xp_earned?: never
+          user_id?: string | null
+          username?: string | null
+          xp?: number | null
+        }
+        Update: {
+          avatar_url?: string | null
+          badges_earned?: never
+          challenges_completed?: never
+          full_name?: string | null
+          level?: number | null
+          profile_completion_percentage?: number | null
+          total_challenges_started?: never
+          total_xp_earned?: never
+          user_id?: string | null
+          username?: string | null
+          xp?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      award_xp: {
+        Args: {
+          p_user_id: string
+          p_amount: number
+          p_type: string
+          p_reference_id?: string
+        }
+        Returns: boolean
+      }
       can_message_user: {
         Args: {
           sender_id: string
@@ -1761,6 +1984,7 @@ export type Database = {
       }
     }
     Enums: {
+      challenge_status: "not_started" | "in_progress" | "completed" | "failed"
       user_role_type: "mentor" | "entrepreneur" | "both"
     }
     CompositeTypes: {
