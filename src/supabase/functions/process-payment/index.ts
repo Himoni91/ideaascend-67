@@ -1,105 +1,114 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.0';
 
-// IMPORTANT: Must be deployed to Supabase Edge Functions
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-// Types for the function
-interface PaymentRequest {
-  amount: number;
-  currency: string;
-  description: string;
-  payment_provider: 'razorpay' | 'paypal' | 'free';
-  metadata?: Record<string, any>;
-}
-
-// Create a Supabase client with the Auth context of the function
 Deno.serve(async (req) => {
-  // Handle OPTIONS request for CORS
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
-  
-  try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
-    
-    // Get the session user
-    const {
-      data: { user },
-    } = await supabaseClient.auth.getUser();
 
-    if (!user) {
+  try {
+    // Parse request body
+    const requestData = await req.json();
+    const { 
+      provider, 
+      amount, 
+      currency = 'USD', 
+      description, 
+      metadata 
+    } = requestData;
+
+    // Create supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    // Get user from auth header
+    const authHeader = req.headers.get('Authorization')?.replace('Bearer ', '');
+    
+    if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    // Parse request body
-    const { amount, currency, description, payment_provider, metadata } = await req.json() as PaymentRequest;
+    // Get user from session
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader);
     
-    // This would be where you'd integrate with the actual payment providers
-    // For now, we'll simulate successful payments
-    
-    // Simulate a payment ID based on provider
-    let paymentId: string;
-    switch (payment_provider) {
-      case 'razorpay':
-        paymentId = `rzp_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-        break;
-      case 'paypal':
-        paymentId = `pp_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-        break;
-      case 'free':
-        paymentId = `free_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-        break;
-      default:
-        paymentId = `payment_${Date.now()}`;
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized', details: userError }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    // Process payment based on provider
+    let paymentResponse;
     
-    // Store the payment record in the database
-    // This would be a real implementation:
-    /*
-    const { data, error } = await supabaseClient
-      .from('payments')
-      .insert({
-        user_id: user.id,
-        payment_id: paymentId,
+    // For mock implementation
+    if (provider === 'razorpay') {
+      console.log(`[Razorpay] Processing payment: ${amount} ${currency}`);
+      paymentResponse = {
+        id: `rzp_${crypto.randomUUID().replace(/-/g, '')}`,
         amount,
         currency,
-        description,
-        payment_provider,
+        status: 'success'
+      };
+    } else if (provider === 'paypal') {
+      console.log(`[PayPal] Processing payment: ${amount} ${currency}`);
+      paymentResponse = {
+        id: `pp_${crypto.randomUUID().replace(/-/g, '')}`,
+        amount,
+        currency,
+        status: 'success'
+      };
+    } else {
+      return new Response(
+        JSON.stringify({ error: 'Invalid payment provider' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Log payment to payment_transactions table
+    const { data: transactionData, error: transactionError } = await supabase
+      .from('payment_transactions')
+      .insert({
+        user_id: user.id,
+        provider,
+        amount,
+        currency,
+        payment_id: paymentResponse.id,
         status: 'completed',
+        description,
         metadata
       })
       .select()
       .single();
       
-    if (error) throw error;
-    */
-    
+    if (transactionError) {
+      console.error('Error logging payment:', transactionError);
+    }
+
     return new Response(
       JSON.stringify({ 
-        success: true,
-        payment_id: paymentId,
-        amount,
-        currency,
-        description
+        success: true, 
+        payment: paymentResponse,
+        transaction: transactionData
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    console.error('Payment processing error:', error);
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'Payment processing failed', details: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

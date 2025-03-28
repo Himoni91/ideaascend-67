@@ -1,116 +1,127 @@
 
-import { useState } from "react";
-import { toast } from "sonner";
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
-type PaymentProps = {
+interface PaymentOptions {
   amount: number;
-  currency: string;
+  currency?: string;
   description: string;
   metadata?: Record<string, any>;
-  onSuccess?: (paymentId: string) => void;
+  onSuccess?: (paymentId: string) => Promise<void> | void;
   onError?: (error: any) => void;
-};
-
-type FreePaymentProps = {
-  description: string;
-  metadata?: Record<string, any>;
-};
+}
 
 export function usePayment() {
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
 
   const payWithRazorpay = async ({
     amount,
-    currency,
+    currency = 'INR',
     description,
     metadata,
     onSuccess,
-    onError,
-  }: PaymentProps) => {
+    onError
+  }: PaymentOptions) => {
     setIsLoading(true);
+
     try {
-      // For now we're just mocking successful payments
-      // In a real implementation, this would integrate with Razorpay SDK
-      console.log('Processing Razorpay payment:', { amount, currency, description, metadata });
+      // Call our Supabase Edge Function that handles payments
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: {
+          amount,
+          currency,
+          payment_method: 'razorpay',
+          description,
+          metadata: {
+            ...metadata,
+            user_id: user?.id
+          }
+        }
+      });
+
+      if (error) throw error;
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Generate a mock payment ID
-      const paymentId = `rzp_${Math.random().toString(36).substring(2, 15)}`;
-      
-      // Call success callback
-      if (onSuccess) {
-        onSuccess(paymentId);
+      if (!data.success) {
+        throw new Error(data.error || 'Payment processing failed');
       }
       
-      setIsLoading(false);
+      const paymentId = data.data.id;
+      
+      if (onSuccess) {
+        await onSuccess(paymentId);
+      }
+      
       return paymentId;
     } catch (error) {
-      setIsLoading(false);
-      console.error("Payment error:", error);
+      console.error('Payment error:', error);
+      toast.error('Payment failed. Please try again.');
+      
       if (onError) {
         onError(error);
       }
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const payWithPaypal = async ({
     amount,
-    currency,
+    currency = 'USD',
     description,
     metadata,
     onSuccess,
-    onError,
-  }: PaymentProps) => {
+    onError
+  }: PaymentOptions) => {
     setIsLoading(true);
+
     try {
-      // For now we're just mocking successful payments
-      // In a real implementation, this would integrate with PayPal SDK
-      console.log('Processing PayPal payment:', { amount, currency, description, metadata });
+      // Call our Supabase Edge Function that handles payments
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: {
+          amount,
+          currency,
+          payment_method: 'paypal',
+          description,
+          metadata: {
+            ...metadata,
+            user_id: user?.id
+          }
+        }
+      });
+
+      if (error) throw error;
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Generate a mock payment ID
-      const paymentId = `pp_${Math.random().toString(36).substring(2, 15)}`;
-      
-      // Call success callback
-      if (onSuccess) {
-        onSuccess(paymentId);
+      if (!data.success) {
+        throw new Error(data.error || 'Payment processing failed');
       }
       
-      setIsLoading(false);
+      const paymentId = data.data.id;
+      
+      if (onSuccess) {
+        await onSuccess(paymentId);
+      }
+      
       return paymentId;
     } catch (error) {
-      setIsLoading(false);
-      console.error("Payment error:", error);
+      console.error('Payment error:', error);
+      toast.error('Payment failed. Please try again.');
+      
       if (onError) {
         onError(error);
       }
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const createFreePayment = async ({ description, metadata }: FreePaymentProps) => {
-    setIsLoading(true);
-    try {
-      console.log('Processing free session:', { description, metadata });
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Generate a mock free payment ID
-      const paymentId = `free_${Math.random().toString(36).substring(2, 15)}`;
-      
-      setIsLoading(false);
-      return paymentId;
-    } catch (error) {
-      setIsLoading(false);
-      console.error("Free payment registration error:", error);
-      throw error;
-    }
+  const createFreePayment = async (options: Omit<PaymentOptions, "amount" | "currency">) => {
+    // For free payments, just generate a reference ID
+    return `free_${Math.random().toString(36).substring(2, 15)}`;
   };
 
   return {

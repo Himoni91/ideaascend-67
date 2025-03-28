@@ -1,179 +1,234 @@
 
-import { useState, useEffect } from "react";
-import { format, addDays, startOfWeek, isSameDay, parseISO, isBefore } from "date-fns";
-import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Calendar, Clock } from "lucide-react";
+import { useState } from "react";
+import { Calendar as CalendarIcon, Clock, Plus } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { MentorAvailabilitySlot } from "@/types/mentor";
+import { formatISO, parseISO, format, addMinutes, isBefore, isAfter, isSameDay } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface MentorAvailabilityCalendarProps {
-  availabilitySlots: MentorAvailabilitySlot[];
-  onSelectSlot: (slot: MentorAvailabilitySlot) => void;
-  isLoading?: boolean;
+  slots: MentorAvailabilitySlot[];
+  isOwnProfile: boolean;
+  onAddSlot?: (newSlot: { start_time: string; end_time: string }) => Promise<void>;
+  onSelectSlot?: (slot: MentorAvailabilitySlot) => void;
 }
 
 export default function MentorAvailabilityCalendar({ 
-  availabilitySlots, 
-  onSelectSlot,
-  isLoading = false
+  slots, 
+  isOwnProfile,
+  onAddSlot,
+  onSelectSlot
 }: MentorAvailabilityCalendarProps) {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("10:00");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Filter slots for the selected date
-  const filteredSlots = availabilitySlots.filter(slot => {
+  const filteredSlots = slots.filter(slot => {
+    if (!selectedDate) return false;
     const slotDate = parseISO(slot.start_time);
-    return (
-      isSameDay(slotDate, selectedDate) && 
-      !slot.is_booked && 
-      isBefore(new Date(), slotDate)
-    );
+    return isSameDay(slotDate, selectedDate);
   });
   
-  // Sort slots by time
-  const sortedSlots = [...filteredSlots].sort((a, b) => {
-    return parseISO(a.start_time).getTime() - parseISO(b.start_time).getTime();
-  });
-  
-  // Generate days for the week
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    return addDays(currentWeekStart, i);
-  });
-  
-  // Count available slots for each day
-  const slotsPerDay = weekDays.map(day => {
-    return availabilitySlots.filter(slot => {
-      const slotDate = parseISO(slot.start_time);
-      return (
-        isSameDay(slotDate, day) && 
-        !slot.is_booked && 
-        isBefore(new Date(), slotDate)
-      );
-    }).length;
-  });
-  
-  // Navigation functions
-  const goToNextWeek = () => {
-    setCurrentWeekStart(addDays(currentWeekStart, 7));
-  };
-  
-  const goToPreviousWeek = () => {
-    const prevWeek = addDays(currentWeekStart, -7);
-    if (isBefore(new Date(), prevWeek) || isSameDay(new Date(), prevWeek)) {
-      setCurrentWeekStart(prevWeek);
+  // Create a new availability slot
+  const handleAddSlot = async () => {
+    if (!selectedDate || !startTime || !endTime) {
+      toast.error("Please select a date and time");
+      return;
+    }
+    
+    const selectedDateCopy = new Date(selectedDate);
+    
+    // Parse hours and minutes from startTime
+    const [startHours, startMinutes] = startTime.split(":").map(Number);
+    const start = new Date(selectedDateCopy.setHours(startHours, startMinutes));
+    
+    // Reset date object and parse hours and minutes from endTime
+    selectedDateCopy.setTime(selectedDate.getTime());
+    const [endHours, endMinutes] = endTime.split(":").map(Number);
+    const end = new Date(selectedDateCopy.setHours(endHours, endMinutes));
+    
+    // Validate times
+    if (isBefore(end, start) || end.getTime() === start.getTime()) {
+      toast.error("End time must be after start time");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      if (onAddSlot) {
+        await onAddSlot({
+          start_time: formatISO(start),
+          end_time: formatISO(end)
+        });
+      }
+      
+      setShowAddDialog(false);
+      toast.success("Availability slot added");
+    } catch (error) {
+      console.error("Failed to add slot:", error);
+      toast.error("Failed to add availability slot");
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
-  // Reset selected date when week changes
-  useEffect(() => {
-    setSelectedDate(currentWeekStart);
-  }, [currentWeekStart]);
+  // Format time for display
+  const formatTime = (isoString: string) => {
+    return format(parseISO(isoString), "h:mm a");
+  };
+  
+  // Get days with slots for calendar highlighting
+  const getDaysWithSlots = () => {
+    const days = new Set<string>();
+    
+    slots.forEach(slot => {
+      const date = format(parseISO(slot.start_time), "yyyy-MM-dd");
+      days.add(date);
+    });
+    
+    return Array.from(days).map(day => new Date(day));
+  };
   
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium flex items-center">
-          <Calendar className="mr-2 h-5 w-5 text-muted-foreground" />
-          Available Slots
-        </h3>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">Availability Calendar</h3>
+        {isOwnProfile && onAddSlot && (
+          <Button 
+            variant="outline" 
             size="sm"
-            onClick={goToPreviousWeek}
-            disabled={isBefore(currentWeekStart, new Date())}
+            onClick={() => setShowAddDialog(true)}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4" />
+            Add Slot
           </Button>
-          <span className="text-sm">
-            {format(currentWeekStart, "MMM d")} - {format(addDays(currentWeekStart, 6), "MMM d, yyyy")}
-          </span>
-          <Button variant="outline" size="sm" onClick={goToNextWeek}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        )}
       </div>
       
-      <div className="grid grid-cols-7 gap-1 mb-4">
-        {weekDays.map((day, i) => {
-          const isSelected = isSameDay(day, selectedDate);
-          const hasSlots = slotsPerDay[i] > 0;
-          const isPast = isBefore(day, new Date()) && !isSameDay(day, new Date());
-          
-          return (
-            <Button
-              key={day.toString()}
-              variant={isSelected ? "default" : "outline"}
-              className={`flex flex-col h-auto py-2 ${isPast ? 'opacity-50' : ''} ${!hasSlots && !isPast ? 'border-dashed' : ''}`}
-              onClick={() => setSelectedDate(day)}
-              disabled={isPast || !hasSlots}
-            >
-              <span className="text-xs">{format(day, "EEE")}</span>
-              <span className="text-lg font-bold my-1">{format(day, "d")}</span>
-              {hasSlots ? (
-                <span className="text-xs">{slotsPerDay[i]} slot{slotsPerDay[i] !== 1 ? "s" : ""}</span>
-              ) : (
-                <span className="text-xs text-muted-foreground">No slots</span>
-              )}
-            </Button>
-          );
-        })}
-      </div>
-      
-      <h4 className="text-sm font-medium mb-3">
-        {format(selectedDate, "EEEE, MMMM d, yyyy")}
-      </h4>
-      
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-12 bg-muted rounded-md animate-pulse" />
-          ))}
-        </div>
-      ) : sortedSlots.length > 0 ? (
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 gap-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ staggerChildren: 0.05 }}
-        >
-          {sortedSlots.map((slot) => {
-            const startTime = parseISO(slot.start_time);
-            const endTime = parseISO(slot.end_time);
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <Card>
+          <CardContent className="p-4">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              className="rounded-md border"
+              modifiers={{
+                booked: getDaysWithSlots()
+              }}
+              modifiersStyles={{
+                booked: { fontWeight: 'bold', backgroundColor: 'hsl(var(--primary) / 0.1)' }
+              }}
+            />
+          </CardContent>
+        </Card>
+        
+        <Card className="md:col-span-2">
+          <CardContent className="p-4">
+            <h4 className="text-sm font-medium mb-3 flex items-center">
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {selectedDate ? format(selectedDate, "EEEE, MMMM d, yyyy") : "Select a date"}
+            </h4>
             
-            return (
-              <motion.div
-                key={slot.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start h-auto py-3"
-                  onClick={() => onSelectSlot(slot)}
-                >
-                  <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                  <div className="text-left">
-                    <div className="font-medium">{format(startTime, "h:mm a")}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {format(startTime, "h:mm a")} - {format(endTime, "h:mm a")}
+            {filteredSlots.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {selectedDate ? "No availability slots for this date" : "Select a date to see availability"}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {filteredSlots.map((slot) => (
+                  <Button
+                    key={slot.id}
+                    variant="outline"
+                    className={cn(
+                      "justify-start h-auto py-3",
+                      slot.is_booked ? "opacity-50 cursor-not-allowed" : "hover:border-primary"
+                    )}
+                    disabled={slot.is_booked}
+                    onClick={() => !slot.is_booked && onSelectSlot && onSelectSlot(slot)}
+                  >
+                    <div className="flex items-start">
+                      <Clock className="h-4 w-4 mr-2 mt-0.5" />
+                      <div className="text-left">
+                        <p className="font-medium">
+                          {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {slot.is_booked ? "Booked" : "Available"}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </Button>
-              </motion.div>
-            );
-          })}
-        </motion.div>
-      ) : (
-        <div className="text-center py-8 border rounded-lg">
-          <Clock className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
-          <h3 className="text-sm font-medium mb-1">No available slots</h3>
-          <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-            There are no available time slots for this day. Please select another day or contact the mentor.
-          </p>
-        </div>
-      )}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* Add slot dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add Availability Slot</DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div>
+              <Label htmlFor="date" className="mb-2 block">Date</Label>
+              <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                {selectedDate ? format(selectedDate, "EEEE, MMMM d, yyyy") : "Select a date"}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="start-time" className="mb-2 block">Start Time</Label>
+                <Input
+                  id="start-time"
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="end-time" className="mb-2 block">End Time</Label>
+                <Input
+                  id="end-time"
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAddDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddSlot} 
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Adding..." : "Add Slot"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

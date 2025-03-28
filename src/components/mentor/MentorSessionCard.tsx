@@ -1,94 +1,63 @@
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { format, isPast, isFuture, isToday as isDateToday } from "date-fns";
+import { format, parseISO, isPast, isFuture } from "date-fns";
 import { motion } from "framer-motion";
-import { 
-  Clock, 
-  Calendar, 
-  Video, 
-  MessageSquare, 
-  Star, 
-  CheckCircle, 
-  XCircle,
-  AlertCircle
-} from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Calendar, Clock, Video, MessageSquare, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MentorSession } from "@/types/mentor";
-import { formatTime } from "@/lib/date-utils";
+import { ProfileType } from "@/types/profile";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface MentorSessionCardProps {
   session: MentorSession;
-  isAsMentor?: boolean;
-  onStatusChange?: (sessionId: string, status: string) => Promise<void>;
-  onReview?: (sessionId: string) => void;
+  userRole: "mentor" | "mentee";
+  onUpdateStatus: (sessionId: string, status: string) => Promise<void>;
 }
 
-export default function MentorSessionCard({ 
-  session, 
-  isAsMentor = false,
-  onStatusChange,
-  onReview 
-}: MentorSessionCardProps) {
-  const [isLoading, setIsLoading] = useState(false);
+export default function MentorSessionCard({ session, userRole, onUpdateStatus }: MentorSessionCardProps) {
+  const [isUpdating, setIsUpdating] = useState(false);
   
-  const startTime = new Date(session.start_time);
-  const endTime = new Date(session.end_time);
-  const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-  
-  const profileToShow = isAsMentor ? session.mentee : session.mentor;
-  
-  const isCompleted = session.status === 'completed';
-  const isScheduled = session.status === 'scheduled';
-  const isCancelled = session.status === 'cancelled';
-  
+  const otherParty: ProfileType | undefined = userRole === "mentor" ? session.mentee : session.mentor;
+  const startTime = parseISO(session.start_time);
+  const endTime = parseISO(session.end_time);
   const isUpcoming = isFuture(startTime);
   const isPastSession = isPast(endTime);
-  const isToday = isDateToday(startTime);
   
-  // Format dates and times
-  const sessionDate = format(startTime, "MMMM d, yyyy");
-  const startTimeFormatted = format(startTime, "h:mm a");
-  const endTimeFormatted = format(endTime, "h:mm a");
-  
-  // Handle session actions
-  const handleStatusChange = async (status: string) => {
-    if (!onStatusChange) return;
-    
-    setIsLoading(true);
+  const handleUpdateStatus = async (status: string) => {
+    setIsUpdating(true);
     try {
-      await onStatusChange(session.id, status);
+      await onUpdateStatus(session.id, status);
+      toast.success(`Session ${status} successfully`);
     } catch (error) {
-      console.error("Failed to update session status:", error);
+      console.error("Failed to update session:", error);
+      toast.error("Failed to update session status");
     } finally {
-      setIsLoading(false);
+      setIsUpdating(false);
     }
   };
   
-  const handleReview = () => {
-    if (onReview) {
-      onReview(session.id);
+  // Get status badge variant and label
+  const getStatusInfo = () => {
+    switch (session.status) {
+      case "scheduled":
+        return { variant: "outline", label: "Scheduled" };
+      case "in-progress":
+        return { variant: "default", label: "In Progress" };
+      case "completed":
+        return { variant: "success", label: "Completed" };
+      case "cancelled":
+        return { variant: "destructive", label: "Cancelled" };
+      case "rescheduled":
+        return { variant: "warning", label: "Rescheduled" };
+      default:
+        return { variant: "outline", label: session.status };
     }
   };
   
-  // Determine badge color based on status
-  const getBadgeVariant = () => {
-    if (isCompleted) return "default";
-    if (isCancelled) return "destructive";
-    if (isScheduled && isUpcoming) return "secondary";
-    if (isScheduled && isPastSession) return "outline";
-    return "outline";
-  };
+  const statusInfo = getStatusInfo();
   
   return (
     <motion.div
@@ -96,130 +65,113 @@ export default function MentorSessionCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <Card className="overflow-hidden transition-all hover:border-primary/20">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <Badge variant={getBadgeVariant()} className="capitalize">
-              {session.status}
-              {isToday && isScheduled && " • Today"}
-            </Badge>
-            
-            {session.payment_status && (
-              <Badge variant={session.payment_status === 'completed' ? "outline" : "secondary"}>
-                {session.payment_status}
-              </Badge>
-            )}
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <CardTitle className="text-lg">{session.title}</CardTitle>
+              <CardDescription className="mt-1 flex items-center">
+                <Calendar className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                {format(startTime, "EEEE, MMMM d, yyyy")}
+              </CardDescription>
+            </div>
+            <Badge variant={statusInfo.variant as any}>{statusInfo.label}</Badge>
           </div>
-          
-          <CardTitle className="text-lg">{session.title}</CardTitle>
-          <CardDescription>
-            {session.session_type} • {durationMinutes} minutes
-          </CardDescription>
         </CardHeader>
         
         <CardContent className="pb-3">
-          <div className="flex flex-col gap-2 text-sm">
-            <div className="flex items-center text-muted-foreground">
-              <Calendar className="h-4 w-4 mr-2" />
-              <span>{sessionDate}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <div className="flex items-center mb-3">
+                <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                <span className="text-sm">
+                  {format(startTime, "h:mm a")} - {format(endTime, "h:mm a")}
+                </span>
+              </div>
+              
+              {session.description && (
+                <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                  {session.description}
+                </p>
+              )}
+              
+              <div className="flex items-center">
+                <Badge variant="outline" className="mr-2">{session.session_type}</Badge>
+                {session.payment_status === "completed" && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    Paid
+                  </Badge>
+                )}
+              </div>
             </div>
             
-            <div className="flex items-center text-muted-foreground">
-              <Clock className="h-4 w-4 mr-2" />
-              <span>{startTimeFormatted} - {endTimeFormatted}</span>
-            </div>
-            
-            <div className="flex items-center mt-1">
-              <Avatar className="h-6 w-6 mr-2">
-                <AvatarImage src={profileToShow?.avatar_url || undefined} />
-                <AvatarFallback>
-                  {profileToShow?.full_name?.charAt(0) || 
-                   profileToShow?.username?.charAt(0) || "?"}
-                </AvatarFallback>
-              </Avatar>
-              <span className="font-medium">
-                {isAsMentor ? "Mentee: " : "Mentor: "}
-                {profileToShow?.full_name || profileToShow?.username || "Unknown"}
-              </span>
+            <div className="flex flex-col sm:items-end justify-between">
+              <div className="flex items-center mb-3">
+                <Avatar className="h-8 w-8 mr-2">
+                  <AvatarImage src={otherParty?.avatar_url || undefined} />
+                  <AvatarFallback>{otherParty?.full_name?.charAt(0) || otherParty?.username?.charAt(0) || "U"}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium">{otherParty?.full_name || otherParty?.username}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {userRole === "mentor" ? "Mentee" : "Mentor"}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-          
-          {session.description && (
-            <div className="mt-3 text-sm">
-              <p className="line-clamp-2 text-muted-foreground">{session.description}</p>
-            </div>
-          )}
         </CardContent>
         
-        <CardFooter className="flex flex-wrap gap-2">
-          {isScheduled && isUpcoming && session.session_url && (
-            <Button variant="default" size="sm" className="flex-1" asChild>
-              <a href={session.session_url} target="_blank" rel="noopener noreferrer">
-                <Video className="h-4 w-4 mr-2" />
-                Join Session
-              </a>
+        <CardFooter className="pt-2 flex flex-wrap gap-2">
+          {isUpdating ? (
+            <Button disabled className="w-full sm:w-auto">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Updating...
             </Button>
-          )}
-          
-          {isScheduled && isUpcoming && !session.session_url && (
-            <Button variant="outline" size="sm" className="flex-1" asChild>
-              <Link to={`/messages?session=${session.id}`}>
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Message
-              </Link>
-            </Button>
-          )}
-          
-          {isScheduled && isUpcoming && onStatusChange && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex-1 text-destructive hover:text-destructive"
-              onClick={() => handleStatusChange('cancelled')}
-              disabled={isLoading}
-            >
-              <XCircle className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-          )}
-          
-          {isScheduled && isPastSession && onStatusChange && isAsMentor && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex-1"
-              onClick={() => handleStatusChange('completed')}
-              disabled={isLoading}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Mark Complete
-            </Button>
-          )}
-          
-          {isCompleted && !isAsMentor && onReview && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex-1"
-              onClick={handleReview}
-            >
-              <Star className="h-4 w-4 mr-2" />
-              Leave Review
-            </Button>
-          )}
-          
-          {isCancelled && (
-            <div className="w-full mt-1">
-              {session.cancellation_reason && (
-                <div className="flex items-start text-sm text-muted-foreground">
-                  <AlertCircle className="h-4 w-4 mr-2 mt-0.5 text-muted-foreground" />
-                  <span>Reason: {session.cancellation_reason}</span>
-                </div>
+          ) : (
+            <>
+              {isUpcoming && session.status === "scheduled" && (
+                <>
+                  <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => handleUpdateStatus("in-progress")}>
+                    <Video className="mr-2 h-4 w-4" />
+                    Start Session
+                  </Button>
+                  <Button variant="outline" className="flex-1 sm:flex-none">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Message
+                  </Button>
+                  <Button variant="destructive" size="sm" className="flex-1 sm:flex-none" onClick={() => handleUpdateStatus("cancelled")}>
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Cancel
+                  </Button>
+                </>
               )}
-            </div>
+              
+              {session.status === "in-progress" && (
+                <>
+                  <Button variant="outline" className="flex-1 sm:flex-none">
+                    <Video className="mr-2 h-4 w-4" />
+                    Join Session
+                  </Button>
+                  <Button variant="default" className="flex-1 sm:flex-none" onClick={() => handleUpdateStatus("completed")}>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Complete Session
+                  </Button>
+                </>
+              )}
+              
+              {session.status === "completed" && userRole === "mentee" && (
+                <Button variant="outline" className="flex-1 sm:flex-none">
+                  <Star className="mr-2 h-4 w-4" />
+                  Leave Review
+                </Button>
+              )}
+            </>
           )}
         </CardFooter>
       </Card>
     </motion.div>
   );
 }
+
+import { Star } from "lucide-react";

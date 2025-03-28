@@ -1,23 +1,7 @@
 
-// Import the Supabase client
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.3'
-
-// Define CORS headers directly in this file instead of importing
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-}
-
-// Define Deno variable for TypeScript
-declare global {
-  interface Deno {
-    env: {
-      get(key: string): string | undefined;
-    };
-    serve(handler: (req: Request) => Promise<Response> | Response): void;
-  }
-}
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { stripe } from './stripe.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
 // Get Supabase URL and key from environment variables
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
@@ -33,16 +17,6 @@ export async function handler(req: Request) {
   try {
     // Parse the request body
     const { sessionId, mentorId, menteeId, sessionData } = await req.json()
-
-    // Import Stripe dynamically
-    const { Stripe } = await import('https://esm.sh/stripe@12.5.0?target=deno')
-    
-    // Get Stripe API key from environment variable
-    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') || ''
-    const stripe = new Stripe(stripeKey, {
-      apiVersion: '2023-10-16',
-      httpClient: Stripe.createFetchHttpClient(),
-    })
 
     // Process payment with Stripe
     const session = await stripe.checkout.sessions.retrieve(sessionId)

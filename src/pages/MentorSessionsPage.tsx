@@ -1,27 +1,21 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { toast } from "sonner";
-import { 
-  Calendar, 
-  Clock, 
-  CheckCircle, 
-  XCircle,
-  Star,
-  ArrowLeft,
-  ArrowRight,
-  Filter,
-  SlidersHorizontal,
-  Calendar as CalendarIcon
-} from "lucide-react";
-import { Tab } from "@headlessui/react";
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isWithinInterval } from "date-fns";
-import { useAuth } from "@/contexts/AuthContext";
+import AppLayout from "@/components/layout/AppLayout";
 import { useMentor } from "@/hooks/use-mentor";
-import { MentorSession } from "@/types/mentor";
-import MentorSessionCard from "@/components/mentor/MentorSessionCard";
+import { useAuth } from "@/contexts/AuthContext";
+import { PageTransition } from "@/components/ui/page-transition";
+import { 
+  Card,
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -30,480 +24,419 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MentorSession } from "@/types/mentor";
+import MentorSessionCard from "@/components/mentor/MentorSessionCard";
+import { ArrowLeft, Calendar, Check, Search, X, MessageSquare, Star } from "lucide-react";
+import { format } from "date-fns";
+import { toast } from "sonner";
 
 export default function MentorSessionsPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState(0);
-  const [cancellationReason, setCancellationReason] = useState("");
+  const { user } = useAuth();
+  const { useMentorSessions, submitSessionReview, updateSessionStatus } = useMentor();
+  
+  const [sessionStatus, setSessionStatus] = useState("all");
+  const [sessionRole, setSessionRole] = useState<"mentor" | "mentee">("mentee");
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Selected session state for actions (review, cancel, etc.)
   const [selectedSession, setSelectedSession] = useState<MentorSession | null>(null);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [showReviewDialog, setShowReviewDialog] = useState(false);
-  const [review, setReview] = useState({ rating: 5, content: "" });
-  const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [filter, setFilter] = useState<string>("all");
-
-  // Mentor hooks
-  const { useMentorSessions, useUpdateSessionStatus, useLeaveReview } = useMentor();
-  const { data: sessions, isLoading, refetch } = useMentorSessions();
-  const updateSessionStatus = useUpdateSessionStatus();
-  const leaveReview = useLeaveReview();
-
-  // Calculate week range for display
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
-
-  // Filter and sort sessions
-  const filteredSessions = () => {
-    if (!sessions) return [];
-
-    let filtered = [...sessions];
-
-    // Apply status filter
-    if (filter !== "all") {
-      filtered = filtered.filter(session => session.status === filter);
-    }
-
-    // Sort by date (most recent first)
-    filtered.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-
-    return filtered;
-  };
-
-  // Filter sessions for weekly view
-  const weekSessions = () => {
-    if (!sessions) return [];
-
-    return sessions.filter(session => {
-      const sessionDate = new Date(session.start_time);
-      return isWithinInterval(sessionDate, { start: weekStart, end: weekEnd });
-    }).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-  };
-
-  // Handle status change (cancellation, completion)
-  const handleStatusChange = async (sessionId: string, status: string) => {
-    if (status === 'cancelled' && !cancellationReason) {
-      setSelectedSession(sessions?.find(s => s.id === sessionId) || null);
-      setShowCancelDialog(true);
-      return;
-    }
-
-    try {
-      await updateSessionStatus.mutateAsync({ 
-        sessionId, 
-        status,
-        ...(status === 'cancelled' ? { cancellation_reason: cancellationReason } : {})
-      });
-
-      toast.success(`Session ${status === 'cancelled' ? 'cancelled' : 'marked as complete'}`);
-      setShowCancelDialog(false);
-      setCancellationReason("");
-      setSelectedSession(null);
-      refetch();
-    } catch (error) {
-      toast.error(`Failed to update session: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
-
-  // Handle review submission
-  const handleReview = (sessionId: string) => {
-    setSelectedSession(sessions?.find(s => s.id === sessionId) || null);
-    setShowReviewDialog(true);
-  };
-
-  const submitReview = async () => {
-    if (!selectedSession) return;
-
-    try {
-      await leaveReview.mutateAsync({
-        sessionId: selectedSession.id,
-        rating: review.rating,
-        content: review.content
-      });
-
-      toast.success("Review submitted successfully");
-      setShowReviewDialog(false);
-      setReview({ rating: 5, content: "" });
-      setSelectedSession(null);
-      refetch();
-    } catch (error) {
-      toast.error(`Failed to submit review: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
-
-  // Check if user is mentor and has any role conflict
-  useEffect(() => {
-    // Check if user has mentor metadata or not
-    const isMentor = user?.user_metadata?.is_mentor === true;
-    
-    // If we have sessions data and user is not a mentor, check if they should be
-    if (sessions && sessions.length > 0) {
-      const hasMentorSessions = sessions.some(s => s.mentor_id === user?.id);
-      if (hasMentorSessions && !isMentor) {
-        // User has mentor sessions but is not marked as mentor in metadata
-        console.log("User has mentor sessions but is not marked as a mentor in metadata");
-      }
-    }
-  }, [sessions, user]);
-
-  if (isLoading) {
-    return (
-      <div className="container py-8">
-        <h1 className="text-2xl font-bold mb-6">Your Sessions</h1>
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-6 w-1/3" />
-                <Skeleton className="h-4 w-1/4 mt-2" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Skeleton className="h-10 w-full" />
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  const [actionType, setActionType] = useState<"complete" | "cancel" | "reschedule">("complete");
+  const [actionReason, setActionReason] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewContent, setReviewContent] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Fetch sessions based on selected filters
+  const { data: sessions = [], isLoading, refetch } = useMentorSessions(
+    sessionStatus, 
+    sessionRole
+  );
+  
+  // Filter sessions by search term if entered
+  const filteredSessions = searchTerm 
+    ? sessions.filter((session: MentorSession) => 
+        session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (session.description && session.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (sessionRole === "mentee" && 
+          session.mentor && 
+          (session.mentor.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           session.mentor.username?.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+        (sessionRole === "mentor" && 
+          session.mentee && 
+          (session.mentee.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           session.mentee.username?.toLowerCase().includes(searchTerm.toLowerCase())))
+      )
+    : sessions;
+  
+  if (!user) {
+    navigate("/auth/sign-in");
+    return null;
   }
-
-  return (
-    <div className="container py-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-        <h1 className="text-2xl font-bold">Your Sessions</h1>
-        <div className="flex items-center gap-2 mt-4 sm:mt-0">
-          <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sessions</SelectItem>
-              <SelectItem value="scheduled">Upcoming</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <Tab.Group selectedIndex={activeTab} onChange={setActiveTab}>
-        <Tab.List className="flex space-x-1 rounded-xl bg-muted p-1 mb-6">
-          <Tab 
-            className={({ selected }) =>
-              `w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-offset-background
-               ${selected 
-                ? 'bg-background text-foreground shadow' 
-                : 'text-muted-foreground hover:bg-muted/80'}`
-            }
-          >
-            List View
-          </Tab>
-          <Tab 
-            className={({ selected }) =>
-              `w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-offset-background
-               ${selected 
-                ? 'bg-background text-foreground shadow' 
-                : 'text-muted-foreground hover:bg-muted/80'}`
-            }
-          >
-            Week View
-          </Tab>
-        </Tab.List>
-
-        <Tab.Panels>
-          <Tab.Panel>
-            {filteredSessions().length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredSessions().map(session => (
-                  <MentorSessionCard 
-                    key={session.id} 
-                    session={session} 
-                    isAsMentor={session.mentor_id === user?.id}
-                    onStatusChange={handleStatusChange}
-                    onReview={handleReview}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Card className="text-center p-8">
-                <CardContent className="pt-8">
-                  <p className="mb-4 text-muted-foreground">No sessions found for the selected filter.</p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate('/mentor-space')}
-                  >
-                    Browse Mentors
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </Tab.Panel>
-
-          <Tab.Panel>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center mb-6">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Previous Week
-                </Button>
-                
-                <div className="text-center">
-                  <h3 className="font-medium">
-                    {format(weekStart, "MMM d")} - {format(weekEnd, "MMM d, yyyy")}
-                  </h3>
-                </div>
-                
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
-                >
-                  Next Week
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
-              
-              {weekSessions().length > 0 ? (
-                <div className="space-y-3">
-                  {weekSessions().map(session => (
-                    <Card key={session.id} className="overflow-hidden">
-                      <div className="flex flex-col sm:flex-row">
-                        <div className="bg-muted p-4 sm:w-48 flex flex-col justify-center items-center text-center">
-                          <CalendarIcon className="h-5 w-5 mb-1 text-muted-foreground" />
-                          <div className="font-medium">{format(new Date(session.start_time), "EEEE")}</div>
-                          <div className="text-2xl font-bold">{format(new Date(session.start_time), "d")}</div>
-                          <div className="text-sm text-muted-foreground">{format(new Date(session.start_time), "MMM yyyy")}</div>
-                          <div className="mt-2 flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            <span className="text-sm">
-                              {format(new Date(session.start_time), "h:mm a")} - {format(new Date(session.end_time), "h:mm a")}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <CardContent className="flex-1 p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <Badge 
-                                variant={
-                                  session.status === "completed" ? "default" : 
-                                  session.status === "cancelled" ? "destructive" : 
-                                  "secondary"
-                                }
-                                className="mb-2"
-                              >
-                                {session.status}
-                              </Badge>
-                              <h3 className="font-medium text-lg">{session.title}</h3>
-                              <div className="text-sm text-muted-foreground mt-1">{session.session_type}</div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-sm font-medium">
-                                {session.mentor_id === user?.id ? "Mentee" : "Mentor"}:
-                              </div>
-                              <div className="text-sm">
-                                {session.mentor_id === user?.id 
-                                  ? session.mentee?.full_name || session.mentee?.username 
-                                  : session.mentor?.full_name || session.mentor?.username}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {session.description && (
-                            <div className="mt-3 text-sm">
-                              <p className="line-clamp-2 text-muted-foreground">{session.description}</p>
-                            </div>
-                          )}
-                          
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {session.status === "scheduled" && session.session_url && (
-                              <Button variant="default" size="sm" asChild>
-                                <a href={session.session_url} target="_blank" rel="noopener noreferrer">
-                                  Join Session
-                                </a>
-                              </Button>
-                            )}
-                            
-                            {session.status === "scheduled" && (
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleStatusChange(session.id, 'cancelled')}
-                              >
-                                <XCircle className="h-4 w-4 mr-2" />
-                                Cancel
-                              </Button>
-                            )}
-                            
-                            {session.status === "completed" && session.mentee_id === user?.id && (
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleReview(session.id)}
-                              >
-                                <Star className="h-4 w-4 mr-2" />
-                                Review
-                              </Button>
-                            )}
-                          </div>
-                        </CardContent>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <Card className="text-center p-8">
-                  <CardContent className="pt-8">
-                    <p className="mb-4 text-muted-foreground">No sessions scheduled for this week.</p>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => navigate('/mentor-space')}
-                    >
-                      Browse Mentors
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </Tab.Panel>
-        </Tab.Panels>
-      </Tab.Group>
+  
+  // Handle session status update
+  const handleUpdateStatus = async (sessionId: string, status: string) => {
+    setIsProcessing(true);
+    try {
+      await updateSessionStatus({ 
+        sessionId, 
+        status, 
+        notes: actionReason.length > 0 ? actionReason : undefined,
+        cancellationReason: status === "cancelled" ? actionReason : undefined 
+      });
       
-      {/* Cancel Session Dialog */}
-      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cancel Session</DialogTitle>
-            <DialogDescription>
-              Please provide a reason for cancelling this session. This will be visible to the other participant.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="reason">Cancellation Reason</Label>
-              <Textarea
-                id="reason"
-                placeholder="Please explain why you're cancelling..."
-                value={cancellationReason}
-                onChange={(e) => setCancellationReason(e.target.value)}
-              />
+      // Reset state and refetch
+      setSelectedSession(null);
+      setActionReason("");
+      setIsActionModalOpen(false);
+      refetch();
+      
+    } catch (error) {
+      console.error("Failed to update session:", error);
+      toast.error("Failed to update session status. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  // Handle review submission
+  const handleSubmitReview = async () => {
+    if (!selectedSession) return;
+    
+    setIsProcessing(true);
+    try {
+      await submitSessionReview({
+        sessionId: selectedSession.id,
+        rating: reviewRating,
+        content: reviewContent
+      });
+      
+      // Reset state and refetch
+      setSelectedSession(null);
+      setReviewRating(5);
+      setReviewContent("");
+      setIsReviewModalOpen(false);
+      refetch();
+      
+    } catch (error) {
+      console.error("Failed to submit review:", error);
+      toast.error("Failed to submit review. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const openActionModal = (session: MentorSession, action: "complete" | "cancel" | "reschedule") => {
+    setSelectedSession(session);
+    setActionType(action);
+    setActionReason("");
+    setIsActionModalOpen(true);
+  };
+  
+  const openReviewModal = (session: MentorSession) => {
+    setSelectedSession(session);
+    setReviewRating(5);
+    setReviewContent("");
+    setIsReviewModalOpen(true);
+  };
+  
+  return (
+    <AppLayout>
+      <PageTransition>
+        <div className="container max-w-5xl mx-auto px-4 py-8">
+          <div className="flex items-center mb-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mr-2"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Mentorship Sessions</h1>
+              <p className="text-muted-foreground">
+                {sessionRole === "mentor" 
+                  ? "Manage your mentoring sessions" 
+                  : "View and manage your mentee sessions"}
+              </p>
             </div>
           </div>
           
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setShowCancelDialog(false);
-                setCancellationReason("");
-                setSelectedSession(null);
-              }}
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+            <Tabs 
+              value={sessionRole} 
+              onValueChange={(value) => setSessionRole(value as "mentor" | "mentee")}
+              className="w-full md:w-auto"
             >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive"
-              onClick={() => selectedSession && handleStatusChange(selectedSession.id, 'cancelled')}
-              disabled={!cancellationReason.trim()}
-            >
-              Confirm Cancellation
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Review Dialog */}
-      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rate Your Session</DialogTitle>
-            <DialogDescription>
-              Share your experience with this mentor to help others find great mentors.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="rating">Rating</Label>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="mentee">As Mentee</TabsTrigger>
+                <TabsTrigger value="mentor">As Mentor</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
+            <div className="flex items-center gap-2">
               <Select 
-                value={review.rating.toString()} 
-                onValueChange={(value) => setReview({...review, rating: parseInt(value)})}
+                value={sessionStatus} 
+                onValueChange={setSessionStatus}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a rating" />
+                <SelectTrigger className="w-[120px] h-9">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1 - Poor</SelectItem>
-                  <SelectItem value="2">2 - Below Average</SelectItem>
-                  <SelectItem value="3">3 - Average</SelectItem>
-                  <SelectItem value="4">4 - Good</SelectItem>
-                  <SelectItem value="5">5 - Excellent</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="feedback">Your Feedback</Label>
-              <Textarea
-                id="feedback"
-                placeholder="Share your experience with this mentor..."
-                value={review.content}
-                onChange={(e) => setReview({...review, content: e.target.value})}
-              />
+              
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search sessions..."
+                  className="pl-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
           </div>
           
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setShowReviewDialog(false);
-                setReview({ rating: 5, content: "" });
-                setSelectedSession(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={submitReview}
-              disabled={!review.content.trim()}
-            >
-              Submit Review
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          {isLoading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <Card key={index} className="bg-muted/30 animate-pulse">
+                  <CardContent className="p-6 h-28"></CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredSessions.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-10">
+                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">No sessions found</h3>
+                <p className="text-muted-foreground text-center max-w-md mb-6">
+                  {sessionRole === "mentor" 
+                    ? `You don't have any ${sessionStatus !== 'all' ? sessionStatus : ''} mentorship sessions yet.`
+                    : `You haven't booked any ${sessionStatus !== 'all' ? sessionStatus : ''} mentorship sessions yet.`}
+                </p>
+                {sessionRole === "mentee" ? (
+                  <Button onClick={() => navigate("/mentor-space")}>
+                    Find a Mentor
+                  </Button>
+                ) : (
+                  <Button onClick={() => navigate("/mentor-space/analytics")}>
+                    View Analytics
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {filteredSessions.map((session: MentorSession) => (
+                <MentorSessionCard
+                  key={session.id}
+                  session={session}
+                  userRole={sessionRole}
+                  onUpdateStatus={(sessionId, status) => handleUpdateStatus(sessionId, status)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* Review Modal */}
+        <Dialog open={isReviewModalOpen} onOpenChange={setIsReviewModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Submit Review</DialogTitle>
+              <DialogDescription>
+                Share your feedback about this mentorship session
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedSession && (
+              <div className="py-4 space-y-4">
+                <div className="p-3 rounded-md bg-muted/40">
+                  <h4 className="font-medium text-sm">{selectedSession.title}</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {format(new Date(selectedSession.start_time), "PPP")} • {
+                      sessionRole === "mentee" 
+                        ? `With ${selectedSession.mentor?.full_name || selectedSession.mentor?.username || "Mentor"}` 
+                        : `With ${selectedSession.mentee?.full_name || selectedSession.mentee?.username || "Mentee"}`
+                    }
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">
+                    Rating
+                  </label>
+                  <div className="flex items-center gap-1 mt-1.5">
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <button
+                        key={rating}
+                        type="button"
+                        onClick={() => setReviewRating(rating)}
+                        className="focus:outline-none"
+                      >
+                        <Star
+                          className={`h-6 w-6 ${
+                            rating <= reviewRating
+                              ? "text-yellow-500 fill-yellow-500"
+                              : "text-gray-300 dark:text-gray-600"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                    <span className="ml-2 text-sm">
+                      {reviewRating}/5
+                    </span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="review-content" className="text-sm font-medium">
+                    Your Feedback
+                  </label>
+                  <Textarea
+                    id="review-content"
+                    placeholder="Share your experience and feedback..."
+                    className="mt-1.5"
+                    rows={4}
+                    value={reviewContent}
+                    onChange={(e) => setReviewContent(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+            
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsReviewModalOpen(false)}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!reviewContent || isProcessing}
+                onClick={handleSubmitReview}
+              >
+                {isProcessing ? (
+                  <>Processing...</>
+                ) : (
+                  <>Submit Review</>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Action Modal (Complete/Cancel) */}
+        <Dialog open={isActionModalOpen} onOpenChange={setIsActionModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {actionType === "complete" 
+                  ? "Complete Session" 
+                  : actionType === "cancel" 
+                    ? "Cancel Session" 
+                    : "Reschedule Session"}
+              </DialogTitle>
+              <DialogDescription>
+                {actionType === "complete" 
+                  ? "Mark this session as completed" 
+                  : actionType === "cancel" 
+                    ? "Cancel this upcoming session" 
+                    : "Request to reschedule this session"}
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedSession && (
+              <div className="py-4 space-y-4">
+                <div className="p-3 rounded-md bg-muted/40">
+                  <h4 className="font-medium text-sm">{selectedSession.title}</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {format(new Date(selectedSession.start_time), "PPP")} • {
+                      sessionRole === "mentee" 
+                        ? `With ${selectedSession.mentor?.full_name || selectedSession.mentor?.username || "Mentor"}` 
+                        : `With ${selectedSession.mentee?.full_name || selectedSession.mentee?.username || "Mentee"}`
+                    }
+                  </p>
+                </div>
+                
+                <div>
+                  <label htmlFor="action-reason" className="text-sm font-medium">
+                    {actionType === "complete" 
+                      ? "Session Notes (Optional)" 
+                      : actionType === "cancel" 
+                        ? "Cancellation Reason" 
+                        : "Reason for Rescheduling"}
+                  </label>
+                  <Textarea
+                    id="action-reason"
+                    placeholder={
+                      actionType === "complete" 
+                        ? "Add any notes about the session..." 
+                        : actionType === "cancel" 
+                          ? "Please provide a reason for cancellation..." 
+                          : "Please provide a reason for rescheduling..."
+                    }
+                    className="mt-1.5"
+                    rows={4}
+                    value={actionReason}
+                    onChange={(e) => setActionReason(e.target.value)}
+                    required={actionType !== "complete"}
+                  />
+                </div>
+              </div>
+            )}
+            
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsActionModalOpen(false)}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={(actionType !== "complete" && !actionReason) || isProcessing}
+                onClick={() => 
+                  handleUpdateStatus(
+                    selectedSession!.id, 
+                    actionType === "complete" 
+                      ? "completed" 
+                      : actionType === "cancel" 
+                        ? "cancelled" 
+                        : "rescheduled"
+                  )
+                }
+                variant={actionType === "cancel" ? "destructive" : "default"}
+              >
+                {isProcessing ? (
+                  <>Processing...</>
+                ) : actionType === "complete" ? (
+                  <>Mark as Completed</>
+                ) : actionType === "cancel" ? (
+                  <>Cancel Session</>
+                ) : (
+                  <>Request Reschedule</>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </PageTransition>
+    </AppLayout>
   );
 }

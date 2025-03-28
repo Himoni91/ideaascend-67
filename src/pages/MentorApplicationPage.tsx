@@ -1,169 +1,189 @@
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { CheckCircle, Clock, AlertCircle } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useMentor } from "@/hooks/use-mentor";
-import { useMentorApplication } from "@/hooks/use-mentor-application";
-import MentorApplicationForm from "@/components/mentor/MentorApplicationForm";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, CheckCircle, AlertCircle, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { MentorApplication } from "@/types/mentor";
+import AppLayout from "@/components/layout/AppLayout";
+import { PageTransition } from "@/components/ui/page-transition";
+import MentorApplicationForm from "@/components/mentor/MentorApplicationForm";
+import { useMentor } from "@/hooks/use-mentor";
+import { useProfile } from "@/hooks/use-profile";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function MentorApplicationPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const [showForm, setShowForm] = useState(false);
-  const { data: application, isLoading } = useMentorApplication(user?.id || "");
+  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  useEffect(() => {
-    // If user is already a mentor, redirect to mentor profile
-    if (user?.user_metadata?.is_mentor) {
-      navigate("/mentor-profile");
-    }
-  }, [user, navigate]);
+  const { useMentorApplication } = useMentor();
+  const { profile } = useProfile(user?.id);
+  const { data: existingApplication, isLoading } = useMentorApplication();
   
-  // Show application status or form
-  const renderApplicationStatus = () => {
-    if (!application) {
-      return (
-        <Button 
-          onClick={() => setShowForm(true)} 
-          size="lg" 
-          className="mt-8 animate-pulse"
-        >
-          Apply to become a mentor
-        </Button>
-      );
-    }
-    
-    switch (application.status) {
-      case "pending":
-        return (
-          <Alert className="mt-8 border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20">
-            <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-            <AlertTitle className="text-yellow-600 dark:text-yellow-400">Application Under Review</AlertTitle>
-            <AlertDescription>
-              Your application is being reviewed by our team. This usually takes 1-3 business days.
-            </AlertDescription>
-          </Alert>
-        );
-      case "approved":
-        return (
-          <Alert className="mt-8 border-green-200 bg-green-50 dark:bg-green-900/20">
-            <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <AlertTitle className="text-green-600 dark:text-green-400">Application Approved!</AlertTitle>
-            <AlertDescription>
-              Congratulations! Your application has been approved. You can now access your mentor dashboard.
-              <Button 
-                variant="outline" 
-                className="mt-4 w-full"
-                onClick={() => navigate("/mentor-profile")}
-              >
-                Go to Mentor Dashboard
-              </Button>
-            </AlertDescription>
-          </Alert>
-        );
-      case "rejected":
-        return (
-          <Alert className="mt-8 border-red-200 bg-red-50 dark:bg-red-900/20">
-            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-            <AlertTitle className="text-red-600 dark:text-red-400">Application Declined</AlertTitle>
-            <AlertDescription>
-              Unfortunately, your application did not meet our current criteria. You can apply again after 30 days.
-            </AlertDescription>
-          </Alert>
-        );
-      default:
-        return null;
+  const handleSubmitApplication = async (data: any) => {
+    try {
+      setIsSubmitting(true);
+      
+      await useMentor().applyToBecomeMentor({
+        bio: data.bio,
+        experience: data.experience,
+        expertise: data.expertise,
+        hourly_rate: data.hourly_rate,
+        certifications: data.certifications,
+        portfolio_links: data.portfolio_links
+      });
+      
+      toast.success("Your mentor application has been submitted successfully!");
+      navigate("/mentor-space");
+    } catch (error) {
+      console.error("Application error:", error);
+      toast.error("Failed to submit application. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
-  if (isLoading) {
-    return <div className="flex justify-center p-12">Loading...</div>;
-  }
-  
-  return (
-    <div className="container max-w-4xl py-8 md:py-12">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Become a Mentor</h1>
-        <p className="mt-4 text-lg text-muted-foreground">
-          Share your expertise with entrepreneurs and help shape the next generation of startups.
-        </p>
-        
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Why Become a Mentor?</CardTitle>
-              <CardDescription>The benefits of joining our mentor network</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="font-medium">🌟 Expand Your Network</h3>
-                <p className="text-sm text-muted-foreground">Connect with innovative founders and other experienced mentors.</p>
+  // Check if user is already a mentor
+  if (profile?.is_mentor) {
+    return (
+      <AppLayout>
+        <PageTransition>
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-3xl mx-auto">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate(-1)}
+                className="mb-4"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              
+              <Alert className="mb-6 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <AlertTitle className="text-green-800 dark:text-green-400">You're already a mentor!</AlertTitle>
+                <AlertDescription className="text-green-700 dark:text-green-500">
+                  Your mentor profile is already active. You can manage your mentor profile and availability from your dashboard.
+                </AlertDescription>
+              </Alert>
+              
+              <div className="flex justify-center mt-6">
+                <Button onClick={() => navigate("/mentor-space")}>Go to Mentor Space</Button>
               </div>
-              <div>
-                <h3 className="font-medium">💼 Build Your Portfolio</h3>
-                <p className="text-sm text-muted-foreground">Add mentorship experience to your professional credentials.</p>
-              </div>
-              <div>
-                <h3 className="font-medium">💰 Earn Side Income</h3>
-                <p className="text-sm text-muted-foreground">Set your own rates and schedule for mentoring sessions.</p>
-              </div>
-              <div>
-                <h3 className="font-medium">🚀 Support Innovation</h3>
-                <p className="text-sm text-muted-foreground">Help entrepreneurs turn their ideas into successful ventures.</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>What We Look For</CardTitle>
-              <CardDescription>Qualities of successful mentors on our platform</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="font-medium">⭐ Expertise & Experience</h3>
-                <p className="text-sm text-muted-foreground">Domain expertise in startup-related fields with verifiable experience.</p>
-              </div>
-              <div>
-                <h3 className="font-medium">🤝 Commitment</h3>
-                <p className="text-sm text-muted-foreground">Willingness to provide consistent availability and quality guidance.</p>
-              </div>
-              <div>
-                <h3 className="font-medium">📈 Track Record</h3>
-                <p className="text-sm text-muted-foreground">Demonstrated success in areas you plan to mentor in.</p>
-              </div>
-              <div>
-                <h3 className="font-medium">💬 Communication</h3>
-                <p className="text-sm text-muted-foreground">Ability to explain complex concepts and provide constructive feedback.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {showForm ? (
-          <div className="mt-8">
-            <h2 className="text-2xl font-bold">Mentor Application</h2>
-            <p className="mt-2 text-muted-foreground">
-              Please provide the following information to apply as a mentor.
-            </p>
-            <div className="mt-6">
-              <MentorApplicationForm />
             </div>
           </div>
-        ) : (
-          renderApplicationStatus()
-        )}
-      </motion.div>
-    </div>
+        </PageTransition>
+      </AppLayout>
+    );
+  }
+  
+  // Show application status if already applied
+  if (!isLoading && existingApplication) {
+    return (
+      <AppLayout>
+        <PageTransition>
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-3xl mx-auto">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate(-1)}
+                className="mb-4"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              
+              <Alert className={`mb-6 ${
+                existingApplication.status === "pending" 
+                  ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800" 
+                  : existingApplication.status === "approved"
+                    ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800"
+                    : "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800"
+              }`}>
+                {existingApplication.status === "pending" ? (
+                  <HelpCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                ) : existingApplication.status === "approved" ? (
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                )}
+                <AlertTitle className={`${
+                  existingApplication.status === "pending" 
+                    ? "text-blue-800 dark:text-blue-400" 
+                    : existingApplication.status === "approved"
+                      ? "text-green-800 dark:text-green-400"
+                      : "text-red-800 dark:text-red-400"
+                }`}>
+                  {existingApplication.status === "pending" 
+                    ? "Application Under Review" 
+                    : existingApplication.status === "approved"
+                      ? "Application Approved"
+                      : "Application Needs Revision"}
+                </AlertTitle>
+                <AlertDescription className={`${
+                  existingApplication.status === "pending" 
+                    ? "text-blue-700 dark:text-blue-500" 
+                    : existingApplication.status === "approved"
+                      ? "text-green-700 dark:text-green-500"
+                      : "text-red-700 dark:text-red-500"
+                }`}>
+                  {existingApplication.status === "pending" 
+                    ? "Your application to become a mentor is currently being reviewed. We'll notify you once a decision has been made." 
+                    : existingApplication.status === "approved"
+                      ? "Congratulations! Your application to become a mentor has been approved. You can now set up your mentor profile."
+                      : `Your application needs some changes: ${existingApplication.feedback || "Please provide more details in your application."}`}
+                </AlertDescription>
+              </Alert>
+              
+              <div className="flex justify-center mt-6">
+                <Button onClick={() => navigate("/mentor-space")}>Go to Mentor Space</Button>
+              </div>
+            </div>
+          </div>
+        </PageTransition>
+      </AppLayout>
+    );
+  }
+
+  return (
+    <AppLayout>
+      <PageTransition>
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-3xl mx-auto">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate(-1)}
+              className="mb-4"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="mb-8 text-center"
+            >
+              <h1 className="text-3xl font-bold mb-2">Become a Mentor</h1>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                Share your expertise and help other entrepreneurs succeed. Fill out the application below to join our community of mentors.
+              </p>
+            </motion.div>
+            
+            <MentorApplicationForm 
+              profile={profile}
+              onSubmit={handleSubmitApplication}
+              isSubmitting={isSubmitting}
+            />
+          </div>
+        </div>
+      </PageTransition>
+    </AppLayout>
   );
 }
