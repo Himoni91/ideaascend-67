@@ -9,6 +9,69 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      analytics_events: {
+        Row: {
+          created_at: string | null
+          event_source: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_source?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_source?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      analytics_snapshots: {
+        Row: {
+          created_at: string | null
+          engagement_rate: number | null
+          followers_gained: number | null
+          id: string
+          page_views: number | null
+          pitch_views: number | null
+          profile_views: number | null
+          snapshot_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          engagement_rate?: number | null
+          followers_gained?: number | null
+          id?: string
+          page_views?: number | null
+          pitch_views?: number | null
+          profile_views?: number | null
+          snapshot_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          engagement_rate?: number | null
+          followers_gained?: number | null
+          id?: string
+          page_views?: number | null
+          pitch_views?: number | null
+          profile_views?: number | null
+          snapshot_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       badges: {
         Row: {
           category: string | null
@@ -1658,6 +1721,30 @@ export type Database = {
         }
         Relationships: []
       }
+      realtime_analytics: {
+        Row: {
+          active_users: number | null
+          id: string
+          most_active_page: string | null
+          page_views_last_hour: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          active_users?: number | null
+          id?: string
+          most_active_page?: string | null
+          page_views_last_hour?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          active_users?: number | null
+          id?: string
+          most_active_page?: string | null
+          page_views_last_hour?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       session_history: {
         Row: {
           created_at: string | null
@@ -1749,6 +1836,60 @@ export type Database = {
           metadata?: Json | null
           related_id?: string | null
           related_type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_analytics: {
+        Row: {
+          created_at: string | null
+          engagement_rate: number | null
+          followers_count: number | null
+          following_count: number | null
+          id: string
+          mentor_session_count: number | null
+          page_views: number | null
+          pitch_views: number | null
+          profile_views: number | null
+          time_spent_minutes: number | null
+          total_comments: number | null
+          total_pitches: number | null
+          total_posts: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          engagement_rate?: number | null
+          followers_count?: number | null
+          following_count?: number | null
+          id?: string
+          mentor_session_count?: number | null
+          page_views?: number | null
+          pitch_views?: number | null
+          profile_views?: number | null
+          time_spent_minutes?: number | null
+          total_comments?: number | null
+          total_pitches?: number | null
+          total_posts?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          engagement_rate?: number | null
+          followers_count?: number | null
+          following_count?: number | null
+          id?: string
+          mentor_session_count?: number | null
+          page_views?: number | null
+          pitch_views?: number | null
+          profile_views?: number | null
+          time_spent_minutes?: number | null
+          total_comments?: number | null
+          total_pitches?: number | null
+          total_posts?: number | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -2073,6 +2214,10 @@ export type Database = {
           p_pitch_id: string
         }
         Returns: boolean
+      }
+      generate_analytics_snapshot: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       get_pitch_follower_count: {
         Args: {

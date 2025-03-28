@@ -15,6 +15,7 @@ const SubmitPitch = lazy(() => import("@/pages/PitchHub"));
 const PitchDetail = lazy(() => import("@/pages/PitchDetail"));
 const PitchHubIdea = lazy(() => import("@/pages/PitchHubIdea"));
 const PitchHubIdeaDetail = lazy(() => import("@/pages/PitchHubIdeaDetail"));
+const AnalyticsPage = lazy(() => import("@/pages/AnalyticsPage"));
 
 // Ascend Module Routes
 const AscendPage = lazy(() => import("@/pages/Ascend"));
@@ -112,6 +113,15 @@ const router = createBrowserRouter([
     element: (
       <Suspense fallback={<Loading />}>
         <PitchHubIdeaDetail />
+      </Suspense>
+    ),
+  },
+  // Analytics Route
+  {
+    path: "/analytics",
+    element: (
+      <Suspense fallback={<Loading />}>
+        <AnalyticsPage />
       </Suspense>
     ),
   },
