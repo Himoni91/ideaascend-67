@@ -69,13 +69,13 @@ export const formatAvailabilitySlotData = (data: MentorAvailabilitySlotRow): Men
   };
 };
 
-export const formatSessionData = (data: MentorSessionRow): MentorSession => {
+export const formatSessionData = (data: any): MentorSession => {
   if (!data) return {} as MentorSession;
   
   // Fix the metadata type issue
   const metadata = typeof data.metadata === 'string' 
     ? (data.metadata ? JSON.parse(data.metadata) : {}) 
-    : (data.metadata || {});
+    : (data.metadata || {}) as Record<string, any>;
   
   // Create basic session object without mentor/mentee
   const session: MentorSession = {
@@ -101,12 +101,12 @@ export const formatSessionData = (data: MentorSessionRow): MentorSession => {
     metadata: metadata
   };
   
-  // Add mentor/mentee data if available as custom properties
-  if ('mentor' in data && data.mentor) {
+  // Add mentor/mentee data if available
+  if (data.mentor) {
     session.mentor = formatProfileData(data.mentor);
   }
   
-  if ('mentee' in data && data.mentee) {
+  if (data.mentee) {
     session.mentee = formatProfileData(data.mentee);
   }
   

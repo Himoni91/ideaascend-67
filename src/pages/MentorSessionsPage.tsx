@@ -1,441 +1,418 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import AppLayout from "@/components/layout/AppLayout";
-import { useMentor } from "@/hooks/use-mentor";
-import { useAuth } from "@/contexts/AuthContext";
-import { PageTransition } from "@/components/ui/page-transition";
+import { motion } from "framer-motion";
 import { 
-  Card,
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
+  Calendar, 
+  Users, 
+  Clock, 
+  CheckSquare, 
+  AlertTriangle,
+  Search,
+  FilterX
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useMentor } from "@/hooks/use-mentor";
+import { MentorSession } from "@/types/mentor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MentorSession } from "@/types/mentor";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import AppLayout from "@/components/layout/AppLayout";
 import MentorSessionCard from "@/components/mentor/MentorSessionCard";
-import { ArrowLeft, Calendar, Check, Search, X, MessageSquare, Star } from "lucide-react";
-import { format } from "date-fns";
-import { toast } from "sonner";
+import { PageTransition } from "@/components/ui/page-transition";
 
 export default function MentorSessionsPage() {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const { useMentorSessions, submitSessionReview, updateSessionStatus } = useMentor();
-  
-  const [sessionStatus, setSessionStatus] = useState("all");
-  const [sessionRole, setSessionRole] = useState<"mentor" | "mentee">("mentee");
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const { useMentorSessions, useUpdateSessionStatus } = useMentor();
   
-  // Selected session state for actions (review, cancel, etc.)
-  const [selectedSession, setSelectedSession] = useState<MentorSession | null>(null);
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
-  const [actionType, setActionType] = useState<"complete" | "cancel" | "reschedule">("complete");
-  const [actionReason, setActionReason] = useState("");
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewContent, setReviewContent] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
+  // Fetch sessions based on user role
+  const { data: myMentorSessions, isLoading: sessionsLoading, error: sessionsError } = useMentorSessions();
+  const updateSessionStatus = useUpdateSessionStatus();
   
-  // Fetch sessions based on selected filters
-  const { data: sessions = [], isLoading, refetch } = useMentorSessions(
-    sessionStatus, 
-    sessionRole
-  );
+  // Filter sessions by role (mentor or mentee)
+  const mentorSessions = myMentorSessions?.filter((session) => session.mentor_id === user?.id) || [];
+  const menteeSessions = myMentorSessions?.filter((session) => session.mentee_id === user?.id) || [];
   
-  // Filter sessions by search term if entered
-  const filteredSessions = searchTerm 
-    ? sessions.filter((session: MentorSession) => 
-        session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (session.description && session.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (sessionRole === "mentee" && 
-          session.mentor && 
-          (session.mentor.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-           session.mentor.username?.toLowerCase().includes(searchTerm.toLowerCase()))) ||
-        (sessionRole === "mentor" && 
-          session.mentee && 
-          (session.mentee.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-           session.mentee.username?.toLowerCase().includes(searchTerm.toLowerCase())))
+  // Additional filtering
+  const filterSessions = (sessions: MentorSession[]) => {
+    return sessions
+      .filter(session => 
+        statusFilter === "all" || session.status === statusFilter
       )
-    : sessions;
+      .filter(session => 
+        searchTerm === "" || 
+        session.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (session.mentor?.full_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) || 
+        (session.mentee?.full_name?.toLowerCase() || "").includes(searchTerm.toLowerCase())
+      );
+  };
   
-  if (!user) {
-    navigate("/auth/sign-in");
-    return null;
-  }
+  const filteredMentorSessions = filterSessions(mentorSessions);
+  const filteredMenteeSessions = filterSessions(menteeSessions);
   
-  // Handle session status update
+  // Handler for session status updates
   const handleUpdateStatus = async (sessionId: string, status: string) => {
-    setIsProcessing(true);
-    try {
-      await updateSessionStatus({ 
-        sessionId, 
-        status, 
-        notes: actionReason.length > 0 ? actionReason : undefined,
-        cancellationReason: status === "cancelled" ? actionReason : undefined 
-      });
-      
-      // Reset state and refetch
-      setSelectedSession(null);
-      setActionReason("");
-      setIsActionModalOpen(false);
-      refetch();
-      
-    } catch (error) {
-      console.error("Failed to update session:", error);
-      toast.error("Failed to update session status. Please try again.");
-    } finally {
-      setIsProcessing(false);
-    }
+    await updateSessionStatus.mutateAsync({ sessionId, status });
   };
   
-  // Handle review submission
-  const handleSubmitReview = async () => {
-    if (!selectedSession) return;
+  // Group sessions by date for calendar view
+  const groupSessionsByDate = (sessions: MentorSession[]) => {
+    const grouped: Record<string, MentorSession[]> = {};
     
-    setIsProcessing(true);
-    try {
-      await submitSessionReview({
-        sessionId: selectedSession.id,
-        rating: reviewRating,
-        content: reviewContent
-      });
-      
-      // Reset state and refetch
-      setSelectedSession(null);
-      setReviewRating(5);
-      setReviewContent("");
-      setIsReviewModalOpen(false);
-      refetch();
-      
-    } catch (error) {
-      console.error("Failed to submit review:", error);
-      toast.error("Failed to submit review. Please try again.");
-    } finally {
-      setIsProcessing(false);
-    }
+    sessions.forEach(session => {
+      const date = new Date(session.start_time).toISOString().split('T')[0];
+      if (!grouped[date]) {
+        grouped[date] = [];
+      }
+      grouped[date].push(session);
+    });
+    
+    return grouped;
   };
   
-  const openActionModal = (session: MentorSession, action: "complete" | "cancel" | "reschedule") => {
-    setSelectedSession(session);
-    setActionType(action);
-    setActionReason("");
-    setIsActionModalOpen(true);
-  };
-  
-  const openReviewModal = (session: MentorSession) => {
-    setSelectedSession(session);
-    setReviewRating(5);
-    setReviewContent("");
-    setIsReviewModalOpen(true);
-  };
+  const mentorSessionsByDate = groupSessionsByDate(filteredMentorSessions);
+  const menteeSessionsByDate = groupSessionsByDate(filteredMenteeSessions);
   
   return (
     <AppLayout>
       <PageTransition>
-        <div className="container max-w-5xl mx-auto px-4 py-8">
-          <div className="flex items-center mb-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mr-2"
-              onClick={() => navigate(-1)}
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">Mentorship Sessions</h1>
+              <h1 className="text-3xl font-bold mb-1">My Sessions</h1>
               <p className="text-muted-foreground">
-                {sessionRole === "mentor" 
-                  ? "Manage your mentoring sessions" 
-                  : "View and manage your mentee sessions"}
+                Manage all your mentorship sessions in one place
               </p>
+            </motion.div>
+            
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant="outline" asChild>
+                <a href="/mentor-space">
+                  <Users className="mr-2 h-4 w-4" />
+                  Find Mentors
+                </a>
+              </Button>
+              {mentorSessions.length > 0 && (
+                <Button variant="outline" asChild>
+                  <a href="/mentor-space/analytics">
+                    <CheckSquare className="mr-2 h-4 w-4" />
+                    Mentor Analytics
+                  </a>
+                </Button>
+              )}
             </div>
           </div>
           
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
-            <Tabs 
-              value={sessionRole} 
-              onValueChange={(value) => setSessionRole(value as "mentor" | "mentee")}
-              className="w-full md:w-auto"
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="mentee">As Mentee</TabsTrigger>
-                <TabsTrigger value="mentor">As Mentor</TabsTrigger>
-              </TabsList>
-            </Tabs>
+          <Tabs defaultValue="sessions">
+            <TabsList className="mb-6 grid grid-cols-2 w-full sm:w-[400px]">
+              <TabsTrigger value="sessions">
+                <Calendar className="mr-2 h-4 w-4" />
+                Sessions List
+              </TabsTrigger>
+              <TabsTrigger value="calendar">
+                <Calendar className="mr-2 h-4 w-4" />
+                Calendar View
+              </TabsTrigger>
+            </TabsList>
             
-            <div className="flex items-center gap-2">
-              <Select 
-                value={sessionStatus} 
-                onValueChange={setSessionStatus}
-              >
-                <SelectTrigger className="w-[120px] h-9">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search sessions..."
-                  className="pl-9"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-          
-          {isLoading ? (
-            <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <Card key={index} className="bg-muted/30 animate-pulse">
-                  <CardContent className="p-6 h-28"></CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : filteredSessions.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-10">
-                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No sessions found</h3>
-                <p className="text-muted-foreground text-center max-w-md mb-6">
-                  {sessionRole === "mentor" 
-                    ? `You don't have any ${sessionStatus !== 'all' ? sessionStatus : ''} mentorship sessions yet.`
-                    : `You haven't booked any ${sessionStatus !== 'all' ? sessionStatus : ''} mentorship sessions yet.`}
-                </p>
-                {sessionRole === "mentee" ? (
-                  <Button onClick={() => navigate("/mentor-space")}>
-                    Find a Mentor
-                  </Button>
-                ) : (
-                  <Button onClick={() => navigate("/mentor-space/analytics")}>
-                    View Analytics
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {filteredSessions.map((session: MentorSession) => (
-                <MentorSessionCard
-                  key={session.id}
-                  session={session}
-                  userRole={sessionRole}
-                  onUpdateStatus={(sessionId, status) => handleUpdateStatus(sessionId, status)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-        
-        {/* Review Modal */}
-        <Dialog open={isReviewModalOpen} onOpenChange={setIsReviewModalOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Submit Review</DialogTitle>
-              <DialogDescription>
-                Share your feedback about this mentorship session
-              </DialogDescription>
-            </DialogHeader>
-            
-            {selectedSession && (
-              <div className="py-4 space-y-4">
-                <div className="p-3 rounded-md bg-muted/40">
-                  <h4 className="font-medium text-sm">{selectedSession.title}</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {format(new Date(selectedSession.start_time), "PPP")} • {
-                      sessionRole === "mentee" 
-                        ? `With ${selectedSession.mentor?.full_name || selectedSession.mentor?.username || "Mentor"}` 
-                        : `With ${selectedSession.mentee?.full_name || selectedSession.mentee?.username || "Mentee"}`
-                    }
-                  </p>
+            {/* Sessions List View */}
+            <TabsContent value="sessions">
+              <div className="flex flex-col md:flex-row items-stretch gap-4 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search sessions by title, mentor or mentee..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
                 
-                <div>
-                  <label className="text-sm font-medium">
-                    Rating
-                  </label>
-                  <div className="flex items-center gap-1 mt-1.5">
-                    {[1, 2, 3, 4, 5].map((rating) => (
-                      <button
-                        key={rating}
-                        type="button"
-                        onClick={() => setReviewRating(rating)}
-                        className="focus:outline-none"
-                      >
-                        <Star
-                          className={`h-6 w-6 ${
-                            rating <= reviewRating
-                              ? "text-yellow-500 fill-yellow-500"
-                              : "text-gray-300 dark:text-gray-600"
-                          }`}
-                        />
-                      </button>
-                    ))}
-                    <span className="ml-2 text-sm">
-                      {reviewRating}/5
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sessions</SelectItem>
+                    <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {(searchTerm || statusFilter !== "all") && (
+                  <Button variant="ghost" onClick={() => {
+                    setSearchTerm("");
+                    setStatusFilter("all");
+                  }} className="flex md:w-auto">
+                    <FilterX className="mr-2 h-4 w-4" />
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {/* Sessions as Mentor */}
+                <div className="md:col-span-3">
+                  <div className="flex items-center gap-2 mb-4">
+                    <h2 className="text-xl font-semibold">My Mentoring Sessions</h2>
+                    <span className="text-sm text-muted-foreground">
+                      ({filteredMentorSessions.length})
                     </span>
                   </div>
+                  
+                  {sessionsLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {[1, 2].map((i) => (
+                        <Card key={i} className="h-40 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : filteredMentorSessions.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filteredMentorSessions.map((session) => (
+                        <MentorSessionCard
+                          key={session.id}
+                          session={session}
+                          userRole="mentor"
+                          onUpdateStatus={handleUpdateStatus}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <Card>
+                      <CardContent className="py-12 flex flex-col items-center justify-center">
+                        <Clock className="h-12 w-12 text-muted-foreground opacity-20 mb-3" />
+                        <h3 className="text-lg font-medium mb-1">No mentor sessions found</h3>
+                        <p className="text-sm text-muted-foreground text-center max-w-md">
+                          {mentorSessions.length > 0
+                            ? "No sessions match the current filters. Try adjusting your search criteria."
+                            : "You haven't conducted any mentorship sessions yet. Apply to become a mentor to start helping others."}
+                        </p>
+                        {mentorSessions.length === 0 && (
+                          <Button className="mt-4" variant="outline" asChild>
+                            <a href="/mentor-space/apply">
+                              <Users className="mr-2 h-4 w-4" />
+                              Apply to Become a Mentor
+                            </a>
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
                 
-                <div>
-                  <label htmlFor="review-content" className="text-sm font-medium">
-                    Your Feedback
-                  </label>
-                  <Textarea
-                    id="review-content"
-                    placeholder="Share your experience and feedback..."
-                    className="mt-1.5"
-                    rows={4}
-                    value={reviewContent}
-                    onChange={(e) => setReviewContent(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            )}
-            
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsReviewModalOpen(false)}
-                disabled={isProcessing}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={!reviewContent || isProcessing}
-                onClick={handleSubmitReview}
-              >
-                {isProcessing ? (
-                  <>Processing...</>
-                ) : (
-                  <>Submit Review</>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        
-        {/* Action Modal (Complete/Cancel) */}
-        <Dialog open={isActionModalOpen} onOpenChange={setIsActionModalOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>
-                {actionType === "complete" 
-                  ? "Complete Session" 
-                  : actionType === "cancel" 
-                    ? "Cancel Session" 
-                    : "Reschedule Session"}
-              </DialogTitle>
-              <DialogDescription>
-                {actionType === "complete" 
-                  ? "Mark this session as completed" 
-                  : actionType === "cancel" 
-                    ? "Cancel this upcoming session" 
-                    : "Request to reschedule this session"}
-              </DialogDescription>
-            </DialogHeader>
-            
-            {selectedSession && (
-              <div className="py-4 space-y-4">
-                <div className="p-3 rounded-md bg-muted/40">
-                  <h4 className="font-medium text-sm">{selectedSession.title}</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {format(new Date(selectedSession.start_time), "PPP")} • {
-                      sessionRole === "mentee" 
-                        ? `With ${selectedSession.mentor?.full_name || selectedSession.mentor?.username || "Mentor"}` 
-                        : `With ${selectedSession.mentee?.full_name || selectedSession.mentee?.username || "Mentee"}`
-                    }
-                  </p>
-                </div>
+                {/* Divider */}
+                <div className="md:col-span-3 my-6 border-t"></div>
                 
-                <div>
-                  <label htmlFor="action-reason" className="text-sm font-medium">
-                    {actionType === "complete" 
-                      ? "Session Notes (Optional)" 
-                      : actionType === "cancel" 
-                        ? "Cancellation Reason" 
-                        : "Reason for Rescheduling"}
-                  </label>
-                  <Textarea
-                    id="action-reason"
-                    placeholder={
-                      actionType === "complete" 
-                        ? "Add any notes about the session..." 
-                        : actionType === "cancel" 
-                          ? "Please provide a reason for cancellation..." 
-                          : "Please provide a reason for rescheduling..."
-                    }
-                    className="mt-1.5"
-                    rows={4}
-                    value={actionReason}
-                    onChange={(e) => setActionReason(e.target.value)}
-                    required={actionType !== "complete"}
-                  />
+                {/* Sessions as Mentee */}
+                <div className="md:col-span-3">
+                  <div className="flex items-center gap-2 mb-4">
+                    <h2 className="text-xl font-semibold">My Booked Sessions</h2>
+                    <span className="text-sm text-muted-foreground">
+                      ({filteredMenteeSessions.length})
+                    </span>
+                  </div>
+                  
+                  {sessionsLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {[1, 2].map((i) => (
+                        <Card key={i} className="h-40 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : filteredMenteeSessions.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filteredMenteeSessions.map((session) => (
+                        <MentorSessionCard
+                          key={session.id}
+                          session={session}
+                          userRole="mentee"
+                          onUpdateStatus={handleUpdateStatus}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <Card>
+                      <CardContent className="py-12 flex flex-col items-center justify-center">
+                        <Calendar className="h-12 w-12 text-muted-foreground opacity-20 mb-3" />
+                        <h3 className="text-lg font-medium mb-1">No booked sessions found</h3>
+                        <p className="text-sm text-muted-foreground text-center max-w-md">
+                          {menteeSessions.length > 0
+                            ? "No sessions match the current filters. Try adjusting your search criteria."
+                            : "You haven't booked any mentorship sessions yet. Find a mentor to schedule your first session."}
+                        </p>
+                        {menteeSessions.length === 0 && (
+                          <Button className="mt-4" variant="outline" asChild>
+                            <a href="/mentor-space">
+                              <Users className="mr-2 h-4 w-4" />
+                              Find a Mentor
+                            </a>
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </div>
-            )}
+            </TabsContent>
             
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsActionModalOpen(false)}
-                disabled={isProcessing}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={(actionType !== "complete" && !actionReason) || isProcessing}
-                onClick={() => 
-                  handleUpdateStatus(
-                    selectedSession!.id, 
-                    actionType === "complete" 
-                      ? "completed" 
-                      : actionType === "cancel" 
-                        ? "cancelled" 
-                        : "rescheduled"
-                  )
-                }
-                variant={actionType === "cancel" ? "destructive" : "default"}
-              >
-                {isProcessing ? (
-                  <>Processing...</>
-                ) : actionType === "complete" ? (
-                  <>Mark as Completed</>
-                ) : actionType === "cancel" ? (
-                  <>Cancel Session</>
-                ) : (
-                  <>Request Reschedule</>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            {/* Calendar View */}
+            <TabsContent value="calendar">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sessions Calendar</CardTitle>
+                  <CardDescription>
+                    View all your upcoming and past sessions in a calendar format
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-8">
+                    {/* Mentor Sessions Calendar */}
+                    {mentorSessions.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-medium mb-4">My Mentoring Sessions</h3>
+                        {Object.keys(mentorSessionsByDate).length > 0 ? (
+                          <div className="space-y-4">
+                            {Object.keys(mentorSessionsByDate)
+                              .sort()
+                              .map(date => (
+                                <div key={date} className="border rounded-lg p-4">
+                                  <h4 className="font-medium mb-3 flex items-center">
+                                    <Calendar className="h-4 w-4 mr-2 text-primary" />
+                                    {new Date(date).toLocaleDateString('en-US', {
+                                      weekday: 'long',
+                                      month: 'long',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {mentorSessionsByDate[date].map(session => (
+                                      <div key={session.id} className="border-l-2 border-primary pl-3 py-1">
+                                        <div className="flex justify-between items-start">
+                                          <div>
+                                            <p className="font-medium">{session.title}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                              {new Date(session.start_time).toLocaleTimeString('en-US', {
+                                                hour: 'numeric',
+                                                minute: '2-digit'
+                                              })} - 
+                                              {new Date(session.end_time).toLocaleTimeString('en-US', {
+                                                hour: 'numeric',
+                                                minute: '2-digit'
+                                              })}
+                                            </p>
+                                          </div>
+                                          <div className="text-right">
+                                            <p className="text-sm font-medium">
+                                              {session.mentee?.full_name || session.mentee?.username}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">{session.status}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground">No sessions found in the calendar view.</p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Mentee Sessions Calendar */}
+                    {menteeSessions.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-medium mb-4">My Booked Sessions</h3>
+                        {Object.keys(menteeSessionsByDate).length > 0 ? (
+                          <div className="space-y-4">
+                            {Object.keys(menteeSessionsByDate)
+                              .sort()
+                              .map(date => (
+                                <div key={date} className="border rounded-lg p-4">
+                                  <h4 className="font-medium mb-3 flex items-center">
+                                    <Calendar className="h-4 w-4 mr-2 text-primary" />
+                                    {new Date(date).toLocaleDateString('en-US', {
+                                      weekday: 'long',
+                                      month: 'long',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {menteeSessionsByDate[date].map(session => (
+                                      <div key={session.id} className="border-l-2 border-primary pl-3 py-1">
+                                        <div className="flex justify-between items-start">
+                                          <div>
+                                            <p className="font-medium">{session.title}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                              {new Date(session.start_time).toLocaleTimeString('en-US', {
+                                                hour: 'numeric',
+                                                minute: '2-digit'
+                                              })} - 
+                                              {new Date(session.end_time).toLocaleTimeString('en-US', {
+                                                hour: 'numeric',
+                                                minute: '2-digit'
+                                              })}
+                                            </p>
+                                          </div>
+                                          <div className="text-right">
+                                            <p className="text-sm font-medium">
+                                              {session.mentor?.full_name || session.mentor?.username}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">{session.status}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground">No sessions found in the calendar view.</p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {mentorSessions.length === 0 && menteeSessions.length === 0 && (
+                      <div className="text-center py-12">
+                        <Calendar className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
+                        <h3 className="text-lg font-medium mb-1">No sessions on your calendar</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                          You don't have any scheduled mentorship sessions yet.
+                        </p>
+                        <div className="flex flex-wrap gap-2 justify-center mt-4">
+                          <Button variant="outline" asChild>
+                            <a href="/mentor-space">
+                              <Users className="mr-2 h-4 w-4" />
+                              Find a Mentor
+                            </a>
+                          </Button>
+                          <Button variant="outline" asChild>
+                            <a href="/mentor-space/apply">
+                              <CheckSquare className="mr-2 h-4 w-4" />
+                              Become a Mentor
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
       </PageTransition>
     </AppLayout>
   );
