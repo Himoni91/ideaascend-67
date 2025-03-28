@@ -47,7 +47,7 @@ export function DiscoverFilter({
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     filters.category ? [filters.category] : []
   );
-  const [sortBy, setSortBy] = useState(filters.sortBy || "latest");
+  const [sortBy, setSortBy] = useState<"latest" | "trending" | "popular">(filters.sortBy || "latest");
   const [isFeatured, setIsFeatured] = useState(filters.featured || false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   
@@ -63,7 +63,7 @@ export function DiscoverFilter({
     }, 500);
     
     return () => clearTimeout(timerId);
-  }, [searchTerm]);
+  }, [searchTerm, filters, onFiltersChange]);
   
   // Apply all filters
   const applyFilters = () => {
@@ -71,7 +71,7 @@ export function DiscoverFilter({
       ...filters,
       category: selectedCategories.length > 0 ? selectedCategories[0] : undefined,
       tags: selectedTags.length > 0 ? selectedTags : undefined,
-      sortBy: sortBy as "latest" | "trending" | "popular",
+      sortBy,
       featured: isFeatured
     });
     setIsFilterOpen(false);
@@ -138,6 +138,11 @@ export function DiscoverFilter({
     isFeatured || 
     sortBy !== "latest";
   
+  // Type-safe handler for select component
+  const handleSortByChange = (value: string) => {
+    setSortBy(value as "latest" | "trending" | "popular");
+  };
+
   return (
     <div className="w-full space-y-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -185,7 +190,7 @@ export function DiscoverFilter({
               <div className="mt-6 space-y-6">
                 <div>
                   <h4 className="text-sm font-medium mb-3">Sort By</h4>
-                  <Select value={sortBy} onValueChange={setSortBy}>
+                  <Select value={sortBy} onValueChange={handleSortByChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Sort by..." />
                     </SelectTrigger>

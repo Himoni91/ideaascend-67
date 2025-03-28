@@ -122,9 +122,24 @@ export function useDiscover() {
           throw error;
         }
 
+        // Process data to match DiscoverContent interface
+        const processedData = data.map(item => {
+          // Initialize default properties
+          const processedItem: DiscoverContent = {
+            ...item,
+            likes_count: 0,
+            saves_count: 0,
+            user_has_liked: false,
+            user_has_saved: false,
+            profile: item.profile
+          };
+          
+          return processedItem;
+        });
+
         // If user is logged in, get their interactions with the content
         if (user) {
-          const contentIds = data.map(item => item.id);
+          const contentIds = processedData.map(item => item.id);
           
           if (contentIds.length > 0) {
             const { data: interactionsData, error: interactionsError } = await supabase
@@ -135,7 +150,7 @@ export function useDiscover() {
 
             if (!interactionsError && interactionsData) {
               // Enhance data with user interaction information
-              data.forEach(content => {
+              processedData.forEach(content => {
                 content.user_has_liked = interactionsData.some(
                   int => int.content_id === content.id && int.interaction_type === 'like'
                 );
@@ -148,7 +163,7 @@ export function useDiscover() {
         }
 
         // Get interaction counts
-        for (const item of data) {
+        for (const item of processedData) {
           const { count: likesCount, error: likesError } = await supabase
             .from('discover_interactions')
             .select('*', { count: 'exact', head: true })
@@ -165,7 +180,7 @@ export function useDiscover() {
           if (!savesError) item.saves_count = savesCount || 0;
         }
 
-        return data as DiscoverContent[];
+        return processedData;
       },
     });
   };
@@ -192,6 +207,16 @@ export function useDiscover() {
           throw error;
         }
 
+        // Create a properly shaped content item
+        const contentItem: DiscoverContent = {
+          ...data,
+          likes_count: 0,
+          saves_count: 0,
+          user_has_liked: false,
+          user_has_saved: false,
+          profile: data.profile
+        };
+
         // Record a view
         if (data) {
           await recordContentView(id);
@@ -210,8 +235,8 @@ export function useDiscover() {
           .eq('content_id', id)
           .eq('interaction_type', 'save');
 
-        if (!likesError) data.likes_count = likesCount || 0;
-        if (!savesError) data.saves_count = savesCount || 0;
+        if (!likesError) contentItem.likes_count = likesCount || 0;
+        if (!savesError) contentItem.saves_count = savesCount || 0;
 
         // If user is logged in, get their interactions with this content
         if (user) {
@@ -222,12 +247,12 @@ export function useDiscover() {
             .eq('content_id', id);
 
           if (!interactionsError && interactionsData) {
-            data.user_has_liked = interactionsData.some(int => int.interaction_type === 'like');
-            data.user_has_saved = interactionsData.some(int => int.interaction_type === 'save');
+            contentItem.user_has_liked = interactionsData.some(int => int.interaction_type === 'like');
+            contentItem.user_has_saved = interactionsData.some(int => int.interaction_type === 'save');
           }
         }
 
-        return data as DiscoverContent;
+        return contentItem;
       },
       enabled: !!id,
     });

@@ -1,6 +1,9 @@
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Follow this setup guide to integrate the Deno runtime into your application:
+// https://docs.deno.com/runtime/manual/
+
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Set up CORS headers
 const corsHeaders = {
