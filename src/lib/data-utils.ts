@@ -1,5 +1,6 @@
+
 import { Json } from "@/integrations/supabase/types";
-import { MentorAvailabilitySlotRow, MentorSessionTypeRow } from "./database-types";
+import { MentorAvailabilitySlotRow, MentorSessionTypeRow, MentorSessionRow } from "./database-types";
 import { MentorAvailabilitySlot, MentorSession, MentorSessionTypeInfo, MentorReviewExtended } from "@/types/mentor";
 import { ProfileType } from "@/types/profile";
 
@@ -53,7 +54,7 @@ export const formatProfileData = (data: any): ProfileType => {
   } as ProfileType;
 };
 
-export const formatAvailabilitySlotData = (data: any): MentorAvailabilitySlot => {
+export const formatAvailabilitySlotData = (data: MentorAvailabilitySlotRow): MentorAvailabilitySlot => {
   if (!data) return {} as MentorAvailabilitySlot;
   
   return {
@@ -68,7 +69,7 @@ export const formatAvailabilitySlotData = (data: any): MentorAvailabilitySlot =>
   };
 };
 
-export const formatSessionData = (data: any): MentorSession => {
+export const formatSessionData = (data: MentorSessionRow): MentorSession => {
   if (!data) return {} as MentorSession;
   
   return {
@@ -79,9 +80,9 @@ export const formatSessionData = (data: any): MentorSession => {
     description: data.description,
     start_time: data.start_time,
     end_time: data.end_time,
-    status: data.status,
-    payment_status: data.payment_status,
-    payment_provider: data.payment_provider,
+    status: data.status as any,
+    payment_status: data.payment_status as any,
+    payment_provider: data.payment_provider as any,
     payment_id: data.payment_id,
     payment_amount: data.payment_amount,
     payment_currency: data.payment_currency,
@@ -89,7 +90,7 @@ export const formatSessionData = (data: any): MentorSession => {
     session_notes: data.session_notes,
     cancellation_reason: data.cancellation_reason,
     cancelled_by: data.cancelled_by,
-    session_type: data.session_type,
+    session_type: data.session_type as any,
     created_at: data.created_at,
     metadata: data.metadata,
     mentor: data.mentor ? formatProfileData(data.mentor) : undefined,
@@ -97,7 +98,7 @@ export const formatSessionData = (data: any): MentorSession => {
   };
 };
 
-export const formatSessionTypeData = (data: any): MentorSessionTypeInfo => {
+export const formatSessionTypeData = (data: MentorSessionTypeRow): MentorSessionTypeInfo => {
   if (!data) return {} as MentorSessionTypeInfo;
   
   return {

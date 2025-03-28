@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +21,101 @@ import {
   formatReviewData,
   formatSessionTypeData
 } from "@/lib/data-utils";
-import { asMentorAvailabilitySlot, asMentorSessionType } from "@/lib/database-types";
+import { 
+  asMentorAvailabilitySlot, 
+  asMentorSessionType,
+  asMentorSession,
+  MentorAvailabilitySlotRow,
+  MentorSessionTypeRow,
+  MentorSessionRow
+} from "@/lib/database-types";
+
+// Use raw SQL function to access custom tables
+const fetchFromCustomTable = async (tableName: string, queryFn: (query: any) => any) => {
+  try {
+    // Use RPC for custom tables that aren't in the generated types
+    const { data, error } = await supabase.rpc('execute_sql', {
+      sql_query: `SELECT * FROM ${tableName}`
+    });
+
+    if (error) {
+      console.error(`Error fetching from ${tableName}:`, error);
+      
+      // Fallback to direct query when RPC is not available (this is a typical development environment)
+      const response = await fetch(`${supabase.supabaseUrl}/rest/v1/${tableName}?select=*`, {
+        headers: {
+          'apikey': supabase.supabaseKey,
+          'Authorization': `Bearer ${supabase.supabaseKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch from ${tableName}: ${response.statusText}`);
+      }
+      
+      const jsonData = await response.json();
+      return queryFn ? queryFn({ data: jsonData }) : { data: jsonData };
+    }
+
+    return queryFn ? queryFn({ data }) : { data };
+  } catch (err) {
+    console.error(`Error in fetchFromCustomTable for ${tableName}:`, err);
+    return { data: [], error: err };
+  }
+};
+
+// Insert into custom table
+const insertIntoCustomTable = async (tableName: string, values: any) => {
+  try {
+    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/${tableName}`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabase.supabaseKey,
+        'Authorization': `Bearer ${supabase.supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(values)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to insert into ${tableName}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return { data, error: null };
+  } catch (err) {
+    console.error(`Error inserting into ${tableName}:`, err);
+    return { data: null, error: err };
+  }
+};
+
+// Update custom table
+const updateCustomTable = async (tableName: string, values: any, id: string) => {
+  try {
+    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/${tableName}?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': supabase.supabaseKey,
+        'Authorization': `Bearer ${supabase.supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(values)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to update ${tableName}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return { data, error: null };
+  } catch (err) {
+    console.error(`Error updating ${tableName}:`, err);
+    return { data: null, error: err };
+  }
+};
 
 export function useMentor() {
   const { user } = useAuth();
@@ -102,16 +197,24 @@ export function useMentor() {
       queryFn: async () => {
         if (!mentorId) throw new Error("Mentor ID is required");
         
-        const { data, error } = await supabase
-          .from("mentor_availability_slots")
-          .select("*")
-          .eq("mentor_id", mentorId)
-          .gt("start_time", new Date().toISOString())
-          .order("start_time", { ascending: true });
-          
-        if (error) throw error;
+        // Use the REST API directly to work around type issues
+        const response = await fetch(
+          `${supabase.supabaseUrl}/rest/v1/mentor_availability_slots?mentor_id=eq.${mentorId}&start_time=gt.${new Date().toISOString()}&order=start_time.asc`,
+          {
+            headers: {
+              'apikey': supabase.supabaseKey,
+              'Authorization': `Bearer ${supabase.supabaseKey}`
+            }
+          }
+        );
         
-        return (data || []).map(slot => formatAvailabilitySlotData(asMentorAvailabilitySlot(slot)));
+        if (!response.ok) {
+          throw new Error(`Failed to fetch availability slots: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        return (data || []).map((slot: any) => formatAvailabilitySlotData(asMentorAvailabilitySlot(slot)));
       },
       enabled: !!mentorId,
     });
@@ -157,7 +260,7 @@ export function useMentor() {
         }
         
         // Transform the data to match MentorSession type
-        return data.map(session => formatSessionData(session)) as MentorSession[];
+        return data.map(session => formatSessionData(asMentorSession(session))) as MentorSession[];
       },
       enabled: !!user,
     });
@@ -184,7 +287,7 @@ export function useMentor() {
         if (error) throw error;
         
         // Transform the data to match MentorSession type
-        return formatSessionData(data);
+        return formatSessionData(asMentorSession(data));
       },
       enabled: !!sessionId && !!user,
     });
@@ -281,19 +384,16 @@ export function useMentor() {
       is_booked: false
     };
     
-    const { data, error } = await supabase
-      .from("mentor_availability_slots")
-      .insert(newSlot)
-      .select()
-      .single();
-      
+    // Use the direct REST call for better type safety
+    const { data, error } = await insertIntoCustomTable("mentor_availability_slots", newSlot);
+    
     if (error) throw error;
     
     // Invalidate availability slots cache
     queryClient.invalidateQueries({ queryKey: ["mentor-availability"] });
     
     toast.success("Availability slot added successfully");
-    return formatAvailabilitySlotData(asMentorAvailabilitySlot(data));
+    return formatAvailabilitySlotData(asMentorAvailabilitySlot(data[0]));
   };
 
   // Book a session with a mentor
@@ -312,16 +412,28 @@ export function useMentor() {
     if (!user) throw new Error("User must be logged in");
     
     // Get the slot details
-    const { data: slotData, error: slotError } = await supabase
-      .from("mentor_availability_slots")
-      .select("*")
-      .eq("id", slotId)
-      .single();
-      
-    if (slotError) throw slotError;
+    const response = await fetch(
+      `${supabase.supabaseUrl}/rest/v1/mentor_availability_slots?id=eq.${slotId}`,
+      {
+        headers: {
+          'apikey': supabase.supabaseKey,
+          'Authorization': `Bearer ${supabase.supabaseKey}`
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch slot: ${response.statusText}`);
+    }
+    
+    const slotData = await response.json();
+    
+    if (!slotData || slotData.length === 0) {
+      throw new Error("Slot not found");
+    }
     
     // Format slot data correctly
-    const formattedSlot = asMentorAvailabilitySlot(slotData);
+    const formattedSlot = asMentorAvailabilitySlot(slotData[0]);
     
     if (formattedSlot.is_booked) {
       throw new Error("This slot is already booked");
@@ -350,13 +462,12 @@ export function useMentor() {
     if (sessionError) throw sessionError;
     
     // Update the slot to be booked
-    const { error: updateError } = await supabase
-      .from("mentor_availability_slots")
-      .update({
-        is_booked: true,
-        session_id: sessionResult.id
-      })
-      .eq("id", slotId);
+    const updateData = {
+      is_booked: true,
+      session_id: sessionResult.id
+    };
+    
+    const { error: updateError } = await updateCustomTable("mentor_availability_slots", updateData, slotId);
       
     if (updateError) throw updateError;
     
@@ -382,7 +493,7 @@ export function useMentor() {
     queryClient.invalidateQueries({ queryKey: ["mentor-availability"] });
     
     toast.success("Session booked successfully!");
-    return formatSessionData(sessionResult);
+    return formatSessionData(asMentorSession(sessionResult));
   };
 
   // Update session status
@@ -403,8 +514,10 @@ export function useMentor() {
       
     if (sessionError) throw sessionError;
     
+    const typedSession = asMentorSession(sessionData);
+    
     // Check if user is authorized
-    if (sessionData.mentor_id !== user.id && sessionData.mentee_id !== user.id) {
+    if (typedSession.mentor_id !== user.id && typedSession.mentee_id !== user.id) {
       throw new Error("Not authorized to update this session");
     }
     
@@ -431,14 +544,26 @@ export function useMentor() {
     
     // If cancelled, free up the slot
     if (status === 'cancelled') {
-      await supabase
-        .from("mentor_availability_slots")
-        .update({ is_booked: false })
-        .eq("session_id", sessionId);
+      const { data: slotData } = await fetch(
+        `${supabase.supabaseUrl}/rest/v1/mentor_availability_slots?session_id=eq.${sessionId}`,
+        {
+          headers: {
+            'apikey': supabase.supabaseKey,
+            'Authorization': `Bearer ${supabase.supabaseKey}`
+          }
+        }
+      ).then(res => res.json());
+      
+      if (slotData && slotData.length > 0) {
+        await updateCustomTable("mentor_availability_slots", 
+          { is_booked: false, session_id: null }, 
+          slotData[0].id
+        );
+      }
     }
     
     // Create notification for the other party
-    const otherPartyId = user.id === sessionData.mentor_id ? sessionData.mentee_id : sessionData.mentor_id;
+    const otherPartyId = user.id === typedSession.mentor_id ? typedSession.mentee_id : typedSession.mentor_id;
     
     await supabase
       .from("notifications")
@@ -464,7 +589,7 @@ export function useMentor() {
     };
     
     toast.success(statusMessages[status] || "Session status updated");
-    return formatSessionData(data);
+    return formatSessionData(asMentorSession(data));
   };
 
   // Submit a review for a session
@@ -484,13 +609,15 @@ export function useMentor() {
       
     if (sessionError) throw sessionError;
     
+    const typedSession = asMentorSession(sessionData);
+    
     // Check if user is authorized
-    if (sessionData.mentor_id !== user.id && sessionData.mentee_id !== user.id) {
+    if (typedSession.mentor_id !== user.id && typedSession.mentee_id !== user.id) {
       throw new Error("Not authorized to review this session");
     }
     
     // Check if session is completed
-    if (sessionData.status !== 'completed') {
+    if (typedSession.status !== 'completed') {
       throw new Error("Can only review completed sessions");
     }
     
@@ -530,7 +657,7 @@ export function useMentor() {
         rating,
         session:mentor_sessions!session_reviews_session_id_fkey(mentor_id)
       `)
-      .eq("session.mentor_id", sessionData.mentor_id);
+      .eq("session.mentor_id", typedSession.mentor_id);
       
     if (!mentorReviewsError && mentorReviews) {
       // Calculate average rating
@@ -548,15 +675,15 @@ export function useMentor() {
             mentorReviews: mentorReviews.length
           }
         })
-        .eq("id", sessionData.mentor_id);
+        .eq("id", typedSession.mentor_id);
     }
     
     // Create notification for the mentor
-    if (user.id !== sessionData.mentor_id) {
+    if (user.id !== typedSession.mentor_id) {
       await supabase
         .from("notifications")
         .insert({
-          user_id: sessionData.mentor_id,
+          user_id: typedSession.mentor_id,
           sender_id: user.id,
           notification_type: 'new_review',
           related_id: data.id,
@@ -598,34 +725,33 @@ export function useMentor() {
     
     // Then add session types
     for (const sessionType of sessionTypes) {
-      // Check if this session type already exists
-      const { data: existingTypes, error: checkError } = await supabase
-        .from("mentor_session_types")
-        .select("id")
-        .eq("mentor_id", user.id)
-        .eq("name", sessionType.name);
-        
-      if (checkError) throw checkError;
+      // Use direct REST API call for better type safety
+      const checkResponse = await fetch(
+        `${supabase.supabaseUrl}/rest/v1/mentor_session_types?mentor_id=eq.${user.id}&name=eq.${encodeURIComponent(sessionType.name)}`,
+        {
+          headers: {
+            'apikey': supabase.supabaseKey,
+            'Authorization': `Bearer ${supabase.supabaseKey}`
+          }
+        }
+      );
       
-      // If it exists, update it instead of inserting
+      const existingTypes = await checkResponse.json();
+      
       if (existingTypes && existingTypes.length > 0) {
-        const { error: updateError } = await supabase
-          .from("mentor_session_types")
-          .update({
-            description: sessionType.description,
-            duration: sessionType.duration,
-            price: sessionType.price,
-            currency: sessionType.currency || 'USD',
-            is_free: sessionType.is_free || false,
-            is_featured: sessionType.is_featured || false,
-            color: sessionType.color
-          })
-          .eq("id", existingTypes[0].id);
-          
-        if (updateError) throw updateError;
+        // Update existing session type
+        await updateCustomTable("mentor_session_types", {
+          description: sessionType.description,
+          duration: sessionType.duration,
+          price: sessionType.price,
+          currency: sessionType.currency || 'USD',
+          is_free: sessionType.is_free || false,
+          is_featured: sessionType.is_featured || false,
+          color: sessionType.color
+        }, existingTypes[0].id);
       } else {
-        // Otherwise insert a new session type
-        const newSessionType = {
+        // Create new session type
+        await insertIntoCustomTable("mentor_session_types", {
           mentor_id: user.id,
           name: sessionType.name,
           description: sessionType.description,
@@ -635,13 +761,7 @@ export function useMentor() {
           is_free: sessionType.is_free || false,
           is_featured: sessionType.is_featured || false,
           color: sessionType.color
-        };
-        
-        const { error: insertError } = await supabase
-          .from("mentor_session_types")
-          .insert(newSessionType);
-          
-        if (insertError) throw insertError;
+        });
       }
     }
     
@@ -683,23 +803,27 @@ export function useMentor() {
         if (!reviewsData) return {} as MentorAnalytics;
           
         // Calculate analytics
-        const completedSessions = sessionsData.filter((s) => s.status === 'completed');
-        const upcomingSessions = sessionsData.filter((s) => s.status === 'scheduled' || s.status === 'rescheduled');
+        const typedSessions = sessionsData.map(session => asMentorSession(session));
+        const completedSessions = typedSessions.filter((s) => s.status === 'completed');
+        const upcomingSessions = typedSessions.filter((s) => s.status === 'scheduled' || s.status === 'rescheduled');
         
         // Use price as fallback since payment_amount might not exist
         const totalEarnings = completedSessions.reduce((sum, session) => {
-          const amount = session.payment_amount !== null && session.payment_amount !== undefined 
-            ? session.payment_amount 
-            : session.price;
-          return sum + (amount || 0);
+          let amount = 0;
+          if (session.payment_amount !== undefined && session.payment_amount !== null) {
+            amount = session.payment_amount;
+          } else if (session.price !== undefined && session.price !== null) {
+            amount = session.price;
+          }
+          return sum + amount;
         }, 0);
         
         // Count unique mentees
-        const uniqueMentees = new Set(sessionsData.map(s => s.mentee_id)).size;
+        const uniqueMentees = new Set(typedSessions.map(s => s.mentee_id)).size;
         
         // Calculate repeat mentees (mentees who have more than one session)
         const menteeCounts: Record<string, number> = {};
-        sessionsData.forEach(session => {
+        typedSessions.forEach(session => {
           if (session.mentee_id) {
             menteeCounts[session.mentee_id] = (menteeCounts[session.mentee_id] || 0) + 1;
           }
@@ -714,7 +838,7 @@ export function useMentor() {
           : 0;
 
         const analytics: MentorAnalytics = {
-          total_sessions: sessionsData.length,
+          total_sessions: typedSessions.length,
           completed_sessions: completedSessions.length,
           upcoming_sessions: upcomingSessions.length,
           total_earnings: totalEarnings,

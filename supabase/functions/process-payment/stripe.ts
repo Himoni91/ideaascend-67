@@ -1,10 +1,12 @@
 
 // Define Deno variable for TypeScript
-declare const Deno: {
-  env: {
-    get(key: string): string | undefined;
+declare global {
+  const Deno: {
+    env: {
+      get(key: string): string | undefined;
+    };
   };
-};
+}
 
 import { Stripe } from 'https://esm.sh/stripe@12.5.0?target=deno'
 

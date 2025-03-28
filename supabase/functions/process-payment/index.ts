@@ -4,12 +4,14 @@ import { stripe } from './stripe.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
 // Define Deno variable for TypeScript
-declare const Deno: {
-  env: {
-    get(key: string): string | undefined;
+declare global {
+  const Deno: {
+    env: {
+      get(key: string): string | undefined;
+    };
+    serve(handler: (req: Request) => Promise<Response> | Response): void;
   };
-  serve(handler: (req: Request) => Promise<Response> | Response): void;
-};
+}
 
 // Get Supabase URL and key from environment variables
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
