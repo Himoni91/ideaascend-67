@@ -174,9 +174,9 @@ export function MentorAvailabilityCalendar({
                   }
                 }}
                 styles={{
-                  day_today: { 
+                  day_selected: { 
                     fontWeight: "bold",
-                    border: "1px solid var(--primary)",
+                    border: "1px solid var(--primary)"
                   }
                 }}
                 components={{

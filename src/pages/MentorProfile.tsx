@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format, parseISO, isBefore } from "date-fns";
@@ -26,16 +25,10 @@ export default function MentorProfile() {
   const [selectedSlot, setSelectedSlot] = useState<MentorAvailabilitySlot | null>(null);
   const [isProcessingBooking, setIsProcessingBooking] = useState(false);
   
-  // Get mentor profile data
   const { data: mentor, isLoading: isLoadingMentor, error: mentorError } = useMentorProfile(id);
-  
-  // Get mentor availability
   const { data: availabilitySlots = [], isLoading: isLoadingAvailability } = useMentorAvailability(id);
-  
-  // Get mentor reviews
   const { data: reviews = [], isLoading: isLoadingReviews } = useMentorReviews(id);
   
-  // Alert on error
   useEffect(() => {
     if (mentorError) {
       toast.error("Failed to load mentor profile. Please try again.");
@@ -43,7 +36,6 @@ export default function MentorProfile() {
     }
   }, [mentorError]);
   
-  // Handle session booking
   const handleSelectTimeSlot = (slot: MentorAvailabilitySlot) => {
     setSelectedSlot(slot);
     setIsBookingModalOpen(true);
@@ -80,12 +72,10 @@ export default function MentorProfile() {
     }
   };
   
-  // Get future available slots
   const futureSlots = availabilitySlots.filter(slot => 
     !slot.is_booked && isBefore(new Date(), parseISO(slot.start_time))
   );
 
-  // Organize slots by date
   const slotsByDate: Record<string, MentorAvailabilitySlot[]> = {};
   futureSlots.forEach(slot => {
     const date = format(parseISO(slot.start_time), 'yyyy-MM-dd');
@@ -95,7 +85,6 @@ export default function MentorProfile() {
     slotsByDate[date].push(slot);
   });
   
-  // Handle loading state
   if (isLoadingMentor) {
     return (
       <AppLayout>
@@ -106,7 +95,6 @@ export default function MentorProfile() {
     );
   }
   
-  // Handle not found
   if (!mentor) {
     return (
       <AppLayout>
@@ -474,13 +462,18 @@ export default function MentorProfile() {
                     
                     <div className="flex flex-col space-y-3">
                       <Button
-                        onClick={() => document.querySelector('[data-tab="availability"]')?.click()}
+                        onClick={() => {
+                          const tabElement = document.querySelector('[value="availability"]');
+                          if (tabElement) {
+                            tabElement.dispatchEvent(new Event('click'));
+                          }
+                        }}
                       >
                         <Calendar className="mr-2 h-4 w-4" />
                         View Available Times
                       </Button>
                       <Button variant="outline" asChild>
-                        <a href={`mailto:${mentor.public_email ? mentor.public_email : ''}`}>
+                        <a href={`mailto:${mentor.public_email || ''}`}>
                           <MessageSquare className="mr-2 h-4 w-4" />
                           Contact Mentor
                         </a>
@@ -509,7 +502,6 @@ export default function MentorProfile() {
         </div>
       </div>
       
-      {/* Booking Modal */}
       {isBookingModalOpen && selectedSlot && (
         <MentorBookingModal
           isOpen={isBookingModalOpen}

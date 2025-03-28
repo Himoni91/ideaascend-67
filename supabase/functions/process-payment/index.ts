@@ -85,4 +85,5 @@ export async function handler(req: Request) {
   }
 }
 
+// This line is needed for Deno to handle requests
 Deno.serve(handler)

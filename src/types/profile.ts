@@ -19,6 +19,7 @@ export type ProfileType = {
   byline: string | null;
   profile_completion_percentage?: number;
   profile_header_url?: string | null;
+  public_email?: string | null;
   
   // Additional fields that may be added by the backend
   professional_headline?: string | null;

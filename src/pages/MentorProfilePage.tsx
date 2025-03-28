@@ -28,9 +28,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import AppLayout from "@/components/layout/AppLayout";
 import { PageTransition } from "@/components/ui/page-transition";
-import MentorAvailabilityCalendar from "@/components/mentor/MentorAvailabilityCalendar";
+import { MentorAvailabilityCalendar } from "@/components/mentor/MentorAvailabilityCalendar";
 import MentorReviews from "@/components/mentor/MentorReviews";
-import MentorBookingModal from "@/components/mentor/MentorBookingModal";
+import { MentorBookingModal } from "@/components/mentor/MentorBookingModal";
 import { toast } from "sonner";
 
 export default function MentorProfilePage() {
