@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Calendar, Clock, Calendar as CalendarIcon, MessageSquare, CreditCard, Loader2 } from "lucide-react";
+import { Calendar, Clock, Calendar as CalendarIcon, MessageSquare, Loader2 } from "lucide-react";
 import { MentorAvailabilitySlot, MentorSessionTypeInfo } from "@/types/mentor";
 import { ProfileType } from "@/types/profile";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -55,9 +55,8 @@ export function MentorBookingModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedSessionType, setSelectedSessionType] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "paypal" | "free">("free");
   
-  const { payWithRazorpay, payWithPaypal, createFreePayment, isLoading: isPaymentProcessing } = usePayment();
+  const { createFreePayment, isLoading: isPaymentProcessing } = usePayment();
   
   const sessionTypes: MentorSessionTypeInfo[] = (mentor.mentor_session_types as any || [
     {
@@ -73,7 +72,8 @@ export function MentorBookingModal({
       name: "Standard Session",
       description: "60-minute in-depth consultation",
       duration: 60,
-      price: 25
+      price: 0, // Price set to 0 temporarily
+      is_free: true // All sessions are free temporarily
     }
   ]);
   
@@ -90,11 +90,6 @@ export function MentorBookingModal({
     return differenceInMinutes(endTime, startTime);
   };
   
-  const isBookingFree = () => {
-    const sessionType = getSelectedSessionTypeDetails();
-    return sessionType?.is_free || sessionType?.price === 0;
-  };
-  
   const handleConfirmBooking = async () => {
     if (!selectedSlot || !selectedSessionType) {
       toast.error("Please select a time slot and session type");
@@ -109,93 +104,28 @@ export function MentorBookingModal({
     }
     
     try {
-      let paymentId: string | undefined;
+      // Use free payment for all bookings temporarily
+      const paymentId = await createFreePayment({
+        description: `${sessionType.name} with ${mentor.full_name || mentor.username}`,
+        metadata: {
+          mentor_id: mentor.id,
+          slot_id: selectedSlot.id,
+          session_type: selectedSessionType
+        }
+      });
       
-      if (isBookingFree()) {
-        paymentId = await createFreePayment({
-          description: `${sessionType.name} with ${mentor.full_name || mentor.username}`,
-          metadata: {
-            mentor_id: mentor.id,
-            slot_id: selectedSlot.id,
-            session_type: selectedSessionType
-          }
-        });
-      } else if (paymentMethod === "razorpay") {
-        await payWithRazorpay({
-          amount: sessionType.price,
-          currency: sessionType.currency || "INR",
-          description: `${sessionType.name} with ${mentor.full_name || mentor.username}`,
-          metadata: {
-            mentor_id: mentor.id,
-            slot_id: selectedSlot.id,
-            session_type: selectedSessionType
-          },
-          onSuccess: async (paymentResult) => {
-            await onConfirmBooking({
-              mentorId: mentor.id,
-              slotId: selectedSlot.id,
-              sessionData: {
-                title: title || `${sessionType.name} Session`,
-                description,
-                session_type: selectedSessionType,
-                payment_provider: "razorpay",
-                payment_id: paymentResult,
-                payment_amount: sessionType.price
-              }
-            });
-          },
-          onError: (error) => {
-            console.error("Payment failed:", error);
-            toast.error("Payment failed. Please try again.");
-          }
-        });
-        return;
-      } else if (paymentMethod === "paypal") {
-        await payWithPaypal({
-          amount: sessionType.price,
-          currency: sessionType.currency || "USD",
-          description: `${sessionType.name} with ${mentor.full_name || mentor.username}`,
-          metadata: {
-            mentor_id: mentor.id,
-            slot_id: selectedSlot.id,
-            session_type: selectedSessionType
-          },
-          onSuccess: async (paymentResult) => {
-            await onConfirmBooking({
-              mentorId: mentor.id,
-              slotId: selectedSlot.id,
-              sessionData: {
-                title: title || `${sessionType.name} Session`,
-                description,
-                session_type: selectedSessionType,
-                payment_provider: "paypal",
-                payment_id: paymentResult,
-                payment_amount: sessionType.price
-              }
-            });
-          },
-          onError: (error) => {
-            console.error("Payment failed:", error);
-            toast.error("Payment failed. Please try again.");
-          }
-        });
-        return;
-      }
-      
-      if (isBookingFree()) {
-        await onConfirmBooking({
-          mentorId: mentor.id,
-          slotId: selectedSlot.id,
-          sessionData: {
-            title: title || `${sessionType.name} Session`,
-            description,
-            session_type: selectedSessionType,
-            payment_provider: "free",
-            payment_id: paymentId,
-            payment_amount: 0
-          }
-        });
-      }
+      await onConfirmBooking({
+        mentorId: mentor.id,
+        slotId: selectedSlot.id,
+        sessionData: {
+          title: title || `${sessionType.name} Session`,
+          description,
+          session_type: selectedSessionType,
+          payment_provider: "free",
+          payment_id: paymentId,
+          payment_amount: 0
+        }
+      });
     } catch (error) {
       console.error("Booking error:", error);
       toast.error("Failed to complete booking. Please try again.");
@@ -206,7 +136,6 @@ export function MentorBookingModal({
     setTitle("");
     setDescription("");
     setSelectedSessionType("");
-    setPaymentMethod("free");
     onClose();
   };
 
@@ -268,10 +197,7 @@ export function MentorBookingModal({
               <SelectContent>
                 {sessionTypes.map((type) => (
                   <SelectItem key={type.id} value={type.id}>
-                    {type.name}{" "}
-                    {type.is_free || type.price === 0
-                      ? "(Free)"
-                      : `(${type.currency || "$"}${type.price})`}
+                    {type.name} (Free - Development Mode)
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -303,43 +229,10 @@ export function MentorBookingModal({
             />
           </div>
           
-          {selectedSessionType && !isBookingFree() && (
-            <div>
-              <label className="text-sm font-medium block mb-1.5">
-                Payment Method
-              </label>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant={paymentMethod === "razorpay" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setPaymentMethod("razorpay")}
-                  className="flex-1"
-                >
-                  <img 
-                    src="https://razorpay.com/images/logo.svg" 
-                    alt="Razorpay" 
-                    className="h-4 mr-2" 
-                  />
-                  Razorpay
-                </Button>
-                <Button
-                  type="button"
-                  variant={paymentMethod === "paypal" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setPaymentMethod("paypal")}
-                  className="flex-1"
-                >
-                  <img 
-                    src="https://www.paypalobjects.com/digitalassets/c/website/logo/full-text/pp_fc_hl.svg" 
-                    alt="PayPal" 
-                    className="h-4 mr-2" 
-                  />
-                  PayPal
-                </Button>
-              </div>
-            </div>
-          )}
+          <div className="p-3 bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-300 rounded-md text-sm">
+            <p className="font-medium mb-1">Development Mode</p>
+            <p>Payment processing is disabled. All sessions are currently free for testing purposes.</p>
+          </div>
         </div>
         
         <DialogFooter className="mt-4 flex-col sm:flex-row gap-2">
@@ -356,15 +249,10 @@ export function MentorBookingModal({
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing
               </>
-            ) : isBookingFree() ? (
+            ) : (
               <>
                 <Calendar className="mr-2 h-4 w-4" />
                 Book Free Session
-              </>
-            ) : (
-              <>
-                <CreditCard className="mr-2 h-4 w-4" />
-                Proceed to Payment
               </>
             )}
           </Button>
