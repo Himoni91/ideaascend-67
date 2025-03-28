@@ -413,6 +413,53 @@ export type Database = {
         }
         Relationships: []
       }
+      pitch_analytics: {
+        Row: {
+          conversion_rate: number | null
+          created_at: string | null
+          device_breakdown: Json | null
+          engagement_time_avg: number | null
+          id: string
+          pitch_id: string
+          referring_sites: Json | null
+          unique_views: number
+          updated_at: string | null
+          views: number
+        }
+        Insert: {
+          conversion_rate?: number | null
+          created_at?: string | null
+          device_breakdown?: Json | null
+          engagement_time_avg?: number | null
+          id?: string
+          pitch_id: string
+          referring_sites?: Json | null
+          unique_views?: number
+          updated_at?: string | null
+          views?: number
+        }
+        Update: {
+          conversion_rate?: number | null
+          created_at?: string | null
+          device_breakdown?: Json | null
+          engagement_time_avg?: number | null
+          id?: string
+          pitch_id?: string
+          referring_sites?: Json | null
+          unique_views?: number
+          updated_at?: string | null
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pitch_analytics_pitch_id_fkey"
+            columns: ["pitch_id"]
+            isOneToOne: false
+            referencedRelation: "pitches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pitch_comments: {
         Row: {
           content: string
@@ -470,6 +517,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "pitch_followers_pitch_id_fkey"
+            columns: ["pitch_id"]
+            isOneToOne: false
+            referencedRelation: "pitches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pitch_views: {
+        Row: {
+          device_info: Json | null
+          id: string
+          is_anonymous: boolean | null
+          pitch_id: string
+          referrer: string | null
+          viewed_at: string | null
+          viewer_id: string | null
+        }
+        Insert: {
+          device_info?: Json | null
+          id?: string
+          is_anonymous?: boolean | null
+          pitch_id: string
+          referrer?: string | null
+          viewed_at?: string | null
+          viewer_id?: string | null
+        }
+        Update: {
+          device_info?: Json | null
+          id?: string
+          is_anonymous?: boolean | null
+          pitch_id?: string
+          referrer?: string | null
+          viewed_at?: string | null
+          viewer_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pitch_views_pitch_id_fkey"
             columns: ["pitch_id"]
             isOneToOne: false
             referencedRelation: "pitches"
@@ -1457,6 +1542,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      decrement: {
+        Args: {
+          value?: number
+        }
+        Returns: number
+      }
       follow_pitch: {
         Args: {
           p_user_id: string
@@ -1469,6 +1560,15 @@ export type Database = {
           p_pitch_id: string
         }
         Returns: number
+      }
+      get_pitch_views: {
+        Args: {
+          p_pitch_id: string
+        }
+        Returns: {
+          views: number
+          unique_views: number
+        }[]
       }
       get_top_contributors: {
         Args: {
@@ -1517,6 +1617,12 @@ export type Database = {
         Returns: {
           role: string
         }[]
+      }
+      increment: {
+        Args: {
+          value?: number
+        }
+        Returns: number
       }
       increment_pitch_view: {
         Args: {
