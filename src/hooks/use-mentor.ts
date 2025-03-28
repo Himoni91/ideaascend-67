@@ -20,11 +20,8 @@ import {
   formatReviewData,
   formatSessionTypeData
 } from "@/lib/data-utils";
-import { useMentorApplication as importedUseMentorApplication } from "./use-mentor-application";
-
-// API URL constants for direct fetch when needed
-const API_URL = "https://scicbwtczqunflsqnfzu.supabase.co";
-const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjaWNid3RjenF1bmZsc3FuZnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5OTA1MjQsImV4cCI6MjA1ODU2NjUyNH0.vUFSDA1QOxSRUZIFXeZuQSfprASoVmiFSMQTTihsmbI";
+import { useMentorApplication } from "./use-mentor-application";
+import { useMentorProfiles } from "./use-mentor-profiles";
 
 /**
  * Hook for all mentor-related operations
@@ -32,62 +29,8 @@ const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 export function useMentor() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { useMentors, useMentorProfile } = useMentorProfiles();
   
-  // Define the useMentors function directly here instead of using a variable
-  function useMentors(filter?: MentorFilter) {
-    return useQuery({
-      queryKey: ['mentors', filter],
-      queryFn: async () => {
-        let query = supabase
-          .from('profiles')
-          .select('*')
-          .eq('is_mentor', true);
-
-        // Apply filters
-        if (filter) {
-          if (filter.specialties?.length) {
-            query = query.contains('expertise', filter.specialties);
-          }
-          
-          if (filter.rating) {
-            query = query.gte('mentor_rating', filter.rating);
-          }
-          
-          if (filter.search) {
-            query = query.or(`full_name.ilike.%${filter.search}%, username.ilike.%${filter.search}%, position.ilike.%${filter.search}%, company.ilike.%${filter.search}%`);
-          }
-        }
-        
-        const { data, error } = await query;
-        
-        if (error) throw error;
-        
-        return data.map(profile => formatProfileData(profile));
-      }
-    });
-  }
-
-  // Fetch a single mentor profile
-  const useMentorProfile = (mentorId: string) => {
-    return useQuery({
-      queryKey: ['mentor-profile', mentorId],
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*, mentor_session_types(*)')
-          .eq('id', mentorId)
-          .eq('is_mentor', true)
-          .single();
-        
-        if (error) throw error;
-        
-        // Transform data to ProfileType
-        return formatProfileData(data);
-      },
-      enabled: !!mentorId
-    });
-  };
-
   // Fetch availability slots for a mentor
   const useMentorAvailability = (mentorId: string) => {
     return useQuery({
@@ -575,6 +518,6 @@ export function useMentor() {
     useUpdateSessionStatus,
     useLeaveReview,
     useMentorAnalytics,
-    useMentorApplication: importedUseMentorApplication
+    useMentorApplication
   };
 }
