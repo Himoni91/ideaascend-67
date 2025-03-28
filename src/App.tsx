@@ -1,4 +1,3 @@
-
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
@@ -31,6 +30,7 @@ import NotFound from "@/pages/NotFound";
 import AuthLayout from "@/components/layout/AuthLayout";
 import PitchHub from "./pages/PitchHub";
 import PitchHubIdeaDetail from "./pages/PitchHubIdeaDetail";
+import DiscoverDetail from "@/pages/discover/DiscoverDetail";
 
 // Import mentor pages
 import MentorApplicationPage from "@/pages/MentorApplicationPage";
@@ -131,6 +131,11 @@ export default function App() {
                 <Route path="/discover" element={
                   <RouteGuard>
                     <Discover />
+                  </RouteGuard>
+                } />
+                <Route path="/discover/:id" element={
+                  <RouteGuard>
+                    <DiscoverDetail />
                   </RouteGuard>
                 } />
                 <Route path="/calendar" element={

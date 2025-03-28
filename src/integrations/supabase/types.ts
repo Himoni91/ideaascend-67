@@ -178,6 +178,187 @@ export type Database = {
         }
         Relationships: []
       }
+      discover_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      discover_content: {
+        Row: {
+          content_type: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_featured: boolean | null
+          metadata: Json | null
+          tags: string[] | null
+          title: string
+          trending_score: number | null
+          updated_at: string
+          view_count: number | null
+        }
+        Insert: {
+          content_type: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_featured?: boolean | null
+          metadata?: Json | null
+          tags?: string[] | null
+          title: string
+          trending_score?: number | null
+          updated_at?: string
+          view_count?: number | null
+        }
+        Update: {
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_featured?: boolean | null
+          metadata?: Json | null
+          tags?: string[] | null
+          title?: string
+          trending_score?: number | null
+          updated_at?: string
+          view_count?: number | null
+        }
+        Relationships: []
+      }
+      discover_content_categories: {
+        Row: {
+          category_id: string | null
+          content_id: string | null
+          created_at: string
+          id: string
+        }
+        Insert: {
+          category_id?: string | null
+          content_id?: string | null
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          category_id?: string | null
+          content_id?: string | null
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discover_content_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "discover_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discover_content_categories_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "discover_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discover_interactions: {
+        Row: {
+          content_id: string | null
+          created_at: string
+          id: string
+          interaction_type: string
+          user_id: string | null
+        }
+        Insert: {
+          content_id?: string | null
+          created_at?: string
+          id?: string
+          interaction_type: string
+          user_id?: string | null
+        }
+        Update: {
+          content_id?: string | null
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discover_interactions_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "discover_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discover_views: {
+        Row: {
+          content_id: string | null
+          id: string
+          referrer: string | null
+          source: string | null
+          user_agent: string | null
+          user_id: string | null
+          viewed_at: string
+        }
+        Insert: {
+          content_id?: string | null
+          id?: string
+          referrer?: string | null
+          source?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          viewed_at?: string
+        }
+        Update: {
+          content_id?: string | null
+          id?: string
+          referrer?: string | null
+          source?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discover_views_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "discover_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ideas: {
         Row: {
           category: string
