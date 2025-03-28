@@ -64,7 +64,7 @@ export function useChallenge() {
 
       // Merge existing progress with new progress
       const updatedProgress = {
-        ...(existingChallenge.progress || {}),
+        ...((existingChallenge.progress as Record<string, any>) || {}),
         ...progressData
       };
 
