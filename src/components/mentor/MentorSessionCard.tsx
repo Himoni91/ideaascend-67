@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { format, isPast, isFuture, isToday } from "date-fns";
+import { format, isPast, isFuture, isToday as isDateToday } from "date-fns";
 import { motion } from "framer-motion";
 import { 
   Clock, 
@@ -54,7 +54,7 @@ export default function MentorSessionCard({
   
   const isUpcoming = isFuture(startTime);
   const isPastSession = isPast(endTime);
-  const isToday = isToday(startTime);
+  const isToday = isDateToday(startTime);
   
   // Format dates and times
   const sessionDate = format(startTime, "MMMM d, yyyy");

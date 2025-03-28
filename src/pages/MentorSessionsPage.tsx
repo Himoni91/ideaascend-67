@@ -144,6 +144,9 @@ export default function MentorSessionsPage() {
     s.status === "cancelled"
   ) || [];
   
+  // Check if user is a mentor from profile data
+  const userIsMentor = user.user_metadata?.is_mentor === true;
+  
   return (
     <AppLayout>
       <PageTransition>
@@ -168,7 +171,7 @@ export default function MentorSessionsPage() {
                   Find Mentors
                 </a>
               </Button>
-              {user.is_mentor && (
+              {userIsMentor && (
                 <Button variant="outline" asChild>
                   <a href="/mentor-space/analytics">
                     <Calendar className="mr-2 h-4 w-4" />
@@ -264,7 +267,7 @@ export default function MentorSessionsPage() {
                               session={session}
                               isAsMentor={session.mentor_id === user.id}
                               onStatusChange={handleStatusUpdate}
-                              onReview={!session.mentor_id === user.id ? handleReviewSession : undefined}
+                              onReview={session.mentor_id !== user.id ? handleReviewSession : undefined}
                             />
                           ))}
                         </div>

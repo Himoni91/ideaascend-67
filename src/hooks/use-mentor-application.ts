@@ -15,13 +15,9 @@ export function useMentorApplication(userId: string) {
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No application found, return null instead of throwing
-          return null;
-        }
         throw error;
       }
       

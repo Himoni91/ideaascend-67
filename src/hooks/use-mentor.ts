@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +33,9 @@ const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 export function useMentor() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Pass through useMentorApplication for easier access
+  const _useMentorApplication = useMentorApplication;
 
   // Fetch all mentors with optional filtering
   const useMentors = (filter?: MentorFilter) => {
@@ -187,13 +191,8 @@ export function useMentor() {
 
   // Hook for mentor application
   const useApplyAsMentor = () => {
-    // Fix for type instantiation error - explicitly define the return type
-    return useMutation<
-      any, 
-      Error, 
-      Omit<MentorApplication, 'id' | 'created_at' | 'updated_at' | 'status' | 'user_id'>
-    >({
-      mutationFn: async (application) => {
+    return useMutation({
+      mutationFn: async (application: Omit<MentorApplication, 'id' | 'created_at' | 'updated_at' | 'status' | 'user_id'>) => {
         if (!user?.id) throw new Error('User not authenticated');
         
         const { data, error } = await supabase
@@ -582,6 +581,7 @@ export function useMentor() {
     useBookSession,
     useUpdateSessionStatus,
     useLeaveReview,
-    useMentorAnalytics
+    useMentorAnalytics,
+    useMentorApplication: _useMentorApplication
   };
 }

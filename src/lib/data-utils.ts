@@ -107,7 +107,7 @@ export function formatSessionTypeData(data: MentorSessionTypeRow): MentorSession
 /**
  * Format session data from database
  */
-export function formatSessionData(data: MentorSessionRow): MentorSession {
+export function formatSessionData(data: any): MentorSession {
   const session = asMentorSession(data);
   
   return {
@@ -196,6 +196,9 @@ export function createSafeProfile(partialProfile?: Partial<ProfileType>): Profil
       ideas: 0,
       mentorSessions: 0,
       posts: 0,
+      rank: 0,
+      mentorRating: 0,
+      mentorReviews: 0
     },
   };
 }

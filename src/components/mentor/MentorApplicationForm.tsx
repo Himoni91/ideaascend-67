@@ -83,8 +83,9 @@ type ApplicationFormValues = z.infer<typeof applicationSchema>;
 
 export default function MentorApplicationForm() {
   const { user } = useAuth();
-  const { useApplyAsMentor } = useMentor();
+  const { useApplyAsMentor, useMentorApplication } = useMentor();
   const applyAsMentor = useApplyAsMentor();
+  const { data: existingApplication } = useMentorApplication(user?.id || "");
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [specialtiesOpen, setSpecialtiesOpen] = useState(false);
@@ -93,10 +94,10 @@ export default function MentorApplicationForm() {
   const form = useForm<ApplicationFormValues>({
     resolver: zodResolver(applicationSchema),
     defaultValues: {
-      bio: "",
-      experience: "",
-      expertise: [],
-      hourly_rate: 0,
+      bio: existingApplication?.bio || "",
+      experience: existingApplication?.experience || "",
+      expertise: existingApplication?.expertise || [],
+      hourly_rate: existingApplication?.hourly_rate || 0,
       terms_agreed: false,
     },
   });
