@@ -1,6 +1,5 @@
 
 import { useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -9,219 +8,135 @@ interface PaymentOptions {
   currency?: string;
   description: string;
   metadata?: Record<string, any>;
-  onSuccess?: (paymentId: string) => void;
-  onError?: (error: Error) => void;
+  onSuccess?: (paymentId: string) => Promise<void> | void;
+  onError?: (error: any) => void;
 }
 
 export function usePayment() {
-  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
 
-  // Generate Razorpay order ID from our backend
-  const generateRazorpayOrder = async ({ amount, currency = 'INR', description, metadata }: PaymentOptions) => {
-    if (!user) throw new Error("User must be logged in");
-    
+  const createPaymentOrder = async (provider: string, options: PaymentOptions) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      
-      const { data, error } = await supabase.functions.invoke("create-razorpay-order", {
+      const { data, error } = await supabase.functions.invoke("payment-integration", {
         body: {
-          amount,
-          currency,
-          description,
-          metadata: {
-            user_id: user.id,
-            ...metadata
-          }
+          provider,
+          amount: options.amount,
+          currency: options.currency || "INR",
+          description: options.description,
+          metadata: options.metadata || {}
         }
       });
-      
+
       if (error) throw error;
-      
-      return data.order_id;
-    } catch (err: any) {
-      setError(err);
-      toast.error(`Failed to create payment: ${err.message}`);
-      throw err;
+      return data;
+    } catch (error) {
+      console.error("Payment error:", error);
+      if (options.onError) options.onError(error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Process Razorpay payment
   const payWithRazorpay = async (options: PaymentOptions) => {
-    if (!user) throw new Error("User must be logged in");
-    if (typeof window === 'undefined') return;
-    
     try {
-      setIsLoading(true);
+      const data = await createPaymentOrder("razorpay", options);
       
       // Load Razorpay script if not already loaded
       if (!(window as any).Razorpay) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-          script.onload = resolve;
-          script.onerror = reject;
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("Failed to load Razorpay SDK"));
           document.body.appendChild(script);
         });
       }
-      
-      // Generate order ID
-      const orderId = await generateRazorpayOrder(options);
-      
+
       // Open Razorpay checkout
-      const razorpay = new (window as any).Razorpay({
-        key: 'rzp_test_YourTestKey', // This should come from environment or context
-        amount: options.amount * 100, // Razorpay takes amount in paisa
-        currency: options.currency || 'INR',
-        name: 'Idolyst',
+      const rzp = new (window as any).Razorpay({
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: options.amount * 100, // paise
+        currency: options.currency || "INR",
+        name: "Idolyst",
         description: options.description,
-        order_id: orderId,
-        handler: function(response: any) {
-          if (options.onSuccess) {
-            options.onSuccess(response.razorpay_payment_id);
-          }
+        order_id: data.order_id,
+        handler: async function (response: any) {
+          // Payment successful
+          const paymentId = response.razorpay_payment_id;
+          if (options.onSuccess) await options.onSuccess(paymentId);
         },
         prefill: {
-          name: user.user_metadata?.full_name,
-          email: user.email
+          name: "User",
+          email: "user@example.com"
         },
         theme: {
-          color: '#6366F1'
+          color: "#7c3aed"
+        },
+        modal: {
+          ondismiss: function() {
+            toast.error("Payment cancelled");
+          }
         }
       });
       
-      razorpay.open();
-    } catch (err: any) {
-      setError(err);
-      if (options.onError) {
-        options.onError(err);
-      }
-      toast.error(`Payment failed: ${err.message}`);
-    } finally {
-      setIsLoading(false);
+      rzp.open();
+      return data;
+    } catch (error) {
+      console.error("Razorpay payment error:", error);
+      toast.error("Payment processing failed. Please try again.");
+      if (options.onError) options.onError(error);
+      throw error;
     }
   };
 
-  // Process PayPal payment
   const payWithPaypal = async (options: PaymentOptions) => {
-    if (!user) throw new Error("User must be logged in");
-    if (typeof window === 'undefined') return;
-    
     try {
-      setIsLoading(true);
+      const data = await createPaymentOrder("paypal", options);
       
-      // Load PayPal script if not already loaded
-      if (!(window as any).paypal) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = `https://www.paypal.com/sdk/js?client-id=test&currency=${options.currency || 'USD'}`;
-          script.onload = resolve;
-          script.onerror = reject;
-          document.body.appendChild(script);
+      // Open PayPal in a new window
+      const paypalWindow = window.open(data.approval_url, "_blank");
+      
+      // If window is blocked, provide a manual link
+      if (!paypalWindow) {
+        toast("Please click the link to complete payment", {
+          action: {
+            label: "Open PayPal",
+            onClick: () => window.open(data.approval_url, "_blank")
+          }
         });
       }
       
-      // Create a temporary PayPal button container
-      const container = document.createElement('div');
-      container.style.display = 'none';
-      document.body.appendChild(container);
+      // We would need a webhook or callback to handle the success case
+      // For now, we'll assume it's handled separately
       
-      // Render the PayPal button
-      (window as any).paypal.Buttons({
-        createOrder: async () => {
-          // Call your backend to create an order
-          const { data, error } = await supabase.functions.invoke("create-paypal-order", {
-            body: {
-              amount: options.amount,
-              currency: options.currency || 'USD',
-              description: options.description,
-              metadata: {
-                user_id: user.id,
-                ...options.metadata
-              }
-            }
-          });
-          
-          if (error) throw error;
-          return data.order_id;
-        },
-        onApprove: async (data: any) => {
-          // Call your backend to capture the order
-          const { data: captureData, error } = await supabase.functions.invoke("capture-paypal-order", {
-            body: {
-              order_id: data.orderID
-            }
-          });
-          
-          if (error) throw error;
-          
-          if (options.onSuccess) {
-            options.onSuccess(captureData.capture_id);
-          }
-          
-          // Clean up
-          document.body.removeChild(container);
-        },
-        onError: (err: any) => {
-          if (options.onError) {
-            options.onError(err);
-          }
-          toast.error(`Payment failed`);
-          
-          // Clean up
-          document.body.removeChild(container);
-        }
-      }).render(container);
-      
-      // Programmatically click the PayPal button
-      const button = container.querySelector('button');
-      if (button) button.click();
-    } catch (err: any) {
-      setError(err);
-      if (options.onError) {
-        options.onError(err);
-      }
-      toast.error(`Payment failed: ${err.message}`);
-    } finally {
-      setIsLoading(false);
+      return data;
+    } catch (error) {
+      console.error("PayPal payment error:", error);
+      toast.error("Payment processing failed. Please try again.");
+      if (options.onError) options.onError(error);
+      throw error;
     }
   };
 
-  // Create a free payment for $0 sessions
   const createFreePayment = async (options: PaymentOptions) => {
-    if (!user) throw new Error("User must be logged in");
-    
     try {
-      setIsLoading(true);
-      
-      // For free payments, we just generate a unique ID
-      const paymentId = `free_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      
-      if (options.onSuccess) {
-        options.onSuccess(paymentId);
-      }
-      
-      return paymentId;
-    } catch (err: any) {
-      setError(err);
-      if (options.onError) {
-        options.onError(err);
-      }
-      toast.error(`Failed to process free session: ${err.message}`);
-      throw err;
-    } finally {
-      setIsLoading(false);
+      const data = await createPaymentOrder("free", options);
+      if (options.onSuccess) await options.onSuccess(data.payment_id);
+      return data.payment_id;
+    } catch (error) {
+      console.error("Free payment error:", error);
+      if (options.onError) options.onError(error);
+      throw error;
     }
   };
 
   return {
+    isLoading,
     payWithRazorpay,
     payWithPaypal,
-    createFreePayment,
-    isLoading,
-    error
+    createFreePayment
   };
 }

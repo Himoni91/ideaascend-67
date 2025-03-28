@@ -6,7 +6,7 @@ import {
   Users, 
   Search, 
   Filter, 
-  SliderHorizontal,
+  SlidersHorizontal,
   Clock,
   X,
   Plus,
@@ -42,7 +42,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { CheckboxIcon } from "@radix-ui/react-icons";
+import { CheckIcon } from "@radix-ui/react-icons";
 import AppLayout from "@/components/layout/AppLayout";
 import { PageTransition } from "@/components/ui/page-transition";
 import MentorCard from "@/components/mentor/MentorCard";
@@ -80,7 +80,7 @@ export default function MentorSpacePage() {
   const [minRating, setMinRating] = useState<number>(0);
   const [onlyFree, setOnlyFree] = useState(false);
   const [onlyAvailableNow, setOnlyAvailableNow] = useState(false);
-  const [sessionStatusFilter, setSessionStatusFilter] = useState<MentorSession["status"] | "all">("all");
+  const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
   const { user } = useAuth();
   
   // Create filter object
@@ -94,7 +94,6 @@ export default function MentorSpacePage() {
   const { 
     useMentors, 
     useMentorSessions, 
-    updateSessionStatus, 
     useMentorApplication
   } = useMentor();
   
@@ -104,27 +103,10 @@ export default function MentorSpacePage() {
   const { data: completedSessions } = useMentorSessions("completed");
   const { data: application, isLoading: isApplicationLoading } = useMentorApplication();
   
-  const filteredMentors = mentors?.filter(mentor => {
-    // Apply additional client-side filters
-    if (onlyFree && (mentor.mentor_hourly_rate || 0) > 0) {
-      return false;
-    }
-    
-    // Filter by rating
-    if (minRating > 0) {
-      const mentorRating = mentor.stats?.mentorRating || 0;
-      if (mentorRating < minRating) {
-        return false;
-      }
-    }
-    
-    return true;
-  });
-  
   // Handle session status update
-  const handleUpdateSessionStatus = async (sessionId: string, status: MentorSession["status"]) => {
+  const handleUpdateSessionStatus = async (sessionId: string, status: string) => {
     try {
-      await updateSessionStatus({
+      await useMentor().updateSessionStatus({
         sessionId,
         status,
         notes: ""
@@ -318,7 +300,7 @@ export default function MentorSpacePage() {
                               onClick={() => toggleSpecialty(specialty)}
                             >
                               {selectedSpecialties.includes(specialty) && (
-                                <CheckboxIcon className="h-3.5 w-3.5 mr-1.5" />
+                                <CheckIcon className="h-3.5 w-3.5 mr-1.5" />
                               )}
                               {specialty}
                             </Badge>
@@ -489,14 +471,14 @@ export default function MentorSpacePage() {
                     <div key={i} className="h-64 bg-muted animate-pulse rounded-xl" />
                   ))}
                 </div>
-              ) : filteredMentors && filteredMentors.length > 0 ? (
+              ) : mentors && mentors.length > 0 ? (
                 <motion.div 
                   className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                   variants={container}
                   initial="hidden"
                   animate="show"
                 >
-                  {filteredMentors.map((mentor: ProfileType) => (
+                  {mentors.map((mentor: ProfileType) => (
                     <motion.div key={mentor.id} variants={item}>
                       <MentorCard mentor={mentor} />
                     </motion.div>
@@ -576,7 +558,7 @@ export default function MentorSpacePage() {
                 </motion.div>
               ) : (
                 <div className="text-center py-12 border rounded-lg">
-                  <Calendar className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
+                  <Clock className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
                   <h3 className="text-lg font-medium mb-1">No sessions found</h3>
                   <p className="text-sm text-muted-foreground max-w-sm mx-auto">
                     {sessionStatusFilter !== "all" 

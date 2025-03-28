@@ -1,12 +1,13 @@
 
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Calendar, MessageSquare, Star, ThumbsUp } from "lucide-react";
 import { ProfileType } from "@/types/profile";
+import { asMentorProfile } from "@/types/mentor";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { motion } from "framer-motion";
-import { Calendar, MessageSquare, Star, ThumbsUp } from "lucide-react";
-import { Link } from "react-router-dom";
 
 interface MentorCardProps {
   mentor: ProfileType;
@@ -14,6 +15,8 @@ interface MentorCardProps {
 }
 
 export default function MentorCard({ mentor, hideActions }: MentorCardProps) {
+  const mentorProfile = asMentorProfile(mentor);
+  
   // Calculate truncated expertise
   const displayExpertise = mentor.expertise?.slice(0, 3) || [];
   const hasMoreExpertise = mentor.expertise && mentor.expertise.length > 3;
@@ -39,7 +42,7 @@ export default function MentorCard({ mentor, hideActions }: MentorCardProps) {
                   {mentor.position && mentor.company ? (
                     `${mentor.position} at ${mentor.company}`
                   ) : (
-                    mentor.byline || mentor.professional_headline || "Mentor"
+                    mentor.byline || "Mentor"
                   )}
                 </CardDescription>
               </div>
@@ -48,7 +51,7 @@ export default function MentorCard({ mentor, hideActions }: MentorCardProps) {
           
           <CardContent className="pb-4">
             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-              {mentor.mentor_bio || mentor.bio || "Experienced mentor ready to help you succeed."}
+              {mentorProfile.mentor_bio || mentor.bio || "Experienced mentor ready to help you succeed."}
             </p>
             
             <div className="flex flex-wrap gap-2 mb-3">

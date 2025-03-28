@@ -1,12 +1,10 @@
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { motion } from "framer-motion";
+import { Trash2, Plus, Briefcase, Certificate, Globe, Link } from "lucide-react";
 import { 
   Form, 
   FormControl, 
@@ -16,47 +14,18 @@ import {
   FormLabel, 
   FormMessage 
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Loader2, Plus, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { MentorSpecialty } from "@/types/mentor";
 import { ProfileType } from "@/types/profile";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { motion, AnimatePresence } from "framer-motion";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
-// Form schema with zod
-const formSchema = z.object({
-  bio: z.string().min(100, "Bio must be at least 100 characters").max(1000, "Bio must be less than 1000 characters"),
-  experience: z.string().min(50, "Experience description must be at least 50 characters").max(1000, "Experience description must be less than 1000 characters"),
-  expertise: z.array(z.string()).min(1, "Select at least one area of expertise"),
-  hourly_rate: z.number().min(0, "Hourly rate must be a positive number").optional(),
-  certifications: z.array(z.object({
-    name: z.string().min(1, "Certification name is required"),
-    issuer: z.string().min(1, "Issuer name is required"),
-    date: z.string().optional(),
-    url: z.string().url("Please enter a valid URL").optional().or(z.literal(''))
-  })).optional(),
-  portfolio_links: z.array(z.object({
-    title: z.string().min(1, "Title is required"),
-    description: z.string().min(1, "Description is required"),
-    url: z.string().url("Please enter a valid URL"),
-  })).optional()
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
-interface MentorApplicationFormProps {
-  profile?: ProfileType;
-  onSubmit: (data: FormValues) => Promise<void>;
-  isSubmitting: boolean;
-}
-
-const specialtyOptions: MentorSpecialty[] = [
+// Available specialties
+const specialties: MentorSpecialty[] = [
   'Startup Strategy',
   'Product Development',
   'Fundraising',
@@ -74,469 +43,431 @@ const specialtyOptions: MentorSpecialty[] = [
   'Other'
 ];
 
-export default function MentorApplicationForm({ 
-  profile,
-  onSubmit,
-  isSubmitting 
-}: MentorApplicationFormProps) {
-  const [activeTab, setActiveTab] = useState("basic");
+// Form schema
+const formSchema = z.object({
+  bio: z.string().min(50, "Bio should be at least 50 characters").max(1000, "Bio should not exceed 1000 characters"),
+  experience: z.string().min(50, "Experience should be at least 50 characters").max(1000, "Experience should not exceed 1000 characters"),
+  expertise: z.array(z.string()).min(1, "Select at least one area of expertise"),
+  hourly_rate: z.number().min(0, "Hourly rate cannot be negative").optional(),
+  certifications: z.array(
+    z.object({
+      name: z.string().min(1, "Name is required"),
+      issuer: z.string().min(1, "Issuer is required"),
+      date: z.string().min(1, "Date is required"),
+      url: z.string().url("Please enter a valid URL").optional().or(z.literal('')),
+    })
+  ).optional(),
+  portfolio_links: z.array(
+    z.object({
+      title: z.string().min(1, "Title is required"),
+      description: z.string().min(1, "Description is required"),
+      url: z.string().url("Please enter a valid URL").optional().or(z.literal('')),
+    })
+  ).optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+interface MentorApplicationFormProps {
+  profile?: ProfileType;
+  onSubmit: (data: FormValues) => void;
+  isSubmitting: boolean;
+}
+
+export default function MentorApplicationForm({ profile, onSubmit, isSubmitting }: MentorApplicationFormProps) {
+  const [selectedExpertise, setSelectedExpertise] = useState<string[]>([]);
   
-  // Pre-populate form with profile data if available
-  const defaultValues: Partial<FormValues> = {
-    bio: profile?.bio || "",
-    experience: profile?.position && profile?.company 
-      ? `${profile.position} at ${profile.company}` 
-      : "",
-    expertise: profile?.expertise || [],
-    hourly_rate: profile?.mentor_hourly_rate || undefined,
-    certifications: [],
-    portfolio_links: []
-  };
-  
+  // Initialize form with profile data if available
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues,
-    mode: "onChange"
+    defaultValues: {
+      bio: profile?.bio || "",
+      experience: profile?.mentor_bio || "",
+      expertise: profile?.expertise || [],
+      hourly_rate: profile?.mentor_hourly_rate || 0,
+      certifications: [{ name: "", issuer: "", date: "", url: "" }],
+      portfolio_links: [{ title: "", description: "", url: "" }],
+    },
   });
   
-  const handleFormSubmit = async (data: FormValues) => {
-    await onSubmit(data);
+  // Handle certification fields
+  const { fields: certFields, append: appendCert, remove: removeCert } = useFieldArray({
+    control: form.control,
+    name: "certifications",
+  });
+  
+  // Handle portfolio fields
+  const { fields: portfolioFields, append: appendPortfolio, remove: removePortfolio } = useFieldArray({
+    control: form.control,
+    name: "portfolio_links",
+  });
+  
+  // Toggle expertise selection
+  const toggleExpertise = (value: string) => {
+    form.setValue("expertise", 
+      form.getValues("expertise").includes(value)
+        ? form.getValues("expertise").filter(item => item !== value)
+        : [...form.getValues("expertise"), value]
+    );
+    
+    setSelectedExpertise(form.getValues("expertise"));
   };
   
-  const moveToNextTab = () => {
-    if (activeTab === "basic") {
-      setActiveTab("portfolio");
-    } else if (activeTab === "portfolio") {
-      form.handleSubmit(handleFormSubmit)();
-    }
-  };
-  
-  const moveToPreviousTab = () => {
-    if (activeTab === "portfolio") {
-      setActiveTab("basic");
-    }
-  };
-  
-  // Add a certification field
-  const addCertification = () => {
-    const currentCertifications = form.getValues("certifications") || [];
-    form.setValue("certifications", [
-      ...currentCertifications,
-      { name: "", issuer: "", date: "", url: "" }
-    ]);
-  };
-  
-  // Remove a certification field
-  const removeCertification = (index: number) => {
-    const currentCertifications = form.getValues("certifications") || [];
-    form.setValue("certifications", currentCertifications.filter((_, i) => i !== index));
-  };
-  
-  // Add a portfolio link field
-  const addPortfolioLink = () => {
-    const currentLinks = form.getValues("portfolio_links") || [];
-    form.setValue("portfolio_links", [
-      ...currentLinks,
-      { title: "", description: "", url: "" }
-    ]);
-  };
-  
-  // Remove a portfolio link field
-  const removePortfolioLink = (index: number) => {
-    const currentLinks = form.getValues("portfolio_links") || [];
-    form.setValue("portfolio_links", currentLinks.filter((_, i) => i !== index));
+  // Handle form submission
+  const handleSubmit = (values: FormValues) => {
+    // Filter out empty entries
+    const cleanedCertifications = values.certifications?.filter(
+      cert => cert.name && cert.issuer && cert.date
+    );
+    
+    const cleanedPortfolio = values.portfolio_links?.filter(
+      link => link.title && link.description
+    );
+    
+    onSubmit({
+      ...values,
+      certifications: cleanedCertifications,
+      portfolio_links: cleanedPortfolio,
+    });
   };
 
   return (
-    <Card className="w-full max-w-3xl mx-auto">
-      <CardHeader>
-        <CardTitle>Mentor Application</CardTitle>
-        <CardDescription>
-          Share your expertise and help others succeed. Your application will be reviewed by our team.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="basic">Basic Information</TabsTrigger>
-                <TabsTrigger value="portfolio">Portfolio & Certifications</TabsTrigger>
-              </TabsList>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium flex items-center">
+                  <Briefcase className="mr-2 h-5 w-5 text-primary" />
+                  Professional Information
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Tell us about your professional background and expertise as a mentor.
+                </p>
+              </div>
               
-              <TabsContent value="basic" className="mt-6 space-y-4">
-                <FormField
-                  control={form.control}
-                  name="bio"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mentor Bio</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Share your background, expertise, and what makes you a valuable mentor..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        This will be displayed on your mentor profile.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="experience"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Professional Experience</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Describe your relevant professional experience..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Highlight your career milestones and areas of expertise.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="expertise"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Areas of Expertise</FormLabel>
-                      <FormControl>
-                        <Select
-                          multiple
-                          value={field.value}
-                          onChange={field.onChange}
-                          render={(selectedItems) => (
-                            <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[70px]">
-                              {selectedItems.map((item) => (
-                                <div 
-                                  key={item} 
-                                  className="flex items-center bg-primary/10 px-2 py-1 rounded-md"
-                                >
-                                  <span>{item}</span>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-auto w-auto p-1 ml-1 rounded-full"
-                                    onClick={() => field.onChange(field.value.filter(i => i !== item))}
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              ))}
-                              {selectedItems.length === 0 && (
-                                <div className="flex items-center text-muted-foreground text-sm">
-                                  Select areas of expertise...
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        >
-                          <SelectTrigger className="hidden" />
-                          <SelectContent
-                            className="p-0"
-                            position="item-aligned"
-                          >
-                            <div className="max-h-[200px] overflow-auto p-1">
-                              {specialtyOptions.map((specialty) => (
-                                <SelectItem
-                                  key={specialty}
-                                  value={specialty}
-                                  className="cursor-pointer"
-                                >
-                                  {specialty}
-                                </SelectItem>
-                              ))}
-                            </div>
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormDescription>
-                        Select the areas where you can provide the most value as a mentor.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="hourly_rate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Hourly Rate (Optional)</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                            $
-                          </span>
-                          <Input
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            className="pl-7"
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormDescription>
-                        Leave empty if you want to mentor for free.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="pt-4">
-                  <Button
-                    type="button"
-                    onClick={moveToNextTab}
-                    className="w-full sm:w-auto"
-                  >
-                    Next: Portfolio & Certifications
-                  </Button>
-                </div>
-              </TabsContent>
+              <FormField
+                control={form.control}
+                name="bio"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Professional Bio</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Share your professional background, achievements, and what makes you a great mentor..."
+                        {...field}
+                        rows={5}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      This will be displayed on your mentor profile.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
-              <TabsContent value="portfolio" className="mt-6 space-y-4">
-                {/* Certifications */}
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <FormLabel className="text-base">Certifications (Optional)</FormLabel>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addCertification}
-                    >
-                      <Plus className="h-4 w-4 mr-1" /> Add Certification
-                    </Button>
-                  </div>
-                  
-                  <FormDescription>
-                    Add any relevant certifications or qualifications you have earned.
-                  </FormDescription>
-                  
-                  <AnimatePresence>
-                    {(form.watch("certifications") || []).map((_, index) => (
-                      <motion.div
-                        key={`cert-${index}`}
-                        className="p-4 border rounded-md"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <div className="flex justify-between items-start mb-3">
-                          <h4 className="font-medium">Certification #{index + 1}</h4>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeCertification(index)}
-                            className="h-8 w-8 p-0"
+              <FormField
+                control={form.control}
+                name="experience"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mentoring Experience</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Describe your previous mentoring experience and approach to helping entrepreneurs..."
+                        {...field}
+                        rows={5}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Share details about your mentoring style and experience.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="hourly_rate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Hourly Rate (USD)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="5"
+                        placeholder="0"
+                        {...field}
+                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                        value={field.value}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Enter 0 if you offer free mentoring sessions.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="expertise"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Areas of Expertise</FormLabel>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+                      {specialties.map((specialty) => (
+                        <div key={specialty} className="flex items-start space-x-2">
+                          <Checkbox
+                            id={`expertise-${specialty}`}
+                            checked={form.getValues("expertise").includes(specialty)}
+                            onCheckedChange={() => toggleExpertise(specialty)}
+                          />
+                          <Label
+                            htmlFor={`expertise-${specialty}`}
+                            className="text-sm font-normal leading-none cursor-pointer"
                           >
-                            <X className="h-4 w-4" />
-                          </Button>
+                            {specialty}
+                          </Label>
                         </div>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <FormField
-                            control={form.control}
-                            name={`certifications.${index}.name`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Certification Name</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="e.g., AWS Certified Solutions Architect" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name={`certifications.${index}.issuer`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Issuing Organization</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="e.g., Amazon Web Services" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name={`certifications.${index}.date`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Date Issued</FormLabel>
-                                <FormControl>
-                                  <Input type="month" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name={`certifications.${index}.url`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Certification URL (Optional)</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="https://example.com/certification" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-                
-                {/* Portfolio Links */}
-                <div className="space-y-3 mt-6">
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium flex items-center">
+                  <Certificate className="mr-2 h-5 w-5 text-primary" />
+                  Certifications & Credentials
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  List any relevant certifications, degrees, or credentials.
+                </p>
+              </div>
+              
+              {certFields.map((field, index) => (
+                <motion.div 
+                  key={field.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-4"
+                >
+                  {index > 0 && <Separator />}
                   <div className="flex justify-between items-center">
-                    <FormLabel className="text-base">Portfolio Links (Optional)</FormLabel>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addPortfolioLink}
-                    >
-                      <Plus className="h-4 w-4 mr-1" /> Add Link
-                    </Button>
-                  </div>
-                  
-                  <FormDescription>
-                    Add links to your relevant work, projects, or content that showcase your expertise.
-                  </FormDescription>
-                  
-                  <AnimatePresence>
-                    {(form.watch("portfolio_links") || []).map((_, index) => (
-                      <motion.div
-                        key={`link-${index}`}
-                        className="p-4 border rounded-md"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
+                    <h4 className="text-sm font-medium">Certification {index + 1}</h4>
+                    {index > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeCert(index)}
+                        className="text-red-500 h-8 px-2"
                       >
-                        <div className="flex justify-between items-start mb-3">
-                          <h4 className="font-medium">Portfolio Item #{index + 1}</h4>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removePortfolioLink(index)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <FormField
-                            control={form.control}
-                            name={`portfolio_links.${index}.title`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Title</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="e.g., Personal Blog" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name={`portfolio_links.${index}.description`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Description</FormLabel>
-                                <FormControl>
-                                  <Textarea 
-                                    placeholder="Brief description of this resource..."
-                                    className="min-h-[80px]" 
-                                    {...field} 
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name={`portfolio_links.${index}.url`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>URL</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="https://example.com" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-                
-                <div className="pt-4 flex justify-between">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={moveToPreviousTab}
-                  >
-                    Back
-                  </Button>
-                  
-                  <Button 
-                    type="submit"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-                        Submitting...
-                      </>
-                    ) : (
-                      "Submit Application"
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     )}
-                  </Button>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name={`certifications.${index}.name`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Certification/Degree</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., MBA, AWS Certified, PMP" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name={`certifications.${index}.issuer`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Issuing Organization</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., Harvard University, AWS" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name={`certifications.${index}.date`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Issue Date</FormLabel>
+                          <FormControl>
+                            <Input type="month" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name={`certifications.${index}.url`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Certificate URL (Optional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://..." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </motion.div>
+              ))}
+              
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendCert({ name: "", issuer: "", date: "", url: "" })}
+                className="mt-2"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Another Certification
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium flex items-center">
+                  <Globe className="mr-2 h-5 w-5 text-primary" />
+                  Portfolio & Projects
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Share relevant projects, companies, or achievements that showcase your expertise.
+                </p>
+              </div>
+              
+              {portfolioFields.map((field, index) => (
+                <motion.div 
+                  key={field.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-4"
+                >
+                  {index > 0 && <Separator />}
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-sm font-medium">Portfolio Item {index + 1}</h4>
+                    {index > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removePortfolio(index)}
+                        className="text-red-500 h-8 px-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name={`portfolio_links.${index}.title`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Title</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., Company Name, Project Title" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name={`portfolio_links.${index}.url`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>URL (Optional)</FormLabel>
+                          <FormControl>
+                            <div className="flex items-center">
+                              <Link className="h-4 w-4 mr-2 text-muted-foreground" />
+                              <Input placeholder="https://..." {...field} />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name={`portfolio_links.${index}.description`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Briefly describe the project, your role, and outcomes..." 
+                            {...field}
+                            rows={3}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </motion.div>
+              ))}
+              
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendPortfolio({ title: "", description: "", url: "" })}
+                className="mt-2"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Another Portfolio Item
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Submitting..." : "Submit Application"}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }

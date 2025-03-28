@@ -1,80 +1,73 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { format, parseISO, isAfter } from "date-fns";
 import { motion } from "framer-motion";
 import { 
   ArrowLeft, 
-  MessageSquare, 
-  Calendar, 
-  Star, 
-  Award, 
+  Calendar,
   Clock,
+  Award,
+  Star,
   BookOpen,
+  Check,
+  MapPin,
   Briefcase,
-  Globe,
-  Loader2
+  GraduationCap,
+  MessageSquare,
+  ExternalLink,
+  ChevronRight,
+  FileText,
+  Link2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import AppLayout from "@/components/layout/AppLayout";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageTransition } from "@/components/ui/page-transition";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "sonner";
-import { useMentor } from "@/hooks/use-mentor";
-import MentorAvailability from "@/components/mentor/MentorAvailability";
+import AppLayout from "@/components/layout/AppLayout";
+import { PageTransition } from "@/components/ui/page-transition";
 import MentorReviews from "@/components/mentor/MentorReviews";
 import MentorBookingModal from "@/components/mentor/MentorBookingModal";
-import { MentorAvailabilitySlot, MentorSessionTypeInfo } from "@/types/mentor";
+import { useMentor } from "@/hooks/use-mentor";
 import { useAuth } from "@/contexts/AuthContext";
+import { asMentorProfile } from "@/types/mentor";
+import { toast } from "sonner";
 
 export default function MentorProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("about");
-  const [selectedSlot, setSelectedSlot] = useState<MentorAvailabilitySlot | null>(null);
-  const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const { user } = useAuth();
+  const [selectedTab, setSelectedTab] = useState("about");
+  const [selectedSlot, setSelectedSlot] = useState<any>(null);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isBookingProcessing, setIsBookingProcessing] = useState(false);
   
-  const {
-    useMentorProfile,
-    useMentorAvailability,
+  const { 
+    useMentorProfile, 
+    useMentorAvailability, 
     useMentorReviews,
     bookMentorSession
   } = useMentor();
   
-  const { data: mentor, isLoading: isMentorLoading, error } = useMentorProfile(id);
-  const { data: availabilitySlots, isLoading: isAvailabilityLoading } = useMentorAvailability(id);
-  const { data: reviews, isLoading: isReviewsLoading } = useMentorReviews(id);
-  const [isBookingProcessing, setIsBookingProcessing] = useState(false);
+  const { data: mentor, isLoading } = useMentorProfile(id);
+  const { data: availabilitySlots, isLoading: isLoadingSlots } = useMentorAvailability(id);
+  const { data: reviews, isLoading: isLoadingReviews } = useMentorReviews(id);
   
-  // Check if this is the current user's profile
-  const isOwnProfile = user?.id === id;
+  const mentorProfile = mentor ? asMentorProfile(mentor) : null;
   
   // Handle slot selection
-  const handleSelectSlot = (slot: MentorAvailabilitySlot) => {
+  const handleSelectSlot = (slot: any) => {
     setSelectedSlot(slot);
-    setBookingModalOpen(true);
+    setIsBookingModalOpen(true);
   };
   
   // Handle booking confirmation
-  const handleConfirmBooking = async (bookingData: {
-    mentorId: string;
-    slotId: string;
-    sessionData: {
-      title: string;
-      description?: string;
-      session_type: string;
-      payment_provider?: string;
-      payment_id?: string;
-      payment_amount?: number;
-    }
-  }) => {
+  const handleConfirmBooking = async (bookingData: any) => {
     if (!user) {
-      toast.error("You must be logged in to book a session");
+      toast.error("Please sign in to book a session");
       navigate("/auth/sign-in");
       return;
     }
@@ -82,17 +75,20 @@ export default function MentorProfilePage() {
     try {
       setIsBookingProcessing(true);
       
-      await bookMentorSession({
+      await useMentor().bookMentorSession({
         mentorId: bookingData.mentorId,
         slotId: bookingData.slotId,
         sessionData: bookingData.sessionData
       });
       
-      setBookingModalOpen(false);
-      setSelectedSlot(null);
+      toast.success("Session booked successfully! You can view your upcoming sessions in your dashboard.");
+      setIsBookingModalOpen(false);
       
-      // Navigate to sessions tab
-      navigate("/mentor-space?tab=sessions");
+      // Refresh availability data
+      setTimeout(() => {
+        // Reload the page or refetch the availability data
+        window.location.reload();
+      }, 1500);
     } catch (error) {
       console.error("Booking error:", error);
       toast.error("Failed to book session. Please try again.");
@@ -100,64 +96,64 @@ export default function MentorProfilePage() {
       setIsBookingProcessing(false);
     }
   };
+  
+  // Categorize sessions by day
+  const availabilityByDay = availabilitySlots?.reduce((acc: any, slot) => {
+    const date = format(parseISO(slot.start_time), 'yyyy-MM-dd');
+    if (!acc[date]) {
+      acc[date] = [];
+    }
+    acc[date].push(slot);
+    return acc;
+  }, {});
+  
+  // Filter out past days
+  const filteredAvailabilityByDay = availabilityByDay ? 
+    Object.entries(availabilityByDay).filter(([date]) => 
+      isAfter(parseISO(date), new Date())
+    ) : [];
 
-  if (isMentorLoading) {
+  if (isLoading) {
     return (
       <AppLayout>
         <PageTransition>
-          <div className="container mx-auto px-4 py-6">
-            <div className="flex flex-col justify-center items-center min-h-[60vh]">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-              <span className="text-lg text-muted-foreground">Loading mentor profile...</span>
-            </div>
-          </div>
-        </PageTransition>
-      </AppLayout>
-    );
-  }
-
-  if (error || !mentor) {
-    return (
-      <AppLayout>
-        <PageTransition>
-          <div className="container mx-auto px-4 py-6">
-            <div className="max-w-4xl mx-auto text-center py-12">
-              <h2 className="text-2xl font-semibold mb-2">Mentor Not Found</h2>
-              <p className="text-muted-foreground mb-6">
-                {error ? `Error: ${(error as Error).message}` : "The requested mentor could not be found."}
-              </p>
-              <Button onClick={() => navigate(-1)}>
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-5xl mx-auto">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate(-1)}
+                className="mb-4"
+              >
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Go Back
+                Back
               </Button>
-            </div>
-          </div>
-        </PageTransition>
-      </AppLayout>
-    );
-  }
-
-  // Verify this is actually a mentor profile
-  if (!mentor.is_mentor) {
-    return (
-      <AppLayout>
-        <PageTransition>
-          <div className="container mx-auto px-4 py-6">
-            <div className="max-w-4xl mx-auto text-center py-12">
-              <h2 className="text-2xl font-semibold mb-2">Not a Mentor</h2>
-              <p className="text-muted-foreground mb-6">
-                This user is not currently offering mentorship.
-              </p>
-              <div className="flex gap-4 justify-center">
-                <Button onClick={() => navigate(-1)}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Go Back
-                </Button>
-                <Button variant="outline" asChild>
-                  <a href={`/profile/${id}`}>
-                    View Profile
-                  </a>
-                </Button>
+              
+              <div className="space-y-8">
+                <div className="flex flex-col md:flex-row gap-6 items-start">
+                  <Skeleton className="h-24 w-24 rounded-full" />
+                  <div className="space-y-4 flex-1">
+                    <Skeleton className="h-8 w-64" />
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-6 w-full" />
+                    <div className="flex flex-wrap gap-2">
+                      <Skeleton className="h-8 w-20" />
+                      <Skeleton className="h-8 w-24" />
+                      <Skeleton className="h-8 w-16" />
+                    </div>
+                  </div>
+                </div>
+                
+                <Skeleton className="h-12 w-full" />
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2">
+                    <Skeleton className="h-64 w-full" />
+                  </div>
+                  <div>
+                    <Skeleton className="h-64 w-full" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -165,9 +161,29 @@ export default function MentorProfilePage() {
       </AppLayout>
     );
   }
-
-  // Get mentor session types
-  const sessionTypes: MentorSessionTypeInfo[] = (mentor.mentor_session_types as any || [
+  
+  if (!mentor) {
+    return (
+      <AppLayout>
+        <PageTransition>
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-5xl mx-auto text-center">
+              <h1 className="text-2xl font-bold mb-4">Mentor Not Found</h1>
+              <p className="text-muted-foreground mb-6">
+                The mentor you're looking for doesn't exist or has been removed.
+              </p>
+              <Button onClick={() => navigate("/mentor-space")}>
+                Browse Mentors
+              </Button>
+            </div>
+          </div>
+        </PageTransition>
+      </AppLayout>
+    );
+  }
+  
+  // Get session types from mentor profile
+  const sessionTypes = mentorProfile?.mentor_session_types || [
     {
       id: "quick",
       name: "Quick Chat",
@@ -181,380 +197,392 @@ export default function MentorProfilePage() {
       name: "Standard Session",
       description: "60-minute in-depth consultation",
       duration: 60,
-      price: 25
+      price: mentorProfile?.mentor_hourly_rate || 25
     }
-  ]);
-
-  // Animation variants
-  const pageVariants = {
-    initial: { opacity: 0, y: 20 },
-    animate: { 
-      opacity: 1, 
-      y: 0,
-      transition: {
-        duration: 0.4,
-        staggerChildren: 0.1
-      }
-    },
-    exit: { opacity: 0, y: -20 }
-  };
-
-  const itemVariants = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -20 }
-  };
+  ];
 
   return (
     <AppLayout>
       <PageTransition>
-        <motion.div 
-          className="container mx-auto px-4 py-6 pb-20"
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          variants={pageVariants}
-        >
-          {/* Back Button */}
-          <motion.div variants={itemVariants} className="mb-4">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-5xl mx-auto">
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => navigate(-1)}
-              className="flex items-center text-muted-foreground hover:text-foreground"
+              className="mb-4"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Mentors
+              Back
             </Button>
-          </motion.div>
-          
-          {/* Mentor Header Card */}
-          <motion.div variants={itemVariants}>
-            <Card className="mb-6 overflow-hidden border-2 border-primary/5">
-              <div className="h-32 bg-gradient-to-r from-primary/30 to-primary/10 relative">
-                <div className="absolute -bottom-16 left-6">
-                  <Avatar className="h-32 w-32 border-4 border-background shadow-sm">
-                    <AvatarImage src={mentor.avatar_url || undefined} alt={mentor.full_name || "Mentor"} />
-                    <AvatarFallback className="text-3xl">
-                      {mentor.full_name?.charAt(0) || mentor.username?.charAt(0) || "M"}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-                <div className="absolute top-4 right-4 flex gap-2">
-                  <Badge className="bg-primary text-primary-foreground">Verified Mentor</Badge>
-                  {isOwnProfile && (
-                    <Badge variant="outline" className="bg-background/80">This is you</Badge>
-                  )}
-                </div>
-              </div>
-              
-              <CardContent className="pt-20 pb-6">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="mb-8"
+            >
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+                <Avatar className="h-24 w-24 border-2 border-primary/10">
+                  <AvatarImage src={mentor.avatar_url || undefined} />
+                  <AvatarFallback className="text-2xl">
+                    {mentor.full_name?.charAt(0) || mentor.username?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                
+                <div className="space-y-4 flex-1">
                   <div>
-                    <h1 className="text-2xl font-bold mb-1">{mentor.full_name || mentor.username}</h1>
-                    <p className="text-muted-foreground">
-                      {mentor.position && mentor.company ? (
-                        <>
-                          {mentor.position} at {mentor.company} 
-                          {mentor.location && <> · {mentor.location}</>}
-                        </>
-                      ) : (
-                        mentor.location || "@" + mentor.username
-                      )}
+                    <h1 className="text-3xl font-bold">{mentor.full_name || mentor.username}</h1>
+                    <p className="text-lg text-muted-foreground">
+                      {mentor.position} {mentor.company && `at ${mentor.company}`}
                     </p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <div className="flex items-center">
-                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 mr-1" />
-                        <span className="font-medium">{mentor.stats?.mentorRating || 4.9}</span>
-                        <span className="text-muted-foreground ml-1 text-sm">({reviews?.length || 0} reviews)</span>
-                      </div>
-                      <span className="text-muted-foreground">•</span>
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                        <span className="text-muted-foreground text-sm">{mentor.stats?.mentorSessions || 0} sessions</span>
-                      </div>
-                    </div>
                   </div>
-                  {!isOwnProfile && (
-                    <div className="flex gap-3">
-                      <Button onClick={() => setBookingModalOpen(true)}>
-                        <Calendar className="mr-2 h-4 w-4" />
-                        Book a Session
-                      </Button>
-                      <Button variant="outline">
-                        <MessageSquare className="mr-2 h-4 w-4" />
-                        Message
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Left Column - Sidebar Info */}
-            <motion.div variants={itemVariants} className="space-y-6">
-              {/* Expertise Card */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center">
-                    <Award className="mr-2 h-5 w-5 text-primary" />
-                    Areas of Expertise
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                    <span className="font-medium">{mentor.stats?.mentorRating || 5.0} Rating</span>
+                    <span className="text-muted-foreground">
+                      ({reviews?.length || 0} reviews)
+                    </span>
+                  </div>
+                  
                   <div className="flex flex-wrap gap-2">
-                    {mentor.expertise?.map((item, i) => (
-                      <Badge key={i} variant="outline" className="bg-primary/5">
-                        {item}
+                    {mentor.expertise?.slice(0, 5).map((skill, i) => (
+                      <Badge key={i} variant="secondary">
+                        {skill}
                       </Badge>
                     ))}
+                    {mentor.expertise && mentor.expertise.length > 5 && (
+                      <Badge variant="secondary">+{mentor.expertise.length - 5} more</Badge>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-              
-              {/* Availability Card */}
-              <MentorAvailability 
-                slots={availabilitySlots || []}
-                isLoading={isAvailabilityLoading}
-                onSelectSlot={handleSelectSlot}
-                selectedSlot={selectedSlot}
-              />
-              
-              {/* Session Types Card */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Session Types</CardTitle>
-                  <CardDescription>
-                    Ways to connect with this mentor
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {sessionTypes.map((type, i) => (
-                    <div key={i} className="border rounded-lg p-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium">{type.name}</h3>
-                          <p className="text-xs text-muted-foreground mt-1">{type.duration} minutes</p>
-                        </div>
-                        {type.is_free || type.price === 0 ? (
-                          <Badge>Free</Badge>
-                        ) : (
-                          <Badge variant="outline">{type.currency || "$"}{type.price}</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm mt-3">{type.description}</p>
-                      {!isOwnProfile && (
-                        <div className="mt-3">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="w-full"
-                            onClick={() => setBookingModalOpen(true)}
-                          >
-                            <Calendar className="mr-2 h-3.5 w-3.5" />
-                            Book {type.name}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+                  
+                  <div className="flex flex-wrap gap-3">
+                    {mentor.linkedin_url && (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={mentor.linkedin_url} target="_blank" rel="noopener noreferrer">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="mr-2">
+                            <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                          </svg>
+                          LinkedIn
+                        </a>
+                      </Button>
+                    )}
+                    
+                    {mentor.website && (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={mentor.website} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Website
+                        </a>
+                      </Button>
+                    )}
+                    
+                    <Button variant="outline" size="sm">
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Message
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </motion.div>
             
-            {/* Right Column - Main Content Tabs */}
-            <motion.div variants={itemVariants} className="md:col-span-2">
-              <Tabs defaultValue="about" onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="about">About</TabsTrigger>
-                  <TabsTrigger value="reviews">Reviews</TabsTrigger>
-                  <TabsTrigger value="topics">Topics</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="about" className="mt-6 space-y-6">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle>About {mentor.full_name || mentor.username}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="text-sm leading-relaxed">
-                        {mentor.mentor_bio || mentor.bio || (
-                          <p className="text-muted-foreground">
-                            This mentor hasn't added a bio yet.
-                          </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2">
+                <Tabs defaultValue={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="about">About</TabsTrigger>
+                    <TabsTrigger value="experience">Experience</TabsTrigger>
+                    <TabsTrigger value="reviews">
+                      Reviews ({reviews?.length || 0})
+                    </TabsTrigger>
+                    <TabsTrigger value="availability">Availability</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="about" className="space-y-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>About {mentor.full_name?.split(' ')[0] || mentor.username}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="whitespace-pre-line">
+                          {mentorProfile?.mentor_bio || mentor.bio || 
+                           "This mentor hasn't added a bio yet."}
+                        </p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Expertise</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-2">
+                          {mentor.expertise?.map((skill, i) => (
+                            <Badge key={i} variant="secondary" className="text-sm py-1 px-3">
+                              {skill}
+                            </Badge>
+                          ))}
+                          {(!mentor.expertise || mentor.expertise.length === 0) && (
+                            <p className="text-muted-foreground">
+                              No expertise listed.
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Location & Contact</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {mentor.location && (
+                          <div className="flex items-center">
+                            <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+                            <span>{mentor.location}</span>
+                          </div>
                         )}
-                      </div>
-                      
-                      {/* Experience */}
-                      {mentor.work_experience && mentor.work_experience.length > 0 && (
-                        <div className="pt-4 border-t">
-                          <h3 className="font-medium mb-3 flex items-center">
-                            <Briefcase className="h-4 w-4 mr-2 text-muted-foreground" />
-                            Work Experience
-                          </h3>
-                          <div className="space-y-3">
-                            {(mentor.work_experience as any[]).map((work: any, i: number) => (
-                              <div key={i} className="flex">
-                                <div className="mr-4 flex flex-col items-center">
-                                  <div className="h-2 w-2 rounded-full bg-primary" />
-                                  {i < (mentor.work_experience as any[]).length - 1 && (
-                                    <div className="h-full w-0.5 bg-muted flex-1 mt-1" />
-                                  )}
-                                </div>
-                                <div className="flex-1 pb-3">
-                                  <h4 className="font-medium">{work.position}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {work.company} • {work.start_date} {work.is_current ? "- Present" : work.end_date ? `- ${work.end_date}` : ""}
-                                  </p>
-                                  {work.description && (
-                                    <p className="text-sm mt-1">{work.description}</p>
-                                  )}
+                        
+                        {mentor.website && (
+                          <div className="flex items-center">
+                            <Link2 className="h-4 w-4 mr-2 text-muted-foreground" />
+                            <a 
+                              href={mentor.website} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              {mentor.website.replace(/^https?:\/\//, '')}
+                            </a>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="experience" className="space-y-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <Briefcase className="h-5 w-5 mr-2 text-primary" />
+                          Work Experience
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {mentor.work_experience && mentor.work_experience.length > 0 ? (
+                          <div className="space-y-6">
+                            {mentor.work_experience.map((job: any, i: number) => (
+                              <div key={i} className="border-l-2 border-primary/20 pl-4 relative">
+                                <div className="absolute w-3 h-3 bg-primary rounded-full -left-[7px] top-1" />
+                                <h3 className="text-base font-medium">{job.position}</h3>
+                                <p className="text-muted-foreground">
+                                  {job.company}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {job.start_date} - {job.is_current ? 'Present' : job.end_date}
+                                </p>
+                                {job.description && (
+                                  <p className="mt-2 text-sm">{job.description}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground">No work experience listed.</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <GraduationCap className="h-5 w-5 mr-2 text-primary" />
+                          Education
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {mentor.education && mentor.education.length > 0 ? (
+                          <div className="space-y-6">
+                            {mentor.education.map((edu: any, i: number) => (
+                              <div key={i} className="border-l-2 border-primary/20 pl-4 relative">
+                                <div className="absolute w-3 h-3 bg-primary rounded-full -left-[7px] top-1" />
+                                <h3 className="text-base font-medium">{edu.degree}</h3>
+                                <p className="text-muted-foreground">
+                                  {edu.institution}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {edu.start_date} - {edu.is_current ? 'Present' : edu.end_date}
+                                </p>
+                                {edu.description && (
+                                  <p className="mt-2 text-sm">{edu.description}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground">No education listed.</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="reviews">
+                    <MentorReviews 
+                      reviews={reviews || []} 
+                      isLoading={isLoadingReviews} 
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="availability">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Available Time Slots</CardTitle>
+                        <CardDescription>
+                          Book a session with {mentor.full_name?.split(' ')[0] || mentor.username}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {isLoadingSlots ? (
+                          <div className="space-y-4">
+                            {Array.from({ length: 3 }).map((_, i) => (
+                              <Skeleton key={i} className="h-24 w-full" />
+                            ))}
+                          </div>
+                        ) : filteredAvailabilityByDay.length > 0 ? (
+                          <div className="space-y-6">
+                            {filteredAvailabilityByDay.map(([date, slots]: [string, any[]]) => (
+                              <div key={date} className="space-y-3">
+                                <h3 className="text-sm font-medium flex items-center">
+                                  <Calendar className="h-4 w-4 mr-2 text-primary" />
+                                  {format(parseISO(date), 'EEEE, MMMM d, yyyy')}
+                                </h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                  {slots.map(slot => (
+                                    <Button
+                                      key={slot.id}
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex justify-start items-center"
+                                      onClick={() => handleSelectSlot(slot)}
+                                    >
+                                      <Clock className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                                      {format(parseISO(slot.start_time), 'h:mm a')}
+                                    </Button>
+                                  ))}
                                 </div>
                               </div>
                             ))}
                           </div>
-                        </div>
-                      )}
-                      
-                      {/* Education */}
-                      {mentor.education && mentor.education.length > 0 && (
-                        <div className="pt-4 border-t">
-                          <h3 className="font-medium mb-3 flex items-center">
-                            <BookOpen className="h-4 w-4 mr-2 text-muted-foreground" />
-                            Education
-                          </h3>
-                          <div className="space-y-3">
-                            {(mentor.education as any[]).map((edu: any, i: number) => (
-                              <div key={i} className="flex">
-                                <div className="mr-4 flex flex-col items-center">
-                                  <div className="h-2 w-2 rounded-full bg-primary" />
-                                  {i < (mentor.education as any[]).length - 1 && (
-                                    <div className="h-full w-0.5 bg-muted flex-1 mt-1" />
-                                  )}
-                                </div>
-                                <div className="flex-1 pb-3">
-                                  <h4 className="font-medium">{edu.degree}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {edu.institution} • {edu.field}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {edu.start_date} {edu.is_current ? "- Present" : edu.end_date ? `- ${edu.end_date}` : ""}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Social Links */}
-                      {(mentor.website || mentor.linkedin_url || mentor.twitter_url) && (
-                        <div className="pt-4 border-t">
-                          <h3 className="font-medium mb-3 flex items-center">
-                            <Globe className="h-4 w-4 mr-2 text-muted-foreground" />
-                            Connect
-                          </h3>
-                          <div className="flex flex-wrap gap-3">
-                            {mentor.website && (
-                              <Button variant="outline" size="sm" asChild>
-                                <a href={mentor.website} target="_blank" rel="noopener noreferrer">
-                                  Website
-                                </a>
-                              </Button>
-                            )}
-                            {mentor.linkedin_url && (
-                              <Button variant="outline" size="sm" asChild>
-                                <a href={mentor.linkedin_url} target="_blank" rel="noopener noreferrer">
-                                  LinkedIn
-                                </a>
-                              </Button>
-                            )}
-                            {mentor.twitter_url && (
-                              <Button variant="outline" size="sm" asChild>
-                                <a href={mentor.twitter_url} target="_blank" rel="noopener noreferrer">
-                                  Twitter
-                                </a>
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-                
-                <TabsContent value="reviews" className="mt-6">
-                  <MentorReviews 
-                    reviews={reviews || []}
-                    isLoading={isReviewsLoading}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="topics" className="mt-6">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle>Mentorship Topics</CardTitle>
-                      <CardDescription>
-                        Specific areas {mentor.full_name || mentor.username} can help with
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {mentor.expertise?.map((expertise, i) => (
-                          <div key={i} className="border rounded-lg p-4">
-                            <h3 className="font-medium mb-2">{expertise}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {getTopicDescription(expertise)}
+                        ) : (
+                          <div className="text-center py-8">
+                            <Calendar className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
+                            <h3 className="text-lg font-medium mb-1">No available slots</h3>
+                            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                              This mentor hasn't added any available time slots yet. Check back later or message them directly.
                             </p>
                           </div>
-                        ))}
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </div>
+              
+              <div>
+                <Card className="sticky top-20">
+                  <CardHeader>
+                    <CardTitle>Session Types</CardTitle>
+                    <CardDescription>
+                      Choose a session type that fits your needs
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {sessionTypes.map((type: any) => (
+                      <motion.div
+                        key={type.id}
+                        whileHover={{ y: -2 }}
+                        transition={{ duration: 0.2 }}
+                        className="cursor-pointer"
+                        onClick={() => setSelectedTab("availability")}
+                      >
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-medium">{type.name}</h4>
+                              <Badge 
+                                variant={type.is_free ? "outline" : "default"}
+                                className={type.is_free ? "bg-green-50 text-green-700 hover:bg-green-50" : ""}
+                              >
+                                {type.is_free ? "Free" : `$${type.price}`}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-3">
+                              {type.description}
+                            </p>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <div className="flex items-center">
+                                <Clock className="h-3.5 w-3.5 mr-1" />
+                                {type.duration} mins
+                              </div>
+                              <ChevronRight className="h-4 w-4" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                    
+                    <Separator />
+                    
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium">Why book with {mentor.full_name?.split(' ')[0] || mentor.username}?</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-start">
+                          <div className="p-1">
+                            <Check className="h-4 w-4 text-primary" />
+                          </div>
+                          <p className="text-sm ml-2">Verified professional background</p>
+                        </div>
+                        <div className="flex items-start">
+                          <div className="p-1">
+                            <Check className="h-4 w-4 text-primary" />
+                          </div>
+                          <p className="text-sm ml-2">Personalized 1:1 guidance</p>
+                        </div>
+                        <div className="flex items-start">
+                          <div className="p-1">
+                            <Check className="h-4 w-4 text-primary" />
+                          </div>
+                          <p className="text-sm ml-2">Secure and easy booking process</p>
+                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </motion.div>
+                    </div>
+                    
+                    <Button 
+                      className="w-full" 
+                      onClick={() => setSelectedTab("availability")}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      View Availability
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </div>
-          
-          {/* Booking Modal */}
+        </div>
+        
+        {mentor && selectedSlot && (
           <MentorBookingModal
-            isOpen={bookingModalOpen}
-            onClose={() => {
-              setBookingModalOpen(false);
-              setSelectedSlot(null);
-            }}
+            isOpen={isBookingModalOpen}
+            onClose={() => setIsBookingModalOpen(false)}
             mentor={mentor}
             selectedSlot={selectedSlot}
             onConfirmBooking={handleConfirmBooking}
             isProcessing={isBookingProcessing}
           />
-        </motion.div>
+        )}
       </PageTransition>
     </AppLayout>
   );
-}
-
-// Helper function to get topic descriptions
-function getTopicDescription(topic: string): string {
-  const descriptions: Record<string, string> = {
-    "Startup Strategy": "Guidance on business models, market entry strategies, and competitive analysis to position your startup for success.",
-    "Product Development": "Advice on product roadmaps, feature prioritization, and user-centered design to build products users love.",
-    "Fundraising": "Strategies for raising seed and Series A funding, investor pitches, and term sheet negotiations.",
-    "Marketing": "Help with marketing strategy, brand development, and customer acquisition to grow your user base efficiently.",
-    "User Acquisition": "Tactics for customer acquisition, retention strategies, and building sustainable growth.",
-    "Technical Architecture": "Guidance on tech stack selection, system design, and scaling infrastructure as your startup grows.",
-    "UX Design": "Feedback on user experience, interface design, and usability testing to create intuitive products.",
-    "Business Model": "Analysis of revenue models, pricing strategies, and identifying the most viable path to profitability.",
-    "Team Building": "Strategies for hiring, team culture, leadership development, and organizational structure.",
-    "Pitch Deck": "Feedback on pitch presentations, storytelling, and communicating your vision to investors effectively.",
-    "Financial Modeling": "Help with creating financial projections, unit economics, and understanding key metrics for investor presentations.",
-    "Growth Hacking": "Creative strategies to accelerate growth, viral marketing techniques, and data-driven experimentation.",
-    "Sales": "Guidance on sales processes, customer conversations, and scaling your sales team to drive revenue.",
-    "Customer Development": "Methods for validating customer problems, conducting interviews, and building user feedback loops."
-  };
-  
-  return descriptions[topic] || 
-    "Personalized guidance and expertise in this area to help you overcome challenges and achieve your goals.";
 }

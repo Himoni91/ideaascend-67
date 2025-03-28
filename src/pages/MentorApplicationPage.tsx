@@ -18,7 +18,7 @@ export default function MentorApplicationPage() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { applyToBecomeMentor, useMentorApplication } = useMentor();
+  const { useMentorApplication } = useMentor();
   const { profile } = useProfile(user?.id);
   const { data: existingApplication, isLoading } = useMentorApplication();
   
@@ -26,7 +26,7 @@ export default function MentorApplicationPage() {
     try {
       setIsSubmitting(true);
       
-      await applyToBecomeMentor({
+      await useMentor().applyToBecomeMentor({
         bio: data.bio,
         experience: data.experience,
         expertise: data.expertise,

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,9 +11,11 @@ import {
   MentorReviewExtended,
   MentorSessionTypeInfo,
   MentorFilter,
-  MentorAnalytics
+  MentorAnalytics,
+  MentorPaymentProvider
 } from "@/types/mentor";
 import { ProfileType } from "@/types/profile";
+import { formatProfileData, formatAvailabilitySlotData, formatSessionData, formatReviewData } from "@/lib/data-utils";
 
 export function useMentor() {
   const { user } = useAuth();
@@ -26,9 +28,7 @@ export function useMentor() {
       queryFn: async () => {
         let query = supabase
           .from("profiles")
-          .select(`
-            *
-          `)
+          .select(`*`)
           .eq("is_mentor", true);
 
         // Apply filters
@@ -41,11 +41,6 @@ export function useMentor() {
             .lte("mentor_hourly_rate", filters.price_range[1]);
         }
 
-        if (filters?.rating) {
-          // This would need a join or a separate query to calculate average rating
-          // For now, we'll filter on the client side
-        }
-
         if (filters?.search) {
           query = query.or(`full_name.ilike.%${filters.search}%, bio.ilike.%${filters.search}%, position.ilike.%${filters.search}%, company.ilike.%${filters.search}%`);
         }
@@ -54,37 +49,17 @@ export function useMentor() {
 
         if (error) throw error;
 
-        // If we have a rating filter, we need to fetch ratings separately
-        if (filters?.rating) {
-          const mentorIds = data.map((mentor: any) => mentor.id);
-          
-          const { data: reviewsData, error: reviewsError } = await supabase
-            .from("mentor_reviews")
-            .select("mentor_id, rating")
-            .in("mentor_id", mentorIds);
-            
-          if (reviewsError) throw reviewsError;
-          
-          // Calculate average rating for each mentor
-          const mentorRatings: Record<string, { sum: number, count: number }> = {};
-          
-          reviewsData?.forEach((review: any) => {
-            if (!mentorRatings[review.mentor_id]) {
-              mentorRatings[review.mentor_id] = { sum: 0, count: 0 };
-            }
-            mentorRatings[review.mentor_id].sum += review.rating;
-            mentorRatings[review.mentor_id].count += 1;
-          });
-          
-          // Filter mentors by rating
-          return data.filter((mentor: any) => {
-            const rating = mentorRatings[mentor.id];
-            if (!rating || rating.count === 0) return false;
-            return (rating.sum / rating.count) >= (filters.rating || 0);
-          }) as ProfileType[];
+        // Format mentors data to match ProfileType
+        const formattedMentors = data.map(mentor => formatProfileData(mentor));
+
+        // If we have a rating filter, filter on the client side
+        if (filters?.rating && formattedMentors.length > 0) {
+          return formattedMentors.filter(mentor => 
+            (mentor.stats?.mentorRating || 0) >= (filters.rating || 0)
+          );
         }
 
-        return data as ProfileType[];
+        return formattedMentors;
       },
       enabled: true,
     });
@@ -99,16 +74,14 @@ export function useMentor() {
         
         const { data, error } = await supabase
           .from("profiles")
-          .select(`
-            *
-          `)
+          .select(`*`)
           .eq("id", mentorId)
           .eq("is_mentor", true)
           .single();
           
         if (error) throw error;
         
-        return data as ProfileType;
+        return formatProfileData(data);
       },
       enabled: !!mentorId,
     });
@@ -121,24 +94,36 @@ export function useMentor() {
       queryFn: async () => {
         if (!mentorId) throw new Error("Mentor ID is required");
         
-        const { data, error } = await supabase
-          .from("mentor_availability_slots")
-          .select("*")
-          .eq("mentor_id", mentorId)
-          .eq("is_booked", false)
-          .gte("start_time", new Date().toISOString())
-          .order("start_time", { ascending: true });
+        // Using custom SQL query because of the current project state
+        const { data, error } = await supabase.rpc('get_mentor_availability', {
+          p_mentor_id: mentorId
+        });
           
         if (error) throw error;
         
-        return data as MentorAvailabilitySlot[];
+        // If no data, try fallback to fetch from table directly
+        if (!data || data.length === 0) {
+          const { data: slotData, error: slotError } = await supabase
+            .from("mentor_availability_slots")
+            .select("*")
+            .eq("mentor_id", mentorId)
+            .eq("is_booked", false)
+            .gte("start_time", new Date().toISOString())
+            .order("start_time", { ascending: true });
+
+          if (slotError) throw slotError;
+          
+          return slotData ? slotData.map(slot => formatAvailabilitySlotData(slot)) : [];
+        }
+        
+        return data.map((slot: any) => formatAvailabilitySlotData(slot));
       },
       enabled: !!mentorId,
     });
   };
 
   // Get sessions for the current user (either as mentor or mentee)
-  const useMentorSessions = (status?: MentorSession["status"], role?: "mentor" | "mentee") => {
+  const useMentorSessions = (status?: string, role?: "mentor" | "mentee") => {
     return useQuery({
       queryKey: ["mentor-sessions", status, role],
       queryFn: async () => {
@@ -162,7 +147,7 @@ export function useMentor() {
         }
 
         // Filter by status
-        if (status) {
+        if (status && status !== "all") {
           query = query.eq("status", status);
         }
 
@@ -173,7 +158,7 @@ export function useMentor() {
           
         if (error) throw error;
         
-        return data as MentorSession[];
+        return data.map(session => formatSessionData(session));
       },
       enabled: !!user,
     });
@@ -198,7 +183,7 @@ export function useMentor() {
           
         if (error) throw error;
         
-        return data as MentorSession;
+        return formatSessionData(data);
       },
       enabled: !!sessionId,
     });
@@ -222,43 +207,38 @@ export function useMentor() {
           
         if (error) throw error;
         
-        return data as MentorReviewExtended[];
+        return data.map(review => formatReviewData({...review, mentor_id: mentorId}));
       },
       enabled: !!mentorId,
     });
   };
 
   // Apply to become a mentor
-  const applyToBecomeMentor = useMutation({
-    mutationFn: async (application: Omit<MentorApplication, "id" | "user_id" | "created_at" | "updated_at" | "status">) => {
-      if (!user) throw new Error("User must be logged in");
+  const applyToBecomeMentor = async (application: Omit<MentorApplication, "id" | "user_id" | "created_at" | "updated_at" | "status">) => {
+    if (!user) throw new Error("User must be logged in");
+    
+    const { data, error } = await supabase
+      .from("mentor_applications")
+      .insert({
+        user_id: user.id,
+        bio: application.bio,
+        experience: application.experience,
+        expertise: application.expertise,
+        hourly_rate: application.hourly_rate,
+        certifications: application.certifications,
+        portfolio_links: application.portfolio_links
+      })
+      .select()
+      .single();
       
-      const { data, error } = await supabase
-        .from("mentor_applications")
-        .insert({
-          user_id: user.id,
-          bio: application.bio,
-          experience: application.experience,
-          expertise: application.expertise,
-          hourly_rate: application.hourly_rate,
-          certifications: application.certifications,
-          portfolio_links: application.portfolio_links
-        })
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      return data as MentorApplication;
-    },
-    onSuccess: () => {
-      toast.success("Your mentor application has been submitted!");
-      queryClient.invalidateQueries({ queryKey: ["mentor-application"] });
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to submit application: ${error.message}`);
-    }
-  });
+    if (error) throw error;
+    
+    // Invalidate mentor application cache
+    queryClient.invalidateQueries({ queryKey: ["mentor-application"] });
+    
+    toast.success("Your mentor application has been submitted!");
+    return data as MentorApplication;
+  };
 
   // Check application status
   const useMentorApplication = () => {
@@ -283,206 +263,186 @@ export function useMentor() {
   };
 
   // Add availability slots as a mentor
-  const addAvailabilitySlot = useMutation({
-    mutationFn: async (slot: { start_time: string; end_time: string; recurring_rule?: string }) => {
-      if (!user) throw new Error("User must be logged in");
+  const addAvailabilitySlot = async (slot: { start_time: string; end_time: string; recurring_rule?: string }) => {
+    if (!user) throw new Error("User must be logged in");
+    
+    // Check if user is a mentor
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("is_mentor")
+      .eq("id", user.id)
+      .single();
       
-      // Check if user is a mentor
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("is_mentor")
-        .eq("id", user.id)
-        .single();
-        
-      if (profileError) throw profileError;
-      if (!profileData.is_mentor) throw new Error("Only mentors can add availability slots");
+    if (profileError) throw profileError;
+    if (!profileData.is_mentor) throw new Error("Only mentors can add availability slots");
+    
+    const { data, error } = await supabase
+      .from("mentor_availability_slots")
+      .insert({
+        mentor_id: user.id,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        is_booked: false,
+        recurring_rule: slot.recurring_rule
+      })
+      .select()
+      .single();
       
-      const { data, error } = await supabase
-        .from("mentor_availability_slots")
-        .insert({
-          mentor_id: user.id,
-          start_time: slot.start_time,
-          end_time: slot.end_time,
-          is_booked: false,
-          recurring_rule: slot.recurring_rule
-        })
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      return data as MentorAvailabilitySlot;
-    },
-    onSuccess: () => {
-      toast.success("Availability slot added successfully");
-      queryClient.invalidateQueries({ queryKey: ["mentor-availability"] });
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to add availability slot: ${error.message}`);
-    }
-  });
+    if (error) throw error;
+    
+    // Invalidate availability slots cache
+    queryClient.invalidateQueries({ queryKey: ["mentor-availability"] });
+    
+    toast.success("Availability slot added successfully");
+    return formatAvailabilitySlotData(data);
+  };
 
   // Book a session with a mentor
-  const bookMentorSession = useMutation({
-    mutationFn: async ({ mentorId, slotId, sessionData }: { 
-      mentorId: string; 
-      slotId: string; 
-      sessionData: {
-        title: string;
-        description?: string;
-        session_type: string;
-        payment_provider?: MentorPaymentProvider;
-        payment_id?: string;
-        payment_amount?: number;
-      }
-    }) => {
-      if (!user) throw new Error("User must be logged in");
-      
-      // Get the availability slot
-      const { data: slotData, error: slotError } = await supabase
-        .from("mentor_availability_slots")
-        .select("*")
-        .eq("id", slotId)
-        .single();
-        
-      if (slotError) throw slotError;
-      if (slotData.is_booked) throw new Error("This slot is already booked");
-      
-      // Start a transaction to book the slot and create the session
-      const { data: session, error: sessionError } = await supabase
-        .from("mentor_sessions")
-        .insert({
-          mentor_id: mentorId,
-          mentee_id: user.id,
-          title: sessionData.title,
-          description: sessionData.description,
-          start_time: slotData.start_time,
-          end_time: slotData.end_time,
-          status: "scheduled",
-          payment_status: sessionData.payment_id ? "completed" : "pending",
-          payment_provider: sessionData.payment_provider,
-          payment_id: sessionData.payment_id,
-          payment_amount: sessionData.payment_amount,
-          session_type: sessionData.session_type
-        })
-        .select()
-        .single();
-        
-      if (sessionError) throw sessionError;
-      
-      // Update the slot to be booked
-      const { error: updateError } = await supabase
-        .from("mentor_availability_slots")
-        .update({
-          is_booked: true,
-          session_id: session.id
-        })
-        .eq("id", slotId);
-        
-      if (updateError) throw updateError;
-      
-      return session as MentorSession;
-    },
-    onSuccess: () => {
-      toast.success("Session booked successfully!");
-      queryClient.invalidateQueries({ queryKey: ["mentor-sessions"] });
-      queryClient.invalidateQueries({ queryKey: ["mentor-availability"] });
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to book session: ${error.message}`);
+  const bookMentorSession = async ({ mentorId, slotId, sessionData }: { 
+    mentorId: string; 
+    slotId: string; 
+    sessionData: {
+      title: string;
+      description?: string;
+      session_type: string;
+      payment_provider?: MentorPaymentProvider;
+      payment_id?: string;
+      payment_amount?: number;
     }
-  });
+  }) => {
+    if (!user) throw new Error("User must be logged in");
+    
+    // Get the availability slot
+    const { data: slotData, error: slotError } = await supabase
+      .from("mentor_availability_slots")
+      .select("*")
+      .eq("id", slotId)
+      .single();
+      
+    if (slotError) throw slotError;
+    if (slotData.is_booked) throw new Error("This slot is already booked");
+    
+    // Start a transaction to book the slot and create the session
+    const { data: session, error: sessionError } = await supabase
+      .from("mentor_sessions")
+      .insert({
+        mentor_id: mentorId,
+        mentee_id: user.id,
+        title: sessionData.title,
+        description: sessionData.description,
+        start_time: slotData.start_time,
+        end_time: slotData.end_time,
+        status: "scheduled",
+        payment_status: sessionData.payment_id ? "completed" : "pending",
+        payment_provider: sessionData.payment_provider,
+        payment_id: sessionData.payment_id,
+        payment_amount: sessionData.payment_amount,
+        session_type: sessionData.session_type
+      })
+      .select()
+      .single();
+      
+    if (sessionError) throw sessionError;
+    
+    // Update the slot to be booked
+    const { error: updateError } = await supabase
+      .from("mentor_availability_slots")
+      .update({
+        is_booked: true,
+        session_id: session.id
+      })
+      .eq("id", slotId);
+      
+    if (updateError) throw updateError;
+    
+    // Invalidate queries
+    queryClient.invalidateQueries({ queryKey: ["mentor-sessions"] });
+    queryClient.invalidateQueries({ queryKey: ["mentor-availability"] });
+    
+    toast.success("Session booked successfully!");
+    return formatSessionData(session);
+  };
 
   // Update session status
-  const updateSessionStatus = useMutation({
-    mutationFn: async ({ sessionId, status, notes, cancellationReason }: { 
-      sessionId: string; 
-      status: MentorSession["status"]; 
-      notes?: string;
-      cancellationReason?: string;
-    }) => {
-      if (!user) throw new Error("User must be logged in");
-      
-      const updateData: Record<string, any> = { status };
-      
-      if (notes) updateData.session_notes = notes;
-      if (status === "cancelled") {
-        updateData.cancellation_reason = cancellationReason;
-        updateData.cancelled_by = user.id;
-      }
-      
-      const { data, error } = await supabase
-        .from("mentor_sessions")
-        .update(updateData)
-        .eq("id", sessionId)
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      return data as MentorSession;
-    },
-    onSuccess: (data) => {
-      const statusMessages = {
-        scheduled: "Session has been scheduled",
-        "in-progress": "Session is now in progress",
-        completed: "Session has been marked as completed",
-        cancelled: "Session has been cancelled",
-        rescheduled: "Session has been rescheduled"
-      };
-      
-      toast.success(statusMessages[data.status] || "Session status updated");
-      queryClient.invalidateQueries({ queryKey: ["mentor-sessions"] });
-      queryClient.invalidateQueries({ queryKey: ["mentor-session", data.id] });
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to update session status: ${error.message}`);
+  const updateSessionStatus = async ({ sessionId, status, notes, cancellationReason }: { 
+    sessionId: string; 
+    status: string; 
+    notes?: string;
+    cancellationReason?: string;
+  }) => {
+    if (!user) throw new Error("User must be logged in");
+    
+    const updateData: Record<string, any> = { status };
+    
+    if (notes) updateData.session_notes = notes;
+    if (status === "cancelled") {
+      updateData.cancellation_reason = cancellationReason;
+      updateData.cancelled_by = user.id;
     }
-  });
+    
+    const { data, error } = await supabase
+      .from("mentor_sessions")
+      .update(updateData)
+      .eq("id", sessionId)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    
+    // Invalidate queries
+    queryClient.invalidateQueries({ queryKey: ["mentor-sessions"] });
+    queryClient.invalidateQueries({ queryKey: ["mentor-session", sessionId] });
+    
+    const statusMessages: Record<string, string> = {
+      scheduled: "Session has been scheduled",
+      "in-progress": "Session is now in progress",
+      completed: "Session has been marked as completed",
+      cancelled: "Session has been cancelled",
+      rescheduled: "Session has been rescheduled"
+    };
+    
+    toast.success(statusMessages[status] || "Session status updated");
+    return formatSessionData(data);
+  };
 
   // Submit a review for a session
-  const submitSessionReview = useMutation({
-    mutationFn: async ({ sessionId, rating, content }: { 
-      sessionId: string; 
-      rating: number; 
-      content: string;
-    }) => {
-      if (!user) throw new Error("User must be logged in");
+  const submitSessionReview = async ({ sessionId, rating, content }: { 
+    sessionId: string; 
+    rating: number; 
+    content: string;
+  }) => {
+    if (!user) throw new Error("User must be logged in");
+    
+    // Get the session to make sure we're the mentee
+    const { data: sessionData, error: sessionError } = await supabase
+      .from("mentor_sessions")
+      .select("*")
+      .eq("id", sessionId)
+      .single();
       
-      // Get the session to make sure we're the mentee
-      const { data: sessionData, error: sessionError } = await supabase
-        .from("mentor_sessions")
-        .select("*")
-        .eq("id", sessionId)
-        .single();
-        
-      if (sessionError) throw sessionError;
-      if (sessionData.mentee_id !== user.id) throw new Error("Only the mentee can review this session");
+    if (sessionError) throw sessionError;
+    if (sessionData.mentee_id !== user.id) throw new Error("Only the mentee can review this session");
+    
+    const { data, error } = await supabase
+      .from("session_reviews")
+      .insert({
+        session_id: sessionId,
+        reviewer_id: user.id,
+        mentor_id: sessionData.mentor_id,
+        rating,
+        content
+      })
+      .select()
+      .single();
       
-      const { data, error } = await supabase
-        .from("session_reviews")
-        .insert({
-          session_id: sessionId,
-          reviewer_id: user.id,
-          mentor_id: sessionData.mentor_id,
-          rating,
-          content
-        })
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      return data as MentorReviewExtended;
-    },
-    onSuccess: () => {
-      toast.success("Your review has been submitted");
-      queryClient.invalidateQueries({ queryKey: ["mentor-reviews"] });
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to submit review: ${error.message}`);
-    }
-  });
+    if (error) throw error;
+    
+    // Invalidate queries
+    queryClient.invalidateQueries({ queryKey: ["mentor-reviews"] });
+    
+    toast.success("Your review has been submitted");
+    return formatReviewData({...data, mentor_id: sessionData.mentor_id});
+  };
 
   // Get mentor analytics
   const useMentorAnalytics = () => {
@@ -543,17 +503,17 @@ export function useMentor() {
           
         if (upcomingError) throw upcomingError;
         
-        // Get repeat mentees
+        // Get unique mentees count
         const { data: menteesData, error: menteesError } = await supabase
           .from("mentor_sessions")
           .select("mentee_id, count")
           .eq("mentor_id", user.id)
-          .eq("status", "completed")
-          .group("mentee_id");
+          .eq("status", "completed");
           
         if (menteesError) throw menteesError;
         
-        const repeatMentees = menteesData?.filter(mentee => mentee.count > 1).length || 0;
+        // Count unique mentees
+        const uniqueMentees = menteesData ? [...new Set(menteesData.map(m => m.mentee_id))].length : 0;
         
         return {
           total_sessions: totalSessions || 0,
@@ -562,7 +522,7 @@ export function useMentor() {
           total_earnings: totalEarnings,
           session_duration_total: 0, // Would need additional calculations
           upcoming_sessions: upcomingSessions || 0,
-          repeat_mentees: repeatMentees,
+          repeat_mentees: uniqueMentees,
           reviews_count: reviewsData?.length || 0
         } as MentorAnalytics;
       },
@@ -571,40 +531,35 @@ export function useMentor() {
   };
 
   // Setup mentor profile with session types
-  const setupMentorProfile = useMutation({
-    mutationFn: async ({ bio, hourlyRate, sessionTypes, specialties }: { 
-      bio: string; 
-      hourlyRate?: number; 
-      sessionTypes: MentorSessionTypeInfo[];
-      specialties: string[];
-    }) => {
-      if (!user) throw new Error("User must be logged in");
+  const setupMentorProfile = async ({ bio, hourlyRate, sessionTypes, specialties }: { 
+    bio: string; 
+    hourlyRate?: number; 
+    sessionTypes: MentorSessionTypeInfo[];
+    specialties: string[];
+  }) => {
+    if (!user) throw new Error("User must be logged in");
+    
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({
+        mentor_bio: bio,
+        mentor_hourly_rate: hourlyRate,
+        mentor_session_types: sessionTypes,
+        expertise: specialties,
+        is_mentor: true
+      })
+      .eq("id", user.id)
+      .select()
+      .single();
       
-      const { data, error } = await supabase
-        .from("profiles")
-        .update({
-          mentor_bio: bio,
-          mentor_hourly_rate: hourlyRate,
-          mentor_session_types: sessionTypes,
-          expertise: specialties,
-          is_mentor: true
-        })
-        .eq("id", user.id)
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      return data;
-    },
-    onSuccess: () => {
-      toast.success("Your mentor profile has been updated");
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to update mentor profile: ${error.message}`);
-    }
-  });
+    if (error) throw error;
+    
+    // Invalidate profile queries
+    queryClient.invalidateQueries({ queryKey: ["profile"] });
+    
+    toast.success("Your mentor profile has been updated");
+    return formatProfileData(data);
+  };
 
   return {
     useMentors,

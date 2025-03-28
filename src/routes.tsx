@@ -16,6 +16,8 @@ import PitchHubIdeaDetail from "@/pages/PitchHubIdeaDetail";
 import MentorSpacePage from "@/pages/MentorSpacePage";
 import MentorProfilePage from "@/pages/MentorProfilePage";
 import MentorApplicationPage from "@/pages/MentorApplicationPage";
+import MentorSessionsPage from "@/pages/MentorSessionsPage";
+import MentorAnalyticsPage from "@/pages/MentorAnalyticsPage";
 
 const router = createBrowserRouter([
   {
@@ -58,6 +60,7 @@ const router = createBrowserRouter([
     path: "/pitch-hub/idea/:id",
     element: <PitchHubIdeaDetail />,
   },
+  // Mentor Space Routes
   {
     path: "/mentor-space",
     element: <MentorSpacePage />,
@@ -69,6 +72,14 @@ const router = createBrowserRouter([
   {
     path: "/mentor-space/apply",
     element: <MentorApplicationPage />,
+  },
+  {
+    path: "/mentor-space/sessions",
+    element: <MentorSessionsPage />,
+  },
+  {
+    path: "/mentor-space/analytics",
+    element: <MentorAnalyticsPage />,
   },
   {
     path: "*",

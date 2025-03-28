@@ -1,4 +1,3 @@
-
 export type ProfileType = {
   id: string;
   username: string;
@@ -19,6 +18,17 @@ export type ProfileType = {
   byline: string | null;
   profile_completion_percentage?: number;
   profile_header_url?: string | null;
+  
+  // Additional fields that may be added by the backend
+  professional_headline?: string | null;
+  profile_header_url?: string | null;
+  
+  // Mentor-specific fields
+  mentor_bio?: string | null;
+  mentor_hourly_rate?: number | null;
+  mentor_session_types?: any; // Will be cast to MentorSessionTypeInfo[] when needed
+  work_experience?: any[];
+  education?: any[];
   
   // Additional fields for UI/UX
   level: number;
