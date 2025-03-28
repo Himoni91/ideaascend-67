@@ -1,336 +1,240 @@
-
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { 
-  ArrowLeft, 
-  BarChart3, 
-  Users, 
-  Calendar, 
-  DollarSign, 
-  Star, 
-  Clock, 
-  ChevronRight,
-  TrendingUp,
-  CalendarClock
-} from "lucide-react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMentor } from "@/hooks/use-mentor";
-import { Button } from "@/components/ui/button";
+import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  LineChart, Line, Legend, PieChart, Pie, Cell
-} from "recharts";
-import AppLayout from "@/components/layout/AppLayout";
-import { PageTransition } from "@/components/ui/page-transition";
-
-// Mock data for charts
-const sessionsByDay = [
-  { name: "Mon", value: 2 },
-  { name: "Tue", value: 3 },
-  { name: "Wed", value: 1 },
-  { name: "Thu", value: 4 },
-  { name: "Fri", value: 3 },
-  { name: "Sat", value: 1 },
-  { name: "Sun", value: 0 },
-];
-
-const earningsByMonth = [
-  { name: "Jan", value: 150 },
-  { name: "Feb", value: 280 },
-  { name: "Mar", value: 320 },
-  { name: "Apr", value: 450 },
-  { name: "May", value: 380 },
-  { name: "Jun", value: 520 },
-];
-
-const sessionTypes = [
-  { name: "Quick Chat", value: 12 },
-  { name: "Standard", value: 22 },
-  { name: "Deep Dive", value: 8 },
-  { name: "Custom", value: 3 },
-];
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { MentorAnalytics } from "@/types/mentor";
+import { Loader2 } from "lucide-react";
 
 export default function MentorAnalyticsPage() {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const [timeframe, setTimeframe] = useState("month");
-  
-  const { useMentorAnalytics } = useMentor();
-  const { data: analytics, isLoading } = useMentorAnalytics();
-  
+  const { useMentorSessions } = useMentor();
+  const { data: sessions, isLoading } = useMentorSessions(undefined, "mentor");
+  const [analytics, setAnalytics] = useState<MentorAnalytics>({
+    total_sessions: 0,
+    completed_sessions: 0,
+    average_rating: 0,
+    total_earnings: 0,
+    session_duration_total: 0,
+    upcoming_sessions: 0,
+    repeat_mentees: 0,
+    reviews_count: 0
+  });
+
+  // Calculate analytics from sessions
+  useEffect(() => {
+    if (sessions) {
+      const now = new Date();
+      const completedSessions = sessions.filter(s => s.status === "completed");
+      const upcomingSessions = sessions.filter(s => new Date(s.start_time) > now && s.status !== "cancelled");
+      
+      // Get unique mentees
+      const uniqueMentees = [...new Set(sessions.map(s => s.mentee_id))];
+      
+      // Check for repeat mentees
+      const menteeCounts: Record<string, number> = {};
+      sessions.forEach(s => {
+        menteeCounts[s.mentee_id] = (menteeCounts[s.mentee_id] || 0) + 1;
+      });
+      const repeatMentees = Object.values(menteeCounts).filter(count => count > 1).length;
+      
+      // Calculate total earnings
+      const totalEarnings = sessions.reduce((sum, session) => {
+        return sum + (session.payment_amount || 0);
+      }, 0);
+      
+      setAnalytics({
+        total_sessions: sessions.length,
+        completed_sessions: completedSessions.length,
+        average_rating: 4.5, // Placeholder - would come from reviews
+        total_earnings: totalEarnings,
+        session_duration_total: sessions.reduce((sum, s) => {
+          const start = new Date(s.start_time);
+          const end = new Date(s.end_time);
+          return sum + ((end.getTime() - start.getTime()) / (1000 * 60)); // in minutes
+        }, 0),
+        upcoming_sessions: upcomingSessions.length,
+        repeat_mentees: repeatMentees,
+        reviews_count: 0 // Would come from a reviews query
+      });
+    }
+  }, [sessions]);
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Prepare chart data
+  const sessionStatusData = [
+    { name: 'Completed', value: analytics.completed_sessions },
+    { name: 'Upcoming', value: analytics.upcoming_sessions },
+    { name: 'Others', value: analytics.total_sessions - analytics.completed_sessions - analytics.upcoming_sessions }
+  ];
+
+  const COLORS = ['#4CAF50', '#2196F3', '#9E9E9E'];
+
+  const earningsData = sessions 
+    ? sessions
+        .filter(s => s.payment_status === "completed")
+        .map(session => ({
+          date: new Date(session.created_at).toLocaleDateString(),
+          amount: session.payment_amount || 0
+        }))
+        .reduce((acc: {date: string, amount: number}[], curr) => {
+          const existing = acc.find(item => item.date === curr.date);
+          if (existing) {
+            existing.amount += curr.amount;
+          } else {
+            acc.push(curr);
+          }
+          return acc;
+        }, [])
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    : [];
+
   return (
     <AppLayout>
-      <PageTransition>
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-6xl mx-auto">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => navigate(-1)}
-              className="mb-4"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="mb-8"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <div>
-                  <h1 className="text-3xl font-bold mb-2 flex items-center">
-                    <BarChart3 className="mr-3 h-7 w-7 text-primary" />
-                    Mentor Analytics
-                  </h1>
-                  <p className="text-muted-foreground">
-                    Track your mentorship performance and income
-                  </p>
-                </div>
-                
-                <Button variant="outline" onClick={() => navigate("/mentor-space/sessions")}>
-                  <CalendarClock className="mr-2 h-4 w-4" />
-                  View Sessions
-                </Button>
-              </div>
-              
-              {/* Summary Stats Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-muted-foreground text-sm">Total Sessions</p>
-                      <Calendar className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <h3 className="text-3xl font-bold">{analytics?.total_sessions || 0}</h3>
-                      <div className="flex items-center text-xs text-green-600">
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        <span>+12%</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-muted-foreground text-sm">Total Earnings</p>
-                      <DollarSign className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <h3 className="text-3xl font-bold">${analytics?.total_earnings || 0}</h3>
-                      <div className="flex items-center text-xs text-green-600">
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        <span>+8%</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-muted-foreground text-sm">Avg. Rating</p>
-                      <Star className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <h3 className="text-3xl font-bold">{analytics?.average_rating || 0}</h3>
-                      <div className="flex items-center text-xs text-green-600">
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        <span>+0.2</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-muted-foreground text-sm">Repeat Mentees</p>
-                      <Users className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <h3 className="text-3xl font-bold">{analytics?.repeat_mentees || 0}</h3>
-                      <div className="flex items-center text-xs text-green-600">
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        <span>+3</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              {/* Main Analytics */}
-              <Tabs defaultValue={timeframe} onValueChange={setTimeframe} className="space-y-8">
-                <div className="flex justify-between items-center">
-                  <TabsList>
-                    <TabsTrigger value="week">This Week</TabsTrigger>
-                    <TabsTrigger value="month">This Month</TabsTrigger>
-                    <TabsTrigger value="year">This Year</TabsTrigger>
-                  </TabsList>
-                </div>
-                
-                {/* Chart Sections */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Sessions by Day */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Sessions by Day</CardTitle>
-                      <CardDescription>Number of sessions conducted each day</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={sessionsByDay}
-                          margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip 
-                            formatter={(value) => [`${value} sessions`, 'Sessions']}
-                            contentStyle={{ 
-                              backgroundColor: 'var(--background)', 
-                              borderColor: 'var(--border)'
-                            }}
-                          />
-                          <Bar dataKey="value" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </CardContent>
-                  </Card>
-                  
-                  {/* Earnings by Month */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Earnings Trend</CardTitle>
-                      <CardDescription>Monthly earnings from mentorship sessions</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
-                          data={earningsByMonth}
-                          margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip 
-                            formatter={(value) => [`$${value}`, 'Earnings']}
-                            contentStyle={{ 
-                              backgroundColor: 'var(--background)', 
-                              borderColor: 'var(--border)'
-                            }}
-                          />
-                          <Line 
-                            type="monotone" 
-                            dataKey="value" 
-                            stroke="var(--primary)" 
-                            strokeWidth={2}
-                            dot={{ r: 4 }}
-                            activeDot={{ r: 6 }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Session Type Breakdown */}
-                  <Card className="lg:col-span-1">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Session Types</CardTitle>
-                      <CardDescription>Breakdown of session types</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={sessionTypes}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                            outerRadius={80}
-                            fill="#8884d8"
-                            dataKey="value"
-                          >
-                            {sessionTypes.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            formatter={(value, name) => [`${value} sessions`, name]}
-                            contentStyle={{ 
-                              backgroundColor: 'var(--background)', 
-                              borderColor: 'var(--border)'
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </CardContent>
-                  </Card>
-                  
-                  {/* Upcoming Sessions */}
-                  <Card className="lg:col-span-2">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Upcoming Sessions</CardTitle>
-                      <CardDescription>Your next scheduled mentorship sessions</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {/* List of upcoming sessions */}
-                      <div className="space-y-4">
-                        <div className="flex items-start justify-between border-b pb-3">
-                          <div>
-                            <p className="font-medium">Product Development Strategy</p>
-                            <p className="text-sm text-muted-foreground">with Alex Johnson</p>
-                            <div className="flex items-center mt-1">
-                              <Calendar className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                              <span className="text-xs">Tomorrow, 10:00 AM</span>
-                            </div>
-                          </div>
-                          <Button variant="outline" size="sm">
-                            Start
-                          </Button>
-                        </div>
-                        
-                        <div className="flex items-start justify-between border-b pb-3">
-                          <div>
-                            <p className="font-medium">Startup Funding Options</p>
-                            <p className="text-sm text-muted-foreground">with Maria Chen</p>
-                            <div className="flex items-center mt-1">
-                              <Calendar className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                              <span className="text-xs">Friday, 2:00 PM</span>
-                            </div>
-                          </div>
-                          <Button variant="outline" size="sm">
-                            Reschedule
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-4 text-center">
-                        <Button variant="link" size="sm" onClick={() => navigate("/mentor-space/sessions")} className="gap-1">
-                          View all sessions <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </Tabs>
-            </motion.div>
-          </div>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Mentor Analytics</h1>
+          <p className="text-muted-foreground">
+            View and track your mentorship performance and earnings
+          </p>
         </div>
-      </PageTransition>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{analytics.total_sessions}</div>
+              <p className="text-xs text-muted-foreground">
+                {analytics.completed_sessions} completed
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${analytics.total_earnings.toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                From {analytics.completed_sessions} completed sessions
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg. Rating</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{analytics.average_rating.toFixed(1)}/5.0</div>
+              <p className="text-xs text-muted-foreground">
+                Based on {analytics.reviews_count} reviews
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Upcoming</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{analytics.upcoming_sessions}</div>
+              <p className="text-xs text-muted-foreground">
+                Scheduled sessions
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <Tabs defaultValue="earnings">
+          <TabsList>
+            <TabsTrigger value="earnings">Earnings</TabsTrigger>
+            <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="earnings" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Earnings Over Time</CardTitle>
+                <CardDescription>
+                  Your earnings from completed sessions
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={earningsData}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip 
+                      formatter={(value) => [`$${value}`, 'Amount']}
+                    />
+                    <Bar 
+                      dataKey="amount" 
+                      fill="#4CAF50" 
+                      name="Earnings" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="sessions" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Session Status</CardTitle>
+                <CardDescription>
+                  Distribution of your sessions by status
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={sessionStatusData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {sessionStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value) => [value, 'Sessions']}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </AppLayout>
   );
 }

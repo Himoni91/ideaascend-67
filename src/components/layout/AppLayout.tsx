@@ -1,6 +1,6 @@
 
 import { ReactNode, useState, useEffect } from "react";
-import { BottomNav } from "./BottomNav";
+import BottomNav from "./BottomNav";
 import Sidebar from "./Sidebar";
 import RightSidebar from "./RightSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";

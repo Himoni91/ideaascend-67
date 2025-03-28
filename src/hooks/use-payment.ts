@@ -93,7 +93,7 @@ export function usePayment() {
   const createFreePayment = async ({
     description,
     metadata
-  }: Omit<PaymentOptions, 'amount' | 'currency'>) => {
+  }: Omit<PaymentOptions, "amount" | "currency">) => {
     // For free payments, just generate a reference ID
     return `free_${Math.random().toString(36).substring(2, 15)}`;
   };

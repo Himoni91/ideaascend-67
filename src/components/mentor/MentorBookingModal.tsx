@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { 
@@ -61,7 +60,6 @@ export default function MentorBookingModal({
   
   const { payWithRazorpay, payWithPaypal, createFreePayment, isLoading: isPaymentProcessing } = usePayment();
   
-  // Get session types from mentor profile
   const sessionTypes: MentorSessionTypeInfo[] = (mentor.mentor_session_types as any || [
     {
       id: "quick",
@@ -80,12 +78,10 @@ export default function MentorBookingModal({
     }
   ]);
   
-  // Get selected session type details
   const getSelectedSessionTypeDetails = () => {
     return sessionTypes.find(type => type.id === selectedSessionType);
   };
   
-  // Calculate session duration from slot
   const getSessionDuration = () => {
     if (!selectedSlot) return 0;
     
@@ -95,13 +91,18 @@ export default function MentorBookingModal({
     return differenceInMinutes(endTime, startTime);
   };
   
-  // Check if booking is free
   const isBookingFree = () => {
     const sessionType = getSelectedSessionTypeDetails();
     return sessionType?.is_free || sessionType?.price === 0;
   };
   
-  // Handle payment and booking confirmation
+  const createFreePayment = async ({
+    description,
+    metadata
+  }: Omit<PaymentOptions, "amount" | "currency">) => {
+    return `free_${Math.random().toString(36).substring(2, 15)}`;
+  };
+  
   const handleConfirmBooking = async () => {
     if (!selectedSlot || !selectedSessionType) {
       toast.error("Please select a time slot and session type");
@@ -118,10 +119,8 @@ export default function MentorBookingModal({
     try {
       let paymentId: string | undefined;
       
-      // Process payment based on method
       if (isBookingFree()) {
         paymentId = await createFreePayment({
-          amount: 0,
           description: `${sessionType.name} with ${mentor.full_name || mentor.username}`,
           metadata: {
             mentor_id: mentor.id,
@@ -140,7 +139,6 @@ export default function MentorBookingModal({
             session_type: selectedSessionType
           },
           onSuccess: async (paymentResult) => {
-            // Complete booking after successful payment
             await onConfirmBooking({
               mentorId: mentor.id,
               slotId: selectedSlot.id,
@@ -159,8 +157,6 @@ export default function MentorBookingModal({
             toast.error("Payment failed. Please try again.");
           }
         });
-        
-        // Razorpay handles the callback separately, so we return early
         return;
       } else if (paymentMethod === "paypal") {
         await payWithPaypal({
@@ -173,7 +169,6 @@ export default function MentorBookingModal({
             session_type: selectedSessionType
           },
           onSuccess: async (paymentResult) => {
-            // Complete booking after successful payment
             await onConfirmBooking({
               mentorId: mentor.id,
               slotId: selectedSlot.id,
@@ -192,12 +187,9 @@ export default function MentorBookingModal({
             toast.error("Payment failed. Please try again.");
           }
         });
-        
-        // PayPal handles the callback separately, so we return early
         return;
       }
       
-      // For free sessions, we complete the booking directly
       if (isBookingFree()) {
         await onConfirmBooking({
           mentorId: mentor.id,
@@ -218,7 +210,6 @@ export default function MentorBookingModal({
     }
   };
   
-  // Reset form on close
   const handleClose = () => {
     setTitle("");
     setDescription("");
@@ -240,7 +231,6 @@ export default function MentorBookingModal({
         </DialogHeader>
         
         <div className="mt-4 space-y-4">
-          {/* Mentor Info */}
           <div className="flex items-center space-x-4">
             <Avatar className="h-12 w-12">
               <AvatarImage src={mentor.avatar_url || undefined} />
@@ -254,7 +244,6 @@ export default function MentorBookingModal({
             </div>
           </div>
           
-          {/* Selected Time Slot */}
           <div className="p-3 bg-muted/40 rounded-md">
             <div className="flex items-start">
               <CalendarIcon className="h-5 w-5 text-primary mr-2 mt-0.5" />
@@ -273,7 +262,6 @@ export default function MentorBookingModal({
             </div>
           </div>
           
-          {/* Session Type */}
           <div>
             <label htmlFor="session-type" className="text-sm font-medium block mb-1.5">
               Session Type
@@ -298,7 +286,6 @@ export default function MentorBookingModal({
             </Select>
           </div>
           
-          {/* Session Details */}
           <div>
             <label htmlFor="session-title" className="text-sm font-medium block mb-1.5">
               Session Title
@@ -324,7 +311,6 @@ export default function MentorBookingModal({
             />
           </div>
           
-          {/* Payment Method (if not free) */}
           {selectedSessionType && !isBookingFree() && (
             <div>
               <label className="text-sm font-medium block mb-1.5">

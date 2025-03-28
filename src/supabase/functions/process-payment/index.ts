@@ -1,49 +1,114 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { method, paymentProvider, amount, currency, description, metadata } = await req.json();
+    // Parse request body
+    const requestData = await req.json();
+    const { 
+      provider, 
+      amount, 
+      currency = 'USD', 
+      description, 
+      metadata 
+    } = requestData;
 
-    // Log the payment request
-    console.log(`Processing ${paymentProvider} payment:`, { amount, currency, description });
+    // Create supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Mock successful payment processing
-    const paymentId = `${paymentProvider}_${Math.random().toString(36).substring(2, 15)}`;
+    // Get user from auth header
+    const authHeader = req.headers.get('Authorization')?.replace('Bearer ', '');
     
-    // Return the payment result
-    return new Response(
-      JSON.stringify({
-        success: true,
-        paymentId,
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Get user from session
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader);
+    
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized', details: userError }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Process payment based on provider
+    let paymentResponse;
+    
+    // For mock implementation
+    if (provider === 'razorpay') {
+      console.log(`[Razorpay] Processing payment: ${amount} ${currency}`);
+      paymentResponse = {
+        id: `rzp_${crypto.randomUUID().replace(/-/g, '')}`,
         amount,
         currency,
-        provider: paymentProvider
+        status: 'success'
+      };
+    } else if (provider === 'paypal') {
+      console.log(`[PayPal] Processing payment: ${amount} ${currency}`);
+      paymentResponse = {
+        id: `pp_${crypto.randomUUID().replace(/-/g, '')}`,
+        amount,
+        currency,
+        status: 'success'
+      };
+    } else {
+      return new Response(
+        JSON.stringify({ error: 'Invalid payment provider' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Log payment to payment_transactions table
+    const { data: transactionData, error: transactionError } = await supabase
+      .from('payment_transactions')
+      .insert({
+        user_id: user.id,
+        provider,
+        amount,
+        currency,
+        payment_id: paymentResponse.id,
+        status: 'completed',
+        description,
+        metadata
+      })
+      .select()
+      .single();
+      
+    if (transactionError) {
+      console.error('Error logging payment:', transactionError);
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        payment: paymentResponse,
+        transaction: transactionData
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error processing payment:', error);
+    console.error('Payment processing error:', error);
     
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      JSON.stringify({ error: 'Payment processing failed', details: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

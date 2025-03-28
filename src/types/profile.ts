@@ -27,8 +27,8 @@ export type ProfileType = {
   mentor_bio?: string | null;
   mentor_hourly_rate?: number | null;
   mentor_session_types?: any; // Will be cast to MentorSessionTypeInfo[] when needed
-  work_experience?: any[];
-  education?: any[];
+  work_experience?: any[] | any; // Handle both array and Json type from Supabase
+  education?: any[] | any; // Handle both array and Json type from Supabase
   
   // Additional fields for UI/UX
   level: number;
