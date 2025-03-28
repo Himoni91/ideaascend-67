@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Upload, Plus, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
@@ -29,6 +29,7 @@ import {
 interface SubmitPitchFormProps {
   onSubmit: (data: PitchFormData) => void;
   isSubmitting: boolean;
+  initialData?: Partial<PitchFormData>;
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -60,22 +61,34 @@ const PITCH_CATEGORIES: PitchCategory[] = [
   'Other'
 ];
 
-export default function SubmitPitchForm({ onSubmit, isSubmitting }: SubmitPitchFormProps) {
+export default function SubmitPitchForm({ onSubmit, isSubmitting, initialData = {} }: SubmitPitchFormProps) {
   const [tagInput, setTagInput] = useState("");
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   
   const form = useForm<z.infer<typeof pitchFormSchema>>({
     resolver: zodResolver(pitchFormSchema),
     defaultValues: {
-      title: "",
-      problem_statement: "",
-      target_audience: "",
-      solution: "",
-      category: "",
-      tags: [],
-      is_premium: false,
+      title: initialData.title || "",
+      problem_statement: initialData.problem_statement || "",
+      target_audience: initialData.target_audience || "",
+      solution: initialData.solution || "",
+      category: initialData.category || "",
+      tags: initialData.tags || [],
+      is_premium: initialData.is_premium || false,
+      media_file: initialData.media_file || undefined,
     },
   });
+  
+  // Set up media preview if there's an initial file
+  useEffect(() => {
+    if (initialData.media_file instanceof File) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setMediaPreview(reader.result as string);
+      };
+      reader.readAsDataURL(initialData.media_file);
+    }
+  }, [initialData.media_file]);
 
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === ",") {
@@ -423,10 +436,7 @@ export default function SubmitPitchForm({ onSubmit, isSubmitting }: SubmitPitchF
           )}
         />
         
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline">
-            Cancel
-          </Button>
+        <div className="flex justify-end">
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
@@ -436,7 +446,7 @@ export default function SubmitPitchForm({ onSubmit, isSubmitting }: SubmitPitchF
             ) : (
               <>
                 <Plus className="mr-2 h-4 w-4" />
-                Submit Idea
+                Continue
               </>
             )}
           </Button>

@@ -1,173 +1,206 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  ThumbsUp,
+  ThumbsDown,
+  MessageSquare,
+  Share2,
+  Eye,
+  Award,
+  Star,
+  Rocket,
+  BarChart3
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ArrowLeft, 
-  ArrowUp, 
-  ArrowDown, 
-  Star, 
-  MessageSquare, 
-  Share2, 
-  ExternalLink,
-  Tag,
-  Users,
-  EyeIcon,
-  BarChart2
-} from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardContent, 
-  CardFooter,
-  CardDescription
-} from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePitches } from "@/hooks/use-pitches";
 import PitchComments from "@/components/pitch/PitchComments";
+import MentorReviews from "@/components/pitch/MentorReviews";
 import PitchAnalytics from "@/components/pitch/PitchAnalytics";
-import { cn } from "@/lib/utils";
-import { useFollow } from "@/hooks/use-follow";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function PitchDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { followUser, unfollowUser, isFollowing, isLoading: isFollowLoading } = useFollow();
-  const [activeTab, setActiveTab] = useState("feedback");
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("comments");
+  const [isAddingComment, setIsAddingComment] = useState(false);
+  const [isAddingReview, setIsAddingReview] = useState(false);
   
-  const { 
-    usePitch, 
-    votePitch, 
-    usePitchComments, 
-    addComment,
-    useMentorReviews,
-    useAnalytics 
-  } = usePitches();
+  const { usePitch, usePitchComments, useMentorReviews, votePitch, addComment, addMentorReview, useAnalytics } = usePitches();
   
-  const {
-    data: pitch,
-    isLoading: isPitchLoading,
-    error: pitchError,
-    refetch: refetchPitch
-  } = usePitch(id || "");
+  const { data: pitch, isLoading: isPitchLoading, error: pitchError } = usePitch(id!);
+  const { data: comments, isLoading: isCommentsLoading } = usePitchComments(id!);
+  const { data: reviews, isLoading: isReviewsLoading } = useMentorReviews(id!);
+  const { data: analytics, isLoading: isAnalyticsLoading } = useAnalytics(id!);
   
-  const {
-    data: comments,
-    isLoading: areCommentsLoading,
-    refetch: refetchComments
-  } = usePitchComments(id || "");
+  // Check if user is a mentor
+  const [isMentor, setIsMentor] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
   
-  const {
-    data: mentorReviews,
-    isLoading: areMentorReviewsLoading
-  } = useMentorReviews(id || "");
+  useEffect(() => {
+    const checkIsMentor = async () => {
+      if (!user) {
+        setIsMentor(false);
+        return;
+      }
+      
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('is_mentor')
+          .eq('id', user.id)
+          .single();
+          
+        setIsMentor(!!data?.is_mentor);
+      } catch (error) {
+        console.error("Error checking mentor status:", error);
+        setIsMentor(false);
+      }
+    };
+    
+    checkIsMentor();
+  }, [user]);
   
-  const { data: analytics } = useAnalytics(id || "");
+  useEffect(() => {
+    if (user && reviews) {
+      setHasReviewed(reviews.some(review => review.mentor_id === user.id));
+    } else {
+      setHasReviewed(false);
+    }
+  }, [user, reviews]);
   
   const handleVote = (voteType: 'up' | 'down') => {
     if (!user) {
+      toast.error("Please sign in to vote");
       navigate("/auth/sign-in");
       return;
     }
     
     if (!id) return;
     
-    votePitch({ pitchId: id, voteType }, {
-      onSuccess: () => {
-        refetchPitch();
-      }
-    });
+    votePitch({ pitchId: id, voteType });
   };
   
   const handleAddComment = (content: string) => {
     if (!user) {
+      toast.error("Please sign in to comment");
       navigate("/auth/sign-in");
       return;
     }
     
     if (!id) return;
     
-    setIsSubmittingComment(true);
+    setIsAddingComment(true);
     
-    addComment({ pitchId: id, content }, {
-      onSuccess: () => {
-        refetchComments();
-        refetchPitch();
-        setIsSubmittingComment(false);
-      },
-      onError: () => {
-        setIsSubmittingComment(false);
+    addComment(
+      { pitchId: id, content },
+      {
+        onSettled: () => {
+          setIsAddingComment(false);
+        },
+        onSuccess: () => {
+          toast.success("Comment added successfully");
+        },
+        onError: (error: any) => {
+          toast.error(`Failed to add comment: ${error.message}`);
+        }
       }
-    });
+    );
   };
   
-  const handleShare = async () => {
-    const url = `${window.location.origin}/pitch-hub/${id}`;
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: pitch?.title || 'Checkout this startup idea',
-          text: `${pitch?.problem_statement?.substring(0, 100)}...`,
-          url
-        });
-      } catch (error) {
-        copyToClipboard(url);
-      }
-    } else {
-      copyToClipboard(url);
-    }
-  };
-  
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Link copied to clipboard");
-  };
-  
-  const handleFollowAuthor = () => {
+  const handleAddReview = (content: string, rating: number) => {
     if (!user) {
+      toast.error("Please sign in to review");
       navigate("/auth/sign-in");
       return;
     }
     
-    if (!pitch?.author?.id) return;
+    if (!id) return;
     
-    const authorId = pitch.author.id;
+    if (!isMentor) {
+      toast.error("Only mentors can add reviews");
+      return;
+    }
     
-    if (isFollowing(authorId)) {
-      unfollowUser(authorId);
+    if (hasReviewed) {
+      toast.error("You have already reviewed this pitch");
+      return;
+    }
+    
+    setIsAddingReview(true);
+    
+    addMentorReview(
+      { pitchId: id, content, rating },
+      {
+        onSettled: () => {
+          setIsAddingReview(false);
+        },
+        onSuccess: () => {
+          toast.success("Review added successfully");
+        },
+        onError: (error: any) => {
+          toast.error(`Failed to add review: ${error.message}`);
+        }
+      }
+    );
+  };
+  
+  const handleShareClick = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: pitch?.title || 'Startup Idea on Idolyst',
+          text: `Check out this startup idea: ${pitch?.title}`,
+          url: window.location.href
+        });
+      } catch (error) {
+        console.error('Error sharing:', error);
+      }
     } else {
-      followUser(authorId);
+      navigator.clipboard.writeText(window.location.href);
+      toast.success("Link copied to clipboard");
     }
   };
   
   if (isPitchLoading) {
     return (
       <AppLayout>
-        <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="max-w-4xl mx-auto px-4">
           <Button 
             variant="ghost" 
             size="sm" 
-            className="mb-6"
             onClick={() => navigate("/pitch-hub")}
+            className="mb-6"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Back to PitchHub
           </Button>
           
-          <Skeleton className="h-[600px] w-full rounded-xl" />
+          <div className="space-y-6">
+            <Skeleton className="h-8 w-2/3" />
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div>
+                <Skeleton className="h-4 w-32 mb-2" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+            <Skeleton className="h-64 w-full rounded-lg" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
         </div>
       </AppLayout>
     );
@@ -176,385 +209,261 @@ export default function PitchDetail() {
   if (pitchError || !pitch) {
     return (
       <AppLayout>
-        <div className="max-w-4xl mx-auto px-4 py-6 text-center">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="mb-6"
-            onClick={() => navigate("/pitch-hub")}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to PitchHub
-          </Button>
-          
-          <h1 className="text-2xl font-bold mb-4">Idea Not Found</h1>
+        <div className="max-w-4xl mx-auto px-4 text-center py-12">
+          <h2 className="text-2xl font-semibold mb-4">Idea Not Found</h2>
           <p className="text-muted-foreground mb-6">
-            The startup idea you're looking for doesn't exist or has been removed.
+            The requested idea could not be found or you may not have permission to view it.
           </p>
-          
           <Button onClick={() => navigate("/pitch-hub")}>
-            Browse PitchHub
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to PitchHub
           </Button>
         </div>
       </AppLayout>
     );
   }
   
-  const isAuthor = user?.id === pitch.user_id;
-  
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+      <div className="max-w-4xl mx-auto px-4 pb-16">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => navigate("/pitch-hub")}
           className="mb-6"
         >
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => navigate("/pitch-hub")}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to PitchHub
-          </Button>
-        </motion.div>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to PitchHub
+        </Button>
         
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6"
         >
-          <Card className="overflow-hidden">
-            <CardContent className="p-6 pt-6">
-              <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
-                <div className="flex items-center">
-                  <Avatar className="h-12 w-12 mr-3">
-                    <AvatarImage src={pitch.author?.avatar_url || undefined} alt={pitch.author?.full_name || "User"} />
-                    <AvatarFallback>{pitch.author?.full_name?.[0] || pitch.author?.username?.[0] || "U"}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="flex items-center">
-                      <h3 className="font-medium">
-                        {pitch.author?.full_name || pitch.author?.username || "Anonymous"}
-                      </h3>
-                      {pitch.author?.is_verified && (
-                        <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
-                          Verified
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <span className="mr-2">
-                        {formatDistanceToNow(new Date(pitch.created_at), { addSuffix: true })}
-                      </span>
-                      {pitch.author?.id !== user?.id && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="h-7 ml-2 text-xs"
-                          onClick={handleFollowAuthor}
-                          disabled={isFollowLoading}
-                        >
-                          {pitch.author?.id && isFollowing(pitch.author.id) ? 'Following' : 'Follow'}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+          <Card className="overflow-hidden mb-8">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                <Badge variant="outline" className="font-normal">
+                  {pitch.category}
+                </Badge>
                 
-                <div className="flex flex-wrap items-center gap-2">
-                  {pitch.is_premium && (
-                    <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
-                      <Star className="mr-1 h-3 w-3" /> Premium
+                <div className="flex gap-2">
+                  {pitch.trending_score > 50 && (
+                    <Badge className="gap-1 bg-orange-500 hover:bg-orange-600">
+                      <Rocket className="h-3.5 w-3.5 mr-1" />
+                      Trending
                     </Badge>
                   )}
-                  <Badge variant="outline" className="font-normal">
-                    {pitch.category}
-                  </Badge>
+                  
+                  {pitch.is_premium && (
+                    <Badge className="gap-1 bg-amber-500 hover:bg-amber-600">
+                      <Star className="h-3.5 w-3.5 mr-1" />
+                      Premium
+                    </Badge>
+                  )}
+                  
+                  {reviews && reviews.length > 0 && (
+                    <Badge className="gap-1 bg-blue-500 hover:bg-blue-600">
+                      <Award className="h-3.5 w-3.5 mr-1" />
+                      Reviewed
+                    </Badge>
+                  )}
                 </div>
               </div>
               
-              <h1 className="text-2xl md:text-3xl font-bold mb-4">
+              <h1 className="text-3xl font-bold mb-4">
                 {pitch.title}
               </h1>
               
-              <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg font-semibold">Problem Statement</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground whitespace-pre-line">
-                      {pitch.problem_statement}
-                    </p>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg font-semibold">Solution</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground whitespace-pre-line">
-                      {pitch.solution}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              <div className="mt-6">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg font-semibold">Target Audience</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground whitespace-pre-line">
-                      {pitch.target_audience || "Not specified"}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              {pitch.tags.length > 0 && (
-                <div className="mt-6">
-                  <div className="flex items-center mb-2">
-                    <Tag className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <h3 className="text-base font-medium">Tags</h3>
+              <div className="flex items-center mb-6">
+                <Avatar className="h-10 w-10 mr-3">
+                  <AvatarImage src={pitch.author?.avatar_url || undefined} alt={pitch.author?.full_name || "User"} />
+                  <AvatarFallback>{pitch.author?.full_name?.[0] || pitch.author?.username?.[0] || "U"}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="font-medium">
+                    {pitch.author?.full_name || pitch.author?.username || "Anonymous"}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {pitch.tags.map(tag => (
-                      <Badge key={tag} variant="secondary" className="bg-secondary/40 hover:bg-secondary/60">
-                        {tag}
-                      </Badge>
-                    ))}
+                  <div className="text-sm text-muted-foreground">
+                    {formatDistanceToNow(new Date(pitch.created_at), { addSuffix: true })}
                   </div>
                 </div>
-              )}
+              </div>
               
-              {pitch.media_url && pitch.media_type?.includes('image') && (
-                <div className="mt-6">
-                  <Card className="overflow-hidden">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg font-semibold">Attached Media</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <motion.img 
-                        src={pitch.media_url} 
-                        alt={pitch.title} 
-                        className="w-full h-auto max-h-[400px] object-contain rounded-md" 
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3 }}
-                        whileHover={{ scale: 1.01 }}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="flex flex-col items-center justify-center p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ThumbsUp className="h-5 w-5 text-idolyst-blue" />
+                    <span className="text-lg font-semibold">{pitch.votes_count}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Votes</p>
+                </div>
+                
+                <div className="flex flex-col items-center justify-center p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageSquare className="h-5 w-5 text-idolyst-blue" />
+                    <span className="text-lg font-semibold">{pitch.comments_count}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Comments</p>
+                </div>
+                
+                <div className="flex flex-col items-center justify-center p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Eye className="h-5 w-5 text-idolyst-blue" />
+                    <span className="text-lg font-semibold">
+                      {isAnalyticsLoading ? (
+                        <Skeleton className="h-6 w-12" />
+                      ) : (
+                        analytics?.views || 0
+                      )}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Views</p>
+                </div>
+              </div>
+              
+              <div className="space-y-6 mb-8">
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">Problem Statement</h2>
+                  <div className="bg-muted/30 p-4 rounded-lg">
+                    <p className="whitespace-pre-line">{pitch.problem_statement}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">Target Audience</h2>
+                  <div className="bg-muted/30 p-4 rounded-lg">
+                    <p className="whitespace-pre-line">{pitch.target_audience}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">Solution</h2>
+                  <div className="bg-muted/30 p-4 rounded-lg">
+                    <p className="whitespace-pre-line">{pitch.solution}</p>
+                  </div>
+                </div>
+                
+                {pitch.media_url && pitch.media_type?.includes('image') && (
+                  <div>
+                    <h2 className="text-lg font-semibold mb-2">Media</h2>
+                    <div className="rounded-lg overflow-hidden">
+                      <img
+                        src={pitch.media_url}
+                        alt={pitch.title}
+                        className="w-full h-auto object-contain max-h-[400px]"
                       />
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </CardContent>
-            
-            <Separator />
-            
-            <CardFooter className="p-4 flex flex-col sm:flex-row justify-between gap-4">
-              <div className="flex items-center">
-                <div className="flex items-center gap-2 mr-6">
-                  <Button
-                    variant={pitch.user_vote === 'up' ? "default" : "outline"} 
-                    size="sm"
-                    className={cn(
-                      "h-9 w-9 p-0",
-                      pitch.user_vote === 'up' && "bg-primary/90 hover:bg-primary/80"
-                    )}
-                    onClick={() => handleVote('up')}
-                  >
-                    <ArrowUp className={cn(
-                      "h-5 w-5",
-                      pitch.user_vote === 'up' && "fill-primary-foreground"
-                    )} />
-                    <span className="sr-only">Upvote</span>
-                  </Button>
-                  
-                  <span className="text-lg font-medium">{pitch.votes_count}</span>
-                  
-                  <Button
-                    variant={pitch.user_vote === 'down' ? "default" : "outline"} 
-                    size="sm"
-                    className={cn(
-                      "h-9 w-9 p-0",
-                      pitch.user_vote === 'down' && "bg-primary/90 hover:bg-primary/80"
-                    )}
-                    onClick={() => handleVote('down')}
-                  >
-                    <ArrowDown className={cn(
-                      "h-5 w-5",
-                      pitch.user_vote === 'down' && "fill-primary-foreground"
-                    )} />
-                    <span className="sr-only">Downvote</span>
-                  </Button>
-                </div>
+                    </div>
+                  </div>
+                )}
                 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-1.5 mr-4"
-                  onClick={() => setActiveTab("feedback")}
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  <span>{pitch.comments_count} Feedback</span>
-                </Button>
-                
-                {analytics && (
-                  <div className="flex items-center text-sm text-muted-foreground mr-4">
-                    <EyeIcon className="h-4 w-4 mr-1.5" />
-                    <span>{analytics.views || 0} Views</span>
+                {pitch.tags && pitch.tags.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold mb-2">Tags</h2>
+                    <div className="flex flex-wrap gap-2">
+                      {pitch.tags.map((tag) => (
+                        <Badge key={tag} variant="secondary">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
               
-              <div className="flex items-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1.5 mr-2"
-                  onClick={handleShare}
-                >
-                  <Share2 className="h-4 w-4" />
-                  <span>Share</span>
-                </Button>
+              <div className="flex flex-wrap gap-4 justify-between items-center border-t pt-6">
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant={pitch.user_vote === 'up' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleVote('up')}
+                    className="gap-1"
+                  >
+                    <ThumbsUp className={`h-4 w-4 ${pitch.user_vote === 'up' && "fill-current"}`} />
+                    Upvote {pitch.votes_count > 0 && `(${pitch.votes_count})`}
+                  </Button>
+                  
+                  <Button
+                    variant={pitch.user_vote === 'down' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleVote('down')}
+                    className="gap-1"
+                  >
+                    <ThumbsDown className={`h-4 w-4 ${pitch.user_vote === 'down' && "fill-current"}`} />
+                    Downvote
+                  </Button>
+                </div>
                 
-                {pitch.author?.id === user?.id && (
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex items-center gap-1.5"
+                    onClick={() => setActiveTab("comments")}
+                    className="gap-1"
                   >
-                    <ExternalLink className="h-4 w-4" />
-                    <span>Edit</span>
+                    <MessageSquare className="h-4 w-4" />
+                    {comments && comments.length > 0 
+                      ? `${comments.length} Comments` 
+                      : "Comments"}
                   </Button>
-                )}
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleShareClick}
+                    className="gap-1"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    Share
+                  </Button>
+                </div>
               </div>
-            </CardFooter>
+            </CardContent>
           </Card>
           
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="feedback" className="flex items-center gap-2">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+            <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:grid-cols-3">
+              <TabsTrigger value="comments" className="gap-1.5">
                 <MessageSquare className="h-4 w-4" />
-                Feedback ({pitch.comments_count || 0})
+                Comments {comments && `(${comments.length})`}
               </TabsTrigger>
-              <TabsTrigger value="mentor-reviews" className="flex items-center gap-2">
+              <TabsTrigger value="reviews" className="gap-1.5">
                 <Star className="h-4 w-4" />
-                Mentor Reviews ({pitch.mentor_reviews_count || 0})
+                Mentor Reviews {reviews && `(${reviews.length})`}
               </TabsTrigger>
-              {isAuthor && (
-                <TabsTrigger value="analytics" className="flex items-center gap-2">
-                  <BarChart2 className="h-4 w-4" />
-                  Analytics
-                </TabsTrigger>
-              )}
+              <TabsTrigger value="analytics" className="gap-1.5">
+                <BarChart3 className="h-4 w-4" />
+                Analytics
+              </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="feedback" className="mt-0">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Community Feedback</CardTitle>
-                  <CardDescription>
-                    Share your thoughts on this startup idea
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <PitchComments 
-                    comments={comments || []} 
-                    isLoading={areCommentsLoading}
-                    onAddComment={handleAddComment}
-                    isSubmitting={isSubmittingComment}
-                  />
-                </CardContent>
-              </Card>
+            <TabsContent value="comments" className="mt-4">
+              <PitchComments 
+                comments={comments || []} 
+                isLoading={isCommentsLoading}
+                onAddComment={handleAddComment}
+                isSubmitting={isAddingComment}
+              />
             </TabsContent>
             
-            <TabsContent value="mentor-reviews" className="mt-0">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Mentor Reviews</CardTitle>
-                  <CardDescription>
-                    Feedback and reviews from industry experts
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {areMentorReviewsLoading ? (
-                    <div className="space-y-4">
-                      {Array.from({ length: 2 }).map((_, i) => (
-                        <Skeleton key={i} className="h-32 w-full" />
-                      ))}
-                    </div>
-                  ) : mentorReviews?.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Star className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
-                      <h3 className="text-lg font-medium mb-1">No mentor reviews yet</h3>
-                      <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                        This idea hasn't received any reviews from mentors yet
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {mentorReviews?.map((review) => (
-                        <Card key={review.id}>
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              <Avatar>
-                                <AvatarImage src={review.mentor?.avatar_url || undefined} />
-                                <AvatarFallback>{review.mentor?.full_name?.[0] || review.mentor?.username?.[0] || "M"}</AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <div className="flex items-center">
-                                      <p className="font-medium">
-                                        {review.mentor?.full_name || review.mentor?.username || "Mentor"}
-                                      </p>
-                                      <Badge className="ml-2 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-none">
-                                        Mentor
-                                      </Badge>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                      {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
-                                    </p>
-                                  </div>
-                                  <div className="flex">
-                                    {Array.from({ length: 5 }).map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        className={cn(
-                                          "h-4 w-4",
-                                          i < review.rating ? "text-amber-500 fill-amber-500" : "text-muted-foreground"
-                                        )}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                                <div className="mt-2 text-sm whitespace-pre-line">
-                                  {review.content}
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+            <TabsContent value="reviews" className="mt-4">
+              <MentorReviews
+                reviews={reviews || []}
+                isLoading={isReviewsLoading}
+                onAddReview={handleAddReview}
+                isSubmitting={isAddingReview}
+                canAddReview={isMentor && !hasReviewed}
+              />
             </TabsContent>
             
-            {isAuthor && (
-              <TabsContent value="analytics" className="mt-0">
-                {id && <PitchAnalytics pitchId={id} />}
-              </TabsContent>
-            )}
+            <TabsContent value="analytics" className="mt-4">
+              <PitchAnalytics
+                analytics={analytics}
+                isLoading={isAnalyticsLoading}
+                pitch={pitch}
+              />
+            </TabsContent>
           </Tabs>
         </motion.div>
       </div>

@@ -1,127 +1,114 @@
 
-import React from "react";
-import { Link } from "react-router-dom";
-import { ChevronRight, Medal, Trophy, Award, Flame } from "lucide-react";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Rocket } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { formatDistanceToNow } from "date-fns";
 import { Pitch } from "@/types/pitch";
-import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 
 interface PitchLeaderboardProps {
   pitches: Pitch[];
   isLoading: boolean;
-  title?: string;
-  subtitle?: string; 
+  title: string;
+  subtitle: string;
 }
 
 export default function PitchLeaderboard({
   pitches,
   isLoading,
-  title = "Top Ideas",
-  subtitle = "The most popular ideas this week"
+  title,
+  subtitle
 }: PitchLeaderboardProps) {
-  const getRankIcon = (index: number) => {
-    switch (index) {
-      case 0:
-        return <Trophy className="h-5 w-5 text-yellow-500" />;
-      case 1:
-        return <Medal className="h-5 w-5 text-gray-400" />;
-      case 2:
-        return <Medal className="h-5 w-5 text-amber-700" />;
-      default:
-        return <Award className="h-5 w-5 text-blue-500" />;
-    }
-  };
+  const navigate = useNavigate();
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <Skeleton className="h-6 w-40" />
-          </CardTitle>
-          <CardDescription>
-            <Skeleton className="h-4 w-60" />
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="h-8 w-8 rounded-full" />
-              <div className="flex-1">
-                <Skeleton className="h-4 w-40 mb-1" />
-                <Skeleton className="h-3 w-24" />
-              </div>
-              <Skeleton className="h-6 w-6" />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    );
-  }
+  const handleClick = (pitchId: string) => {
+    navigate(`/pitch-hub/${pitchId}`);
+  };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Rocket className="h-5 w-5" />
+          {title}
+        </CardTitle>
         <CardDescription>{subtitle}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {pitches.length === 0 ? (
-          <div className="text-center py-6">
-            <Flame className="mx-auto h-10 w-10 text-muted-foreground opacity-20 mb-2" />
-            <p className="text-sm text-muted-foreground">No ideas to display</p>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : pitches.length === 0 ? (
+          <div className="py-3 text-center text-muted-foreground">
+            No ideas available
           </div>
         ) : (
-          pitches.map((pitch, index) => (
-            <motion.div
-              key={pitch.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-              className={cn(
-                "flex items-center gap-3 p-2 -mx-2 rounded-md transition-colors",
-                "hover:bg-muted/50"
-              )}
-            >
-              <div className={cn(
-                "flex items-center justify-center h-8 w-8 rounded-full text-xs font-medium",
-                index < 3 ? "bg-primary/10" : "bg-muted"
-              )}>
-                {getRankIcon(index)}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <Link to={`/pitch-hub/${pitch.id}`} className="block">
-                  <h4 className="font-medium text-sm truncate hover:text-primary transition-colors">
-                    {pitch.title}
-                  </h4>
-                  <div className="flex items-center text-xs text-muted-foreground mt-0.5">
-                    <span className="truncate mr-2">by {pitch.author?.full_name || pitch.author?.username || "Anonymous"}</span>
-                    <Badge variant="outline" className="text-xs py-0 h-5">
-                      {pitch.votes_count} votes
-                    </Badge>
-                  </div>
-                </Link>
-              </div>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                asChild
+          <div className="space-y-4">
+            {pitches.map((pitch, index) => (
+              <motion.div
+                key={pitch.id}
+                className="group cursor-pointer"
+                whileHover={{ y: -2 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => handleClick(pitch.id)}
               >
-                <Link to={`/pitch-hub/${pitch.id}`}>
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">View idea</span>
-                </Link>
-              </Button>
-            </motion.div>
-          ))
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 relative">
+                    <Avatar>
+                      <AvatarImage 
+                        src={pitch.author?.avatar_url || undefined} 
+                        alt={pitch.author?.full_name || "User"} 
+                      />
+                      <AvatarFallback>
+                        {pitch.author?.full_name?.[0] || pitch.author?.username?.[0] || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center text-xs text-primary-foreground font-medium">
+                      {index + 1}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-medium line-clamp-1 group-hover:text-primary transition-colors">
+                        {pitch.title}
+                      </h3>
+                      <div className="flex gap-1">
+                        {pitch.is_premium && (
+                          <Badge variant="outline" className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                            Premium
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center text-sm text-muted-foreground gap-2 mt-1">
+                      <span>
+                        {pitch.votes_count} {pitch.votes_count === 1 ? 'vote' : 'votes'}
+                      </span>
+                      <span>•</span>
+                      <span className="line-clamp-1">
+                        {formatDistanceToNow(new Date(pitch.created_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {index < pitches.length - 1 && (
+                  <div className="border-b mt-4" />
+                )}
+              </motion.div>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>

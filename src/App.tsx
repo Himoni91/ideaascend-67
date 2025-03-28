@@ -1,4 +1,3 @@
-
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
@@ -39,7 +38,7 @@ const queryClient = new QueryClient({
   },
 });
 
-function App() {
+export default function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
@@ -154,5 +153,3 @@ function App() {
     </ThemeProvider>
   );
 }
-
-export default App;
