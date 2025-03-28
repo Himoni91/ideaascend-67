@@ -10,7 +10,8 @@ import {
   CheckCircle2, 
   BadgeCheck,
   ChevronRight,
-  XIcon
+  XIcon,
+  AlertCircle
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMentor } from "@/hooks/use-mentor";
@@ -27,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import MentorCard from "@/components/mentor/MentorCard";
+import MentorDemoSetup from "@/components/mentor/MentorDemoSetup";
 import { PageTransition } from "@/components/ui/page-transition";
 
 export default function MentorSpacePage() {
@@ -95,6 +97,9 @@ export default function MentorSpacePage() {
                      priceRange[1] < 200 || 
                      minRating > 0 || 
                      searchTerm.length > 0;
+
+  // Check if there's no mentor data and we should show the demo setup
+  const showDemoSetup = !isLoading && (!mentors || mentors.length === 0) && !hasFilters;
 
   return (
     <AppLayout>
@@ -306,34 +311,50 @@ export default function MentorSpacePage() {
             </section>
           )}
           
+          {/* Demo Setup Section - show when no mentors found */}
+          {showDemoSetup && (
+            <section className="my-12">
+              <div className="flex items-center justify-center mb-6">
+                <h2 className="text-2xl font-bold flex items-center">
+                  <AlertCircle className="mr-2 h-5 w-5 text-amber-500" />
+                  No Mentor Data Found
+                </h2>
+              </div>
+              
+              <MentorDemoSetup />
+            </section>
+          )}
+          
           {/* All Mentors Grid */}
-          <section>
-            <h2 className="text-2xl font-bold mb-6">
-              {hasFilters ? 'Search Results' : 'All Mentors'}
-              {mentors && <span className="text-muted-foreground font-normal text-lg ml-2">({mentors.length})</span>}
-            </h2>
-            
-            {isLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Card key={i} className="h-64 animate-pulse bg-muted" />
-                ))}
-              </div>
-            ) : mentors && mentors.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {mentors.map((mentor) => (
-                  <MentorCard key={mentor.id} mentor={mentor} />
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <p className="text-muted-foreground mb-4">No mentors found matching your search criteria.</p>
-                  <Button onClick={clearFilters}>Clear Filters</Button>
-                </CardContent>
-              </Card>
-            )}
-          </section>
+          {(!showDemoSetup || hasFilters) && (
+            <section>
+              <h2 className="text-2xl font-bold mb-6">
+                {hasFilters ? 'Search Results' : 'All Mentors'}
+                {mentors && <span className="text-muted-foreground font-normal text-lg ml-2">({mentors.length})</span>}
+              </h2>
+              
+              {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Card key={i} className="h-64 animate-pulse bg-muted" />
+                  ))}
+                </div>
+              ) : mentors && mentors.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {mentors.map((mentor) => (
+                    <MentorCard key={mentor.id} mentor={mentor} />
+                  ))}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <p className="text-muted-foreground mb-4">No mentors found matching your search criteria.</p>
+                    <Button onClick={clearFilters}>Clear Filters</Button>
+                  </CardContent>
+                </Card>
+              )}
+            </section>
+          )}
           
           {/* Why Get a Mentor Section */}
           <section className="mt-20">
