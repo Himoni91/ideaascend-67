@@ -74,8 +74,8 @@ const applicationSchema = z.object({
     (value) => (value === "" ? 0 : Number(value)),
     z.number().min(0, "Hourly rate cannot be negative")
   ),
-  terms_agreed: z.literal(true, {
-    errorMap: () => ({ message: "You must agree to the terms" }),
+  terms_agreed: z.boolean().refine(val => val === true, {
+    message: "You must agree to the terms",
   }),
 });
 

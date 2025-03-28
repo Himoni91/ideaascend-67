@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,10 +33,7 @@ export function useMentor() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Pass through useMentorApplication for easier access
-  const _useMentorApplication = useMentorApplication;
-
-  // Fetch all mentors with optional filtering
+  // Fix for circular reference - just import directly instead of using a variable
   const useMentors = (filter?: MentorFilter) => {
     return useQuery({
       queryKey: ['mentors', filter],
@@ -54,8 +50,6 @@ export function useMentor() {
           }
           
           if (filter.rating) {
-            // This assumes there's a mentor_rating field in profiles
-            // You might need to join with reviews table instead
             query = query.gte('mentor_rating', filter.rating);
           }
           
@@ -68,7 +62,6 @@ export function useMentor() {
         
         if (error) throw error;
         
-        // Transform data to ProfileType
         return data.map(profile => formatProfileData(profile));
       }
     });
@@ -582,6 +575,6 @@ export function useMentor() {
     useUpdateSessionStatus,
     useLeaveReview,
     useMentorAnalytics,
-    useMentorApplication: _useMentorApplication
+    useMentorApplication
   };
 }

@@ -1,412 +1,509 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
+import { 
+  Calendar, 
+  Clock, 
+  CheckCircle, 
+  XCircle,
+  Star,
+  ArrowLeft,
+  ArrowRight,
+  Filter,
+  SlidersHorizontal,
+  Calendar as CalendarIcon
+} from "lucide-react";
+import { Tab } from "@headlessui/react";
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isWithinInterval } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMentor } from "@/hooks/use-mentor";
-import {
-  Calendar,
-  History,
-  ChevronRight,
-  ChevronLeft,
-  Star,
-  Loader2,
-  Plus,
-  MessageSquare
-} from "lucide-react";
+import { MentorSession } from "@/types/mentor";
+import MentorSessionCard from "@/components/mentor/MentorSessionCard";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { toast } from "sonner";
-import AppLayout from "@/components/layout/AppLayout";
-import MentorSessionCard from "@/components/mentor/MentorSessionCard";
-import { PageTransition } from "@/components/ui/page-transition";
-
-// Review form schema
-const reviewSchema = z.object({
-  rating: z.preprocess(
-    (val) => Number(val),
-    z.number().min(1, "Rating is required").max(5, "Maximum rating is 5")
-  ),
-  content: z.string()
-    .min(10, "Please provide at least 10 characters of feedback")
-    .max(500, "Feedback cannot exceed 500 characters")
-});
-
-type ReviewFormValues = z.infer<typeof reviewSchema>;
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function MentorSessionsPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("upcoming");
-  const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [sessionToReview, setSessionToReview] = useState<string | null>(null);
-  
-  // Hooks for mentor-related data
-  const { 
-    useMentorSessions, 
-    useUpdateSessionStatus, 
-    useLeaveReview
-  } = useMentor();
-  
-  // Get sessions data
-  const { data: sessions, isLoading, error } = useMentorSessions();
-  const updateStatus = useUpdateSessionStatus();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState(0);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [selectedSession, setSelectedSession] = useState<MentorSession | null>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [review, setReview] = useState({ rating: 5, content: "" });
+  const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [filter, setFilter] = useState<string>("all");
+
+  // Mentor hooks
+  const { useMentorSessions, useUpdateSessionStatus, useLeaveReview } = useMentor();
+  const { data: sessions, isLoading, refetch } = useMentorSessions();
+  const updateSessionStatus = useUpdateSessionStatus();
   const leaveReview = useLeaveReview();
-  
-  // Review form
-  const form = useForm<ReviewFormValues>({
-    resolver: zodResolver(reviewSchema),
-    defaultValues: {
-      rating: 5,
-      content: "",
-    },
-  });
-  
-  if (!user) {
-    return (
-      <AppLayout>
-        <div className="container mx-auto px-4 py-8 text-center">
-          <h1 className="text-2xl font-bold mb-4">Please sign in to view your sessions</h1>
-          <Button onClick={() => window.location.href = "/auth/sign-in"}>
-            Sign In
-          </Button>
-        </div>
-      </AppLayout>
-    );
-  }
-  
-  const handleReviewSession = (sessionId: string) => {
-    setSessionToReview(sessionId);
-    setReviewModalOpen(true);
+
+  // Calculate week range for display
+  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+
+  // Filter and sort sessions
+  const filteredSessions = () => {
+    if (!sessions) return [];
+
+    let filtered = [...sessions];
+
+    // Apply status filter
+    if (filter !== "all") {
+      filtered = filtered.filter(session => session.status === filter);
+    }
+
+    // Sort by date (most recent first)
+    filtered.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+
+    return filtered;
   };
-  
-  const handleStatusUpdate = async (sessionId: string, status: string) => {
+
+  // Filter sessions for weekly view
+  const weekSessions = () => {
+    if (!sessions) return [];
+
+    return sessions.filter(session => {
+      const sessionDate = new Date(session.start_time);
+      return isWithinInterval(sessionDate, { start: weekStart, end: weekEnd });
+    }).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  };
+
+  // Handle status change (cancellation, completion)
+  const handleStatusChange = async (sessionId: string, status: string) => {
+    if (status === 'cancelled' && !cancellationReason) {
+      setSelectedSession(sessions?.find(s => s.id === sessionId) || null);
+      setShowCancelDialog(true);
+      return;
+    }
+
     try {
-      await updateStatus.mutateAsync({ sessionId, status });
-      toast.success(`Session ${status === 'completed' ? 'marked as complete' : status}`);
+      await updateSessionStatus.mutateAsync({ 
+        sessionId, 
+        status,
+        ...(status === 'cancelled' ? { cancellation_reason: cancellationReason } : {})
+      });
+
+      toast.success(`Session ${status === 'cancelled' ? 'cancelled' : 'marked as complete'}`);
+      setShowCancelDialog(false);
+      setCancellationReason("");
+      setSelectedSession(null);
+      refetch();
     } catch (error) {
-      console.error("Failed to update session status:", error);
-      toast.error("Failed to update session status");
+      toast.error(`Failed to update session: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
-  
-  const onSubmitReview = async (values: ReviewFormValues) => {
-    if (!sessionToReview) return;
-    
+
+  // Handle review submission
+  const handleReview = (sessionId: string) => {
+    setSelectedSession(sessions?.find(s => s.id === sessionId) || null);
+    setShowReviewDialog(true);
+  };
+
+  const submitReview = async () => {
+    if (!selectedSession) return;
+
     try {
       await leaveReview.mutateAsync({
-        sessionId: sessionToReview,
-        rating: values.rating,
-        content: values.content
+        sessionId: selectedSession.id,
+        rating: review.rating,
+        content: review.content
       });
-      
-      toast.success("Thank you for your review!");
-      setReviewModalOpen(false);
-      form.reset();
+
+      toast.success("Review submitted successfully");
+      setShowReviewDialog(false);
+      setReview({ rating: 5, content: "" });
+      setSelectedSession(null);
+      refetch();
     } catch (error) {
-      console.error("Failed to submit review:", error);
-      toast.error("Failed to submit review");
+      toast.error(`Failed to submit review: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
-  
-  // Filter sessions based on status
-  const upcomingSessions = sessions?.filter(s => 
-    s.status === "scheduled" && 
-    new Date(s.start_time) > new Date()
-  ) || [];
-  
-  const pastSessions = sessions?.filter(s => 
-    s.status === "completed" || 
-    (s.status === "scheduled" && new Date(s.end_time) < new Date())
-  ) || [];
-  
-  const cancelledSessions = sessions?.filter(s => 
-    s.status === "cancelled"
-  ) || [];
-  
-  // Check if user is a mentor from profile data
-  const userIsMentor = user.user_metadata?.is_mentor === true;
-  
+
+  // Check if user is mentor and has any role conflict
+  useEffect(() => {
+    // Check if user has mentor metadata or not
+    const isMentor = user?.user_metadata?.is_mentor === true;
+    
+    // If we have sessions data and user is not a mentor, check if they should be
+    if (sessions && sessions.length > 0) {
+      const hasMentorSessions = sessions.some(s => s.mentor_id === user?.id);
+      if (hasMentorSessions && !isMentor) {
+        // User has mentor sessions but is not marked as mentor in metadata
+        console.log("User has mentor sessions but is not marked as a mentor in metadata");
+      }
+    }
+  }, [sessions, user]);
+
+  if (isLoading) {
+    return (
+      <div className="container py-8">
+        <h1 className="text-2xl font-bold mb-6">Your Sessions</h1>
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-1/3" />
+                <Skeleton className="h-4 w-1/4 mt-2" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Skeleton className="h-10 w-full" />
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <AppLayout>
-      <PageTransition>
-        <div className="container mx-auto px-4 py-8">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8"
+    <div className="container py-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+        <h1 className="text-2xl font-bold">Your Sessions</h1>
+        <div className="flex items-center gap-2 mt-4 sm:mt-0">
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sessions</SelectItem>
+              <SelectItem value="scheduled">Upcoming</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Tab.Group selectedIndex={activeTab} onChange={setActiveTab}>
+        <Tab.List className="flex space-x-1 rounded-xl bg-muted p-1 mb-6">
+          <Tab 
+            className={({ selected }) =>
+              `w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-offset-background
+               ${selected 
+                ? 'bg-background text-foreground shadow' 
+                : 'text-muted-foreground hover:bg-muted/80'}`
+            }
           >
-            <div>
-              <h1 className="text-3xl font-bold mb-1">Your Sessions</h1>
-              <p className="text-muted-foreground">
-                Manage your mentoring sessions and bookings
-              </p>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button variant="outline" asChild>
-                <a href="/mentor-space">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Find Mentors
-                </a>
-              </Button>
-              {userIsMentor && (
-                <Button variant="outline" asChild>
-                  <a href="/mentor-space/analytics">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Mentor Dashboard
-                  </a>
-                </Button>
-              )}
-            </div>
-          </motion.div>
-          
-          <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-8">
-              <TabsTrigger value="upcoming" className="flex items-center">
-                <Calendar className="mr-2 h-4 w-4" />
-                <span>Upcoming</span>
-                {upcomingSessions.length > 0 && (
-                  <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs">
-                    {upcomingSessions.length}
-                  </span>
-                )}
-              </TabsTrigger>
-              
-              <TabsTrigger value="past" className="flex items-center">
-                <History className="mr-2 h-4 w-4" />
-                <span>Past Sessions</span>
-              </TabsTrigger>
-              
-              <TabsTrigger value="cancelled" className="flex items-center">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                <span>Cancelled</span>
-                {cancelledSessions.length > 0 && (
-                  <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs">
-                    {cancelledSessions.length}
-                  </span>
-                )}
-              </TabsTrigger>
-            </TabsList>
-            
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : error ? (
-              <div className="text-center py-12 border rounded-lg">
-                <h3 className="text-lg font-medium mb-2">Error loading sessions</h3>
-                <p className="text-muted-foreground">
-                  There was a problem loading your sessions. Please try again.
-                </p>
-                <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-                  Retry
-                </Button>
+            List View
+          </Tab>
+          <Tab 
+            className={({ selected }) =>
+              `w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-offset-background
+               ${selected 
+                ? 'bg-background text-foreground shadow' 
+                : 'text-muted-foreground hover:bg-muted/80'}`
+            }
+          >
+            Week View
+          </Tab>
+        </Tab.List>
+
+        <Tab.Panels>
+          <Tab.Panel>
+            {filteredSessions().length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredSessions().map(session => (
+                  <MentorSessionCard 
+                    key={session.id} 
+                    session={session} 
+                    isAsMentor={session.mentor_id === user?.id}
+                    onStatusChange={handleStatusChange}
+                    onReview={handleReview}
+                  />
+                ))}
               </div>
             ) : (
-              <>
-                <TabsContent value="upcoming" className="mt-0">
-                  <div className="space-y-6">
-                    {upcomingSessions.length > 0 ? (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {upcomingSessions.map((session) => (
-                            <MentorSessionCard
-                              key={session.id}
-                              session={session}
-                              isAsMentor={session.mentor_id === user.id}
-                              onStatusChange={handleStatusUpdate}
-                            />
-                          ))}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-center py-12 border rounded-lg">
-                        <Calendar className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
-                        <h3 className="text-lg font-medium mb-2">No upcoming sessions</h3>
-                        <p className="text-muted-foreground mb-4">
-                          You don't have any scheduled sessions coming up.
-                        </p>
-                        <Button asChild>
-                          <a href="/mentor-space">Find Mentors</a>
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="past" className="mt-0">
-                  <div className="space-y-6">
-                    {pastSessions.length > 0 ? (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {pastSessions.map((session) => (
-                            <MentorSessionCard
-                              key={session.id}
-                              session={session}
-                              isAsMentor={session.mentor_id === user.id}
-                              onStatusChange={handleStatusUpdate}
-                              onReview={session.mentor_id !== user.id ? handleReviewSession : undefined}
-                            />
-                          ))}
-                        </div>
-                        
-                        <div className="flex items-center justify-center space-x-4 mt-8">
-                          <Button variant="outline" size="sm">
-                            <ChevronLeft className="mr-2 h-4 w-4" />
-                            Previous
-                          </Button>
-                          <span className="text-sm text-muted-foreground">Page 1 of 1</span>
-                          <Button variant="outline" size="sm">
-                            Next
-                            <ChevronRight className="ml-2 h-4 w-4" />
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-center py-12 border rounded-lg">
-                        <History className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
-                        <h3 className="text-lg font-medium mb-2">No past sessions</h3>
-                        <p className="text-muted-foreground mb-4">
-                          You haven't completed any sessions yet.
-                        </p>
-                        <Button asChild>
-                          <a href="/mentor-space">Find Mentors</a>
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="cancelled" className="mt-0">
-                  <div className="space-y-6">
-                    {cancelledSessions.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {cancelledSessions.map((session) => (
-                          <MentorSessionCard
-                            key={session.id}
-                            session={session}
-                            isAsMentor={session.mentor_id === user.id}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-12 border rounded-lg">
-                        <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
-                        <h3 className="text-lg font-medium mb-2">No cancelled sessions</h3>
-                        <p className="text-muted-foreground">
-                          You don't have any cancelled sessions.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-              </>
+              <Card className="text-center p-8">
+                <CardContent className="pt-8">
+                  <p className="mb-4 text-muted-foreground">No sessions found for the selected filter.</p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/mentor-space')}
+                  >
+                    Browse Mentors
+                  </Button>
+                </CardContent>
+              </Card>
             )}
-          </Tabs>
-          
-          {/* Leave a Review Modal */}
-          <Dialog open={reviewModalOpen} onOpenChange={setReviewModalOpen}>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle className="flex items-center">
-                  <Star className="mr-2 h-5 w-5 text-yellow-500" />
-                  <span>Leave a Review</span>
-                </DialogTitle>
-                <DialogDescription>
-                  Share your feedback about the mentoring session to help others.
-                </DialogDescription>
-              </DialogHeader>
+          </Tab.Panel>
+
+          <Tab.Panel>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center mb-6">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Previous Week
+                </Button>
+                
+                <div className="text-center">
+                  <h3 className="font-medium">
+                    {format(weekStart, "MMM d")} - {format(weekEnd, "MMM d, yyyy")}
+                  </h3>
+                </div>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
+                >
+                  Next Week
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
               
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmitReview)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="rating"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Rating</FormLabel>
-                        <FormControl>
-                          <div className="flex items-center space-x-2">
-                            <Input
-                              type="range"
-                              min="1"
-                              max="5"
-                              step="1"
-                              className="w-full"
-                              {...field}
-                              onChange={(e) => field.onChange(e.target.value)}
-                            />
-                            <span className="text-lg font-semibold min-w-8 text-center">
-                              {field.value} / 5
+              {weekSessions().length > 0 ? (
+                <div className="space-y-3">
+                  {weekSessions().map(session => (
+                    <Card key={session.id} className="overflow-hidden">
+                      <div className="flex flex-col sm:flex-row">
+                        <div className="bg-muted p-4 sm:w-48 flex flex-col justify-center items-center text-center">
+                          <CalendarIcon className="h-5 w-5 mb-1 text-muted-foreground" />
+                          <div className="font-medium">{format(new Date(session.start_time), "EEEE")}</div>
+                          <div className="text-2xl font-bold">{format(new Date(session.start_time), "d")}</div>
+                          <div className="text-sm text-muted-foreground">{format(new Date(session.start_time), "MMM yyyy")}</div>
+                          <div className="mt-2 flex items-center">
+                            <Clock className="h-3 w-3 mr-1" />
+                            <span className="text-sm">
+                              {format(new Date(session.start_time), "h:mm a")} - {format(new Date(session.end_time), "h:mm a")}
                             </span>
                           </div>
-                        </FormControl>
-                        <div className="flex justify-between px-1 text-xs text-muted-foreground">
-                          <span>Poor</span>
-                          <span>Excellent</span>
                         </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="content"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Your Feedback</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Share your experience with this mentor..."
-                            className="resize-none"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          What did you find most helpful? What could be improved?
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setReviewModalOpen(false)}>
-                      Cancel
+                        
+                        <CardContent className="flex-1 p-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <Badge 
+                                variant={
+                                  session.status === "completed" ? "default" : 
+                                  session.status === "cancelled" ? "destructive" : 
+                                  "secondary"
+                                }
+                                className="mb-2"
+                              >
+                                {session.status}
+                              </Badge>
+                              <h3 className="font-medium text-lg">{session.title}</h3>
+                              <div className="text-sm text-muted-foreground mt-1">{session.session_type}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-medium">
+                                {session.mentor_id === user?.id ? "Mentee" : "Mentor"}:
+                              </div>
+                              <div className="text-sm">
+                                {session.mentor_id === user?.id 
+                                  ? session.mentee?.full_name || session.mentee?.username 
+                                  : session.mentor?.full_name || session.mentor?.username}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {session.description && (
+                            <div className="mt-3 text-sm">
+                              <p className="line-clamp-2 text-muted-foreground">{session.description}</p>
+                            </div>
+                          )}
+                          
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {session.status === "scheduled" && session.session_url && (
+                              <Button variant="default" size="sm" asChild>
+                                <a href={session.session_url} target="_blank" rel="noopener noreferrer">
+                                  Join Session
+                                </a>
+                              </Button>
+                            )}
+                            
+                            {session.status === "scheduled" && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleStatusChange(session.id, 'cancelled')}
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Cancel
+                              </Button>
+                            )}
+                            
+                            {session.status === "completed" && session.mentee_id === user?.id && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleReview(session.id)}
+                              >
+                                <Star className="h-4 w-4 mr-2" />
+                                Review
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card className="text-center p-8">
+                  <CardContent className="pt-8">
+                    <p className="mb-4 text-muted-foreground">No sessions scheduled for this week.</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => navigate('/mentor-space')}
+                    >
+                      Browse Mentors
                     </Button>
-                    <Button type="submit" disabled={leaveReview.isPending}>
-                      {leaveReview.isPending ? "Submitting..." : "Submit Review"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </PageTransition>
-    </AppLayout>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </Tab.Panel>
+        </Tab.Panels>
+      </Tab.Group>
+      
+      {/* Cancel Session Dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Session</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for cancelling this session. This will be visible to the other participant.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reason">Cancellation Reason</Label>
+              <Textarea
+                id="reason"
+                placeholder="Please explain why you're cancelling..."
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowCancelDialog(false);
+                setCancellationReason("");
+                setSelectedSession(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={() => selectedSession && handleStatusChange(selectedSession.id, 'cancelled')}
+              disabled={!cancellationReason.trim()}
+            >
+              Confirm Cancellation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Review Dialog */}
+      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rate Your Session</DialogTitle>
+            <DialogDescription>
+              Share your experience with this mentor to help others find great mentors.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rating">Rating</Label>
+              <Select 
+                value={review.rating.toString()} 
+                onValueChange={(value) => setReview({...review, rating: parseInt(value)})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a rating" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 - Poor</SelectItem>
+                  <SelectItem value="2">2 - Below Average</SelectItem>
+                  <SelectItem value="3">3 - Average</SelectItem>
+                  <SelectItem value="4">4 - Good</SelectItem>
+                  <SelectItem value="5">5 - Excellent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="feedback">Your Feedback</Label>
+              <Textarea
+                id="feedback"
+                placeholder="Share your experience with this mentor..."
+                value={review.content}
+                onChange={(e) => setReview({...review, content: e.target.value})}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowReviewDialog(false);
+                setReview({ rating: 5, content: "" });
+                setSelectedSession(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={submitReview}
+              disabled={!review.content.trim()}
+            >
+              Submit Review
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

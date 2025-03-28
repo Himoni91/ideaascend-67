@@ -110,6 +110,11 @@ export function formatSessionTypeData(data: MentorSessionTypeRow): MentorSession
 export function formatSessionData(data: any): MentorSession {
   const session = asMentorSession(data);
   
+  // Fixed: Cast the metadata to a safe empty object if it doesn't exist or isn't an object
+  const safeMetadata: Record<string, any> = typeof session.metadata === 'object' && session.metadata !== null
+    ? session.metadata as Record<string, any>
+    : {};
+  
   return {
     id: session.id,
     mentor_id: session.mentor_id,
@@ -131,9 +136,9 @@ export function formatSessionData(data: any): MentorSession {
     session_type: session.session_type || "",
     created_at: session.created_at,
     price: session.price,
-    metadata: session.metadata || {},
+    metadata: safeMetadata,
     
-    // If the mentor/mentee profile is included in the query
+    // These are not in the MentorSessionRow but might be included in the data from a join
     mentor: data.mentor ? formatProfileData(data.mentor) : undefined,
     mentee: data.mentee ? formatProfileData(data.mentee) : undefined
   };
