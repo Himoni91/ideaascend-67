@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +21,7 @@ import {
   MessageSquare, 
   Star, 
   Target, 
-  Trending, 
+  TrendingUp, 
   Trophy, 
   Users
 } from "lucide-react";
@@ -432,7 +431,7 @@ export default function Ascend() {
                     <Card>
                       <CardHeader className="pb-3">
                         <CardTitle className="text-lg flex items-center">
-                          <Trending className="mr-2 h-5 w-5 text-green-500" />
+                          <TrendingUp className="mr-2 h-5 w-5 text-green-500" />
                           Biggest Weekly Gainers
                         </CardTitle>
                       </CardHeader>

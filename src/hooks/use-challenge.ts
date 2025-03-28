@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Challenge, UserChallenge } from '@/types/ascend';
+import { Challenge, UserChallenge, ChallengeStatus } from '@/types/ascend';
 
 export function useChallenge() {
   const { user } = useAuth();
@@ -56,7 +56,7 @@ export function useChallenge() {
     try {
       const { data: existingChallenge, error: fetchError } = await supabase
         .from('user_challenges')
-        .select('progress, challenge_id, challenge:challenges(requirements)')
+        .select('progress, challenge_id, challenge:challenges(requirements, xp_reward)')
         .eq('id', userChallengeId)
         .single();
 
@@ -69,7 +69,7 @@ export function useChallenge() {
       };
 
       // Check if all requirements are met
-      let status = 'in_progress';
+      let status: ChallengeStatus = 'in_progress';
       const requirements = existingChallenge.challenge.requirements || {};
       const requirementsMet = Object.keys(requirements).every(key => 
         key in updatedProgress && updatedProgress[key] >= requirements[key]

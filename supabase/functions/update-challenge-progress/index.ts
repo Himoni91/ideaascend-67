@@ -2,7 +2,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Set up CORS headers for the function
+// Set up CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -10,178 +10,166 @@ const corsHeaders = {
 };
 
 serve(async (req: Request) => {
-  // Handle CORS preflight requests
+  // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Get environment variables
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    // Parse the request body
+    const { user_id, challenge_id, progress } = await req.json();
 
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase URL or service role key');
+    if (!user_id || !challenge_id || !progress) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
 
-    // Create Supabase client
+    // Initialize Supabase client with Admin key for server-side operations
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get request data
-    const { user_id, challenge_id, progress_key, progress_value } = await req.json();
+    // Get current challenge data
+    const { data: challengeData, error: challengeError } = await supabase
+      .from('challenges')
+      .select('requirements, xp_reward')
+      .eq('id', challenge_id)
+      .single();
 
-    if (!user_id) {
-      throw new Error('Missing user_id parameter');
+    if (challengeError) {
+      console.error('Error fetching challenge:', challengeError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch challenge data' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
 
-    if (!challenge_id && !progress_key) {
-      throw new Error('Missing either challenge_id or progress_key parameter');
-    }
+    // Get current user challenge data
+    const { data: userChallengeData, error: userChallengeError } = await supabase
+      .from('user_challenges')
+      .select('id, progress, status')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .single();
 
-    let result;
-
-    // Check if we need to find challenges by a specific progress key
-    if (progress_key) {
-      // Find all challenge requirements that include this key
-      const { data: challenges, error: challengesError } = await supabase
-        .from('challenges')
-        .select('id, requirements')
-        .filter('requirements', 'cs', `{"${progress_key}":`);
-
-      if (challengesError) throw challengesError;
-
-      // For each matching challenge, update user progress
-      const updates = [];
-      for (const challenge of challenges) {
-        // Check if the user has already started this challenge
-        const { data: userChallenges, error: userChallengeError } = await supabase
-          .from('user_challenges')
-          .select('id, status, progress')
-          .eq('user_id', user_id)
-          .eq('challenge_id', challenge.id)
-          .in('status', ['not_started', 'in_progress']);
-
-        if (userChallengeError) throw userChallengeError;
-
-        if (userChallenges && userChallenges.length > 0) {
-          const userChallenge = userChallenges[0];
-          
-          // Update the progress
-          const updatedProgress = {
-            ...userChallenge.progress,
-            [progress_key]: progress_value
-          };
-
-          // Check if all requirements are met
-          let status = 'in_progress';
-          const requirements = challenge.requirements || {};
-          const requirementsMet = Object.keys(requirements).every(key => 
-            key in updatedProgress && updatedProgress[key] >= requirements[key]
-          );
-
-          if (requirementsMet) {
-            status = 'completed';
-          }
-
-          // Update the user challenge
-          const update = supabase
-            .from('user_challenges')
-            .update({
-              progress: updatedProgress,
-              status,
-              completed_at: status === 'completed' ? new Date().toISOString() : null,
-              xp_earned: status === 'completed' ? challenge.xp_reward : 0
-            })
-            .eq('id', userChallenge.id);
-
-          updates.push(update);
-
-          // If challenge is completed, award XP
-          if (status === 'completed') {
-            const awardXp = supabase.rpc('award_xp', {
-              p_user_id: user_id,
-              p_amount: challenge.xp_reward,
-              p_type: 'challenge_completed',
-              p_reference_id: challenge.id
-            });
-            
-            updates.push(awardXp);
-          }
-        }
-      }
-
-      // Execute all updates
-      if (updates.length > 0) {
-        await Promise.all(updates);
-      }
-
-      result = { success: true, message: `Updated progress for ${updates.length} challenges` };
-    } else {
-      // We're updating a specific challenge
-      // Check if the user has already started this challenge
-      const { data: userChallenges, error: userChallengeError } = await supabase
+    // If no user challenge record exists yet, create one
+    if (userChallengeError && userChallengeError.code === 'PGRST116') {
+      const { data: newChallenge, error: createError } = await supabase
         .from('user_challenges')
-        .select('id, status, progress, challenge:challenges(requirements, xp_reward)')
-        .eq('user_id', user_id)
-        .eq('challenge_id', challenge_id)
-        .in('status', ['not_started', 'in_progress'])
+        .insert({
+          user_id: user_id,
+          challenge_id: challenge_id,
+          status: 'in_progress',
+          progress: progress
+        })
+        .select()
         .single();
 
-      if (userChallengeError) {
-        // If the user hasn't started this challenge, create a new entry
-        if (userChallengeError.code === 'PGRST116') {
-          const { data: challenge, error: challengeError } = await supabase
-            .from('challenges')
-            .select('requirements, xp_reward')
-            .eq('id', challenge_id)
-            .single();
-
-          if (challengeError) throw challengeError;
-
-          // Initialize a new user challenge
-          const { data: newUserChallenge, error: createError } = await supabase
-            .from('user_challenges')
-            .insert({
-              user_id,
-              challenge_id,
-              status: 'in_progress',
-              progress: {}
-            })
-            .select('id')
-            .single();
-
-          if (createError) throw createError;
-
-          result = { success: true, message: 'Challenge started', challenge_id };
-        } else {
-          throw userChallengeError;
-        }
-      } else {
-        // Update the existing user challenge
-        const userChallenge = userChallenges;
-        
-        result = { success: true, message: 'Challenge progress updated', challenge_id };
+      if (createError) {
+        console.error('Error creating user challenge:', createError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to create user challenge' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
       }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          data: newChallenge,
+          message: 'Challenge started and progress updated' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else if (userChallengeError) {
+      console.error('Error fetching user challenge:', userChallengeError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch user challenge data' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
 
-    // Return success response
-    return new Response(
-      JSON.stringify(result),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
+    // Update the user challenge with new progress
+    const updatedProgress = { ...userChallengeData.progress, ...progress };
+    
+    // Check if all requirements are met
+    let status = userChallengeData.status;
+    let completed = false;
+    const requirements = challengeData.requirements || {};
+    
+    const requirementsMet = Object.keys(requirements).every(key => 
+      key in updatedProgress && updatedProgress[key] >= requirements[key]
+    );
+
+    // If all requirements are met and challenge is not already completed, mark as completed
+    if (requirementsMet && status !== 'completed') {
+      status = 'completed';
+      completed = true;
+    }
+
+    // Update the user challenge
+    const { data: updatedChallenge, error: updateError } = await supabase
+      .from('user_challenges')
+      .update({
+        progress: updatedProgress,
+        status: status,
+        completed_at: completed ? new Date().toISOString() : null,
+        xp_earned: completed ? challengeData.xp_reward : 0
+      })
+      .eq('id', userChallengeData.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error updating user challenge:', updateError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to update user challenge' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+
+    // If challenge was completed, award XP
+    if (completed) {
+      const { error: awardXpError } = await supabase.rpc('award_xp', {
+        p_user_id: user_id,
+        p_amount: challengeData.xp_reward,
+        p_type: 'challenge_completed',
+        p_reference_id: challenge_id
+      });
+
+      if (awardXpError) {
+        console.error('Error awarding XP:', awardXpError);
+        // Continue despite XP award error - we'll still return success for the progress update
       }
+
+      // Create notification for completed challenge
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: user_id,
+          notification_type: 'challenge_completed',
+          related_id: challenge_id,
+          related_type: 'challenge',
+          message: `You completed a challenge and earned ${challengeData.xp_reward} XP!`
+        });
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: updatedChallenge,
+        completed: completed,
+        message: completed ? 'Challenge completed!' : 'Progress updated'
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error updating challenge progress:', error);
-    
-    // Return error response
+    console.error('Error processing challenge progress:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      }
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
