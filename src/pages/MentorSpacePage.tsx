@@ -24,9 +24,9 @@ import { Slider } from "@/components/ui/slider";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import MentorCard from "@/components/mentor/MentorCard";
-import { ProfileType } from "@/types/profile";
 import { PageTransition } from "@/components/ui/page-transition";
 
 export default function MentorSpacePage() {
@@ -39,12 +39,19 @@ export default function MentorSpacePage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   
   const { useMentors } = useMentor();
-  const { data: mentors, isLoading } = useMentors({
+  const { data: mentors, isLoading, error } = useMentors({
     specialties: selectedSpecialties,
     price_range: priceRange,
     rating: minRating,
     search: searchTerm
   });
+  
+  useEffect(() => {
+    if (error) {
+      console.error("Error loading mentors:", error);
+      toast.error("Failed to load mentors. Please try again.");
+    }
+  }, [error]);
   
   // Available specialties for filtering
   const specialties: MentorSpecialty[] = [
@@ -106,11 +113,21 @@ export default function MentorSpacePage() {
               and help you grow professionally.
             </p>
             
-            {!user && (
-              <Button size="lg" onClick={() => navigate("/auth/sign-in")}>
-                Sign In to Get Started
+            <div className="flex flex-wrap justify-center gap-4">
+              {!user && (
+                <Button size="lg" onClick={() => navigate("/auth/sign-in")}>
+                  Sign In to Get Started
+                </Button>
+              )}
+              
+              <Button 
+                size="lg" 
+                variant="outline"
+                onClick={() => navigate("/mentor-space/apply")}
+              >
+                Become a Mentor
               </Button>
-            )}
+            </div>
           </motion.div>
           
           {/* Search & Filters Bar */}

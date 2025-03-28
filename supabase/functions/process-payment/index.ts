@@ -1,92 +1,88 @@
 
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.7";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { stripe } from './stripe.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
-// CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Get Supabase URL and key from environment variables
+const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+const supabase = createClient(supabaseUrl, supabaseKey)
 
-// Create a Supabase client
-const supabaseClient = createClient(
-  Deno.env.get('SUPABASE_URL') || '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-);
-
-interface PaymentRequest {
-  amount: number;
-  currency: string;
-  payment_method: string;
-  description: string;
-  metadata?: Record<string, any>;
-}
-
-serve(async (req) => {
+export async function handler(req: Request) {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: corsHeaders,
-      status: 204,
-    });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    if (req.method !== 'POST') {
-      throw new Error('Method not allowed');
-    }
-
     // Parse the request body
-    const requestData: PaymentRequest = await req.json();
-    const { amount, currency, payment_method, description, metadata } = requestData;
+    const { sessionId, mentorId, menteeId, sessionData } = await req.json()
 
-    console.log('Processing payment:', { amount, currency, payment_method, description });
+    // Process payment with Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
 
-    // Validate required fields
-    if (!amount || !currency || !payment_method || !description) {
-      throw new Error('Missing required payment information');
+    if (session.payment_status === 'paid') {
+      // Update the database to mark session as paid
+      const { data, error } = await supabase
+        .from('mentor_sessions')
+        .update({
+          payment_status: 'completed',
+          payment_id: session.id,
+          payment_amount: session.amount_total ? session.amount_total / 100 : 0,
+          payment_provider: 'stripe'
+        })
+        .eq('id', sessionData.session_id)
+        .select()
+
+      if (error) {
+        console.error('Database update error:', error)
+        return new Response(
+          JSON.stringify({ error: 'Failed to update payment status' }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500 
+          }
+        )
+      }
+
+      // Create notification for the mentor
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: mentorId,
+          sender_id: menteeId,
+          notification_type: 'payment_received',
+          related_id: sessionData.session_id,
+          related_type: 'mentor_session',
+          message: 'Payment has been received for your session'
+        })
+
+      return new Response(
+        JSON.stringify({ success: true, data }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      )
+    } else {
+      return new Response(
+        JSON.stringify({ error: 'Payment not completed' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      )
     }
-
-    // Generate a mock payment ID and timestamp
-    const timestamp = new Date().toISOString();
-    const mockPaymentId = `pay_${crypto.randomUUID().replace(/-/g, '').substring(0, 16)}`;
-
-    // Create a mock payment response
-    const paymentResponse = {
-      id: mockPaymentId,
-      amount,
-      currency,
-      payment_method,
-      description,
-      status: 'succeeded',
-      created_at: timestamp,
-      metadata
-    };
-
-    // Return success response
-    return new Response(
-      JSON.stringify({
-        success: true,
-        data: paymentResponse
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
   } catch (error) {
-    console.error('Payment processing error:', error.message);
-    
-    // Return error response
+    console.error('Error processing payment:', error)
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message
-      }),
-      {
+      JSON.stringify({ error: error.message }),
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500 
       }
-    );
+    )
   }
-});
+}
+
+Deno.serve(handler)

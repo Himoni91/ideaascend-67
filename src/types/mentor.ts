@@ -1,9 +1,10 @@
+
 import { ProfileType } from "./profile";
 
 export type MentorSessionType = 'quick' | 'standard' | 'deep-dive' | 'custom';
 export type MentorSessionStatus = 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'rescheduled';
 export type MentorPaymentStatus = 'pending' | 'completed' | 'refunded' | 'failed';
-export type MentorPaymentProvider = 'razorpay' | 'paypal' | 'credits' | 'free';
+export type MentorPaymentProvider = 'razorpay' | 'paypal' | 'stripe' | 'credits' | 'free';
 export type MentorApplicationStatus = 'pending' | 'approved' | 'rejected' | 'more_info';
 
 export type MentorSpecialty = 
@@ -128,10 +129,11 @@ export interface MentorAnalytics {
   completed_sessions: number;
   average_rating: number;
   total_earnings: number;
-  session_duration_total: number; // minutes
+  session_duration_total?: number; // minutes
   upcoming_sessions: number;
   repeat_mentees: number;
   reviews_count: number;
+  unique_mentees?: number;
 }
 
 export interface MentorProfile extends ProfileType {

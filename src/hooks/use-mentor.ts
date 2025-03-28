@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,7 +95,6 @@ export function useMentor() {
       queryFn: async () => {
         if (!mentorId) throw new Error("Mentor ID is required");
         
-        // Use direct query instead of RPC function
         const { data, error } = await supabase
           .from("mentor_availability_slots")
           .select("*")
@@ -105,10 +103,6 @@ export function useMentor() {
           .order("start_time", { ascending: true });
           
         if (error) throw error;
-        
-        if (!data || !Array.isArray(data)) {
-          return [];
-        }
         
         return data as MentorAvailabilitySlot[];
       },
@@ -123,13 +117,12 @@ export function useMentor() {
       queryFn: async () => {
         if (!user) throw new Error("User must be logged in");
         
-        // Direct query with joins instead of RPC
         let query = supabase
           .from("mentor_sessions")
           .select(`
             *,
-            mentor:mentor_id(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats),
-            mentee:mentee_id(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats)
+            mentor:profiles!mentor_sessions_mentor_id_fkey(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats),
+            mentee:profiles!mentor_sessions_mentee_id_fkey(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats)
           `);
           
         // Apply filters based on role and status
@@ -167,14 +160,14 @@ export function useMentor() {
           end_time: session.end_time,
           status: session.status,
           payment_status: session.payment_status,
-          payment_provider: session.payment_provider,
-          payment_id: session.payment_id,
-          payment_amount: session.payment_amount,
-          payment_currency: session.payment_currency,
+          payment_provider: session.payment_provider || undefined,
+          payment_id: session.payment_id || undefined,
+          payment_amount: session.payment_amount || undefined,
+          payment_currency: session.payment_currency || undefined,
           session_url: session.session_url,
-          session_notes: session.session_notes,
-          cancellation_reason: session.cancellation_reason,
-          cancelled_by: session.cancelled_by,
+          session_notes: session.session_notes || undefined,
+          cancellation_reason: session.cancellation_reason || undefined,
+          cancelled_by: session.cancelled_by || undefined,
           session_type: session.session_type || 'standard',
           created_at: session.created_at,
           mentor: session.mentor ? formatProfileData(session.mentor) : undefined,
@@ -192,13 +185,12 @@ export function useMentor() {
       queryFn: async () => {
         if (!sessionId || !user) throw new Error("Session ID and user are required");
         
-        // Direct query with joins instead of RPC
         const { data, error } = await supabase
           .from("mentor_sessions")
           .select(`
             *,
-            mentor:mentor_id(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats),
-            mentee:mentee_id(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats)
+            mentor:profiles!mentor_sessions_mentor_id_fkey(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats),
+            mentee:profiles!mentor_sessions_mentee_id_fkey(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats)
           `)
           .eq("id", sessionId)
           .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`)
@@ -217,14 +209,14 @@ export function useMentor() {
           end_time: data.end_time,
           status: data.status,
           payment_status: data.payment_status,
-          payment_provider: data.payment_provider,
-          payment_id: data.payment_id,
-          payment_amount: data.payment_amount,
-          payment_currency: data.payment_currency,
+          payment_provider: data.payment_provider || undefined,
+          payment_id: data.payment_id || undefined,
+          payment_amount: data.payment_amount || undefined,
+          payment_currency: data.payment_currency || undefined,
           session_url: data.session_url,
-          session_notes: data.session_notes,
-          cancellation_reason: data.cancellation_reason,
-          cancelled_by: data.cancelled_by,
+          session_notes: data.session_notes || undefined,
+          cancellation_reason: data.cancellation_reason || undefined,
+          cancelled_by: data.cancelled_by || undefined,
           session_type: data.session_type || 'standard',
           created_at: data.created_at,
           mentor: data.mentor ? formatProfileData(data.mentor) : undefined,
@@ -242,13 +234,12 @@ export function useMentor() {
       queryFn: async () => {
         if (!mentorId) throw new Error("Mentor ID is required");
         
-        // Direct query with joins instead of RPC
         const { data, error } = await supabase
           .from("session_reviews")
           .select(`
             *,
-            session:session_id(mentor_id),
-            reviewer:reviewer_id(id, username, full_name, avatar_url, bio, position, company, expertise, stats)
+            session:mentor_sessions!session_reviews_session_id_fkey(mentor_id),
+            reviewer:profiles!session_reviews_reviewer_id_fkey(id, username, full_name, avatar_url, bio, position, company, expertise, stats)
           `)
           .eq("session.mentor_id", mentorId)
           .order("created_at", { ascending: false });
@@ -327,7 +318,6 @@ export function useMentor() {
   const addAvailabilitySlot = async (slot: { start_time: string; end_time: string; recurring_rule?: string }) => {
     if (!user) throw new Error("User must be logged in");
     
-    // Direct insert instead of RPC
     const { data, error } = await supabase
       .from("mentor_availability_slots")
       .insert({
@@ -568,15 +558,18 @@ export function useMentor() {
     // Get all reviews for the mentor
     const { data: mentorReviews, error: mentorReviewsError } = await supabase
       .from("session_reviews")
-      .select("rating")
-      .eq("session.mentor_id", sessionData.mentor_id)
       .select(`
         rating,
-        session:session_id(mentor_id)
-      `);
+        session:mentor_sessions!session_reviews_session_id_fkey(mentor_id)
+      `)
+      .eq("session.mentor_id", sessionData.mentor_id);
       
     if (!mentorReviewsError && mentorReviews) {
-      const averageRating = mentorReviews.reduce((sum, review) => sum + review.rating, 0) / mentorReviews.length;
+      // Calculate average rating
+      const ratings = mentorReviews.map((review) => review.rating);
+      const averageRating = ratings.length > 0 
+        ? ratings.reduce((a, b) => a + b, 0) / ratings.length 
+        : 0;
       
       // Update the mentor's profile stats
       await supabase
@@ -637,21 +630,49 @@ export function useMentor() {
     
     // Then add session types
     for (const sessionType of sessionTypes) {
-      const { error: sessionTypeError } = await supabase
+      // Check if this session type already exists
+      const { data: existingTypes, error: checkError } = await supabase
         .from("mentor_session_types")
-        .insert({
-          mentor_id: user.id,
-          name: sessionType.name,
-          description: sessionType.description,
-          duration: sessionType.duration,
-          price: sessionType.price,
-          currency: sessionType.currency || 'USD',
-          is_free: sessionType.is_free || false,
-          is_featured: sessionType.is_featured || false,
-          color: sessionType.color
-        });
+        .select("id")
+        .eq("mentor_id", user.id)
+        .eq("name", sessionType.name);
         
-      if (sessionTypeError) throw sessionTypeError;
+      if (checkError) throw checkError;
+      
+      // If it exists, update it instead of inserting
+      if (existingTypes && existingTypes.length > 0) {
+        const { error: updateError } = await supabase
+          .from("mentor_session_types")
+          .update({
+            description: sessionType.description,
+            duration: sessionType.duration,
+            price: sessionType.price,
+            currency: sessionType.currency || 'USD',
+            is_free: sessionType.is_free || false,
+            is_featured: sessionType.is_featured || false,
+            color: sessionType.color
+          })
+          .eq("id", existingTypes[0].id);
+          
+        if (updateError) throw updateError;
+      } else {
+        // Otherwise insert a new session type
+        const { error: insertError } = await supabase
+          .from("mentor_session_types")
+          .insert({
+            mentor_id: user.id,
+            name: sessionType.name,
+            description: sessionType.description,
+            duration: sessionType.duration,
+            price: sessionType.price,
+            currency: sessionType.currency || 'USD',
+            is_free: sessionType.is_free || false,
+            is_featured: sessionType.is_featured || false,
+            color: sessionType.color
+          });
+          
+        if (insertError) throw insertError;
+      }
     }
     
     // Invalidate profile queries
@@ -671,7 +692,7 @@ export function useMentor() {
         // Get sessions data
         const { data: sessionsData, error: sessionsError } = await supabase
           .from("mentor_sessions")
-          .select("status, payment_amount, created_at, mentee_id")
+          .select("status, payment_amount, created_at, mentee_id, price")
           .eq("mentor_id", user.id);
           
         if (sessionsError) throw sessionsError;
@@ -681,7 +702,7 @@ export function useMentor() {
           .from("session_reviews")
           .select(`
             rating,
-            session:session_id(mentor_id)
+            session:mentor_sessions!session_reviews_session_id_fkey(mentor_id)
           `)
           .eq("session.mentor_id", user.id);
           
@@ -690,26 +711,33 @@ export function useMentor() {
         // Calculate analytics
         const completedSessions = sessionsData.filter((s) => s.status === 'completed');
         const upcomingSessions = sessionsData.filter((s) => s.status === 'scheduled' || s.status === 'rescheduled');
-        const totalEarnings = completedSessions.reduce((sum, session) => sum + (session.payment_amount || 0), 0);
+        
+        // Use price as fallback since payment_amount might not exist
+        const totalEarnings = completedSessions.reduce((sum, session) => {
+          const amount = session.payment_amount !== null ? session.payment_amount : session.price;
+          return sum + (amount || 0);
+        }, 0);
         
         // Count unique mentees
         const uniqueMentees = new Set(sessionsData.map(s => s.mentee_id)).size;
         
         // Calculate repeat mentees (mentees who have more than one session)
-        const menteeCounts = sessionsData.reduce((acc: Record<string, number>, session) => {
-          acc[session.mentee_id] = (acc[session.mentee_id] || 0) + 1;
-          return acc;
-        }, {});
+        const menteeCounts: Record<string, number> = {};
+        sessionsData.forEach(session => {
+          if (session.mentee_id) {
+            menteeCounts[session.mentee_id] = (menteeCounts[session.mentee_id] || 0) + 1;
+          }
+        });
         
         const repeatMentees = Object.values(menteeCounts).filter(count => count > 1).length;
         
         // Average rating
-        const ratings = reviewsData.map((review: any) => review.rating);
+        const ratings = reviewsData.map((review) => review.rating);
         const averageRating = ratings.length > 0 
-          ? ratings.reduce((sum: number, rating: number) => sum + rating, 0) / ratings.length 
+          ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length 
           : 0;
 
-        return {
+        const analytics: MentorAnalytics = {
           total_sessions: sessionsData.length,
           completed_sessions: completedSessions.length,
           upcoming_sessions: upcomingSessions.length,
@@ -718,7 +746,9 @@ export function useMentor() {
           unique_mentees: uniqueMentees,
           repeat_mentees: repeatMentees,
           reviews_count: reviewsData.length
-        } as MentorAnalytics;
+        };
+        
+        return analytics;
       },
       enabled: !!user,
     });
