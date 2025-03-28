@@ -26,14 +26,14 @@ export type ProfileType = {
   // Mentor-specific fields
   mentor_bio?: string | null;
   mentor_hourly_rate?: number | null;
-  mentor_session_types?: any; // Will be cast to MentorSessionTypeInfo[] when needed
-  work_experience?: any[] | any; // Handle both array and Json type from Supabase
-  education?: any[] | any; // Handle both array and Json type from Supabase
+  mentor_session_types?: MentorSessionTypeInfo[] | null;
+  work_experience?: any; // Handle database Json type
+  education?: any; // Handle database Json type
   
   // Additional fields for UI/UX
   level: number;
   xp: number;
-  badges: Array<{name: string, icon: string, description: string, earned: boolean}>;
+  badges: Array<{name: string, icon: string, description: string, earned: boolean}> | any;
   stats: {
     followers: number;
     following: number;
@@ -43,7 +43,7 @@ export type ProfileType = {
     rank?: number; // Leaderboard position
     mentorRating?: number; // Average mentor rating
     mentorReviews?: number; // Number of reviews received
-  };
+  } | any;
   followers?: ProfileType[];
   following?: ProfileType[];
   certifications?: Array<{name: string, issuer: string, date: string}>;
@@ -76,3 +76,15 @@ export type ProfileType = {
     createdAt: string
   }>;
 };
+
+interface MentorSessionTypeInfo {
+  id: string;
+  name: string;
+  description: string;
+  duration: number; // in minutes
+  price: number;
+  currency?: string;
+  is_free?: boolean;
+  is_featured?: boolean;
+  color?: string;
+}

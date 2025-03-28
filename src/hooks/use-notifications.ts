@@ -27,17 +27,41 @@ export function useNotifications() {
 
   useEffect(() => {
     if (notifications && Array.isArray(notifications)) {
-      const unread = notifications.filter(n => !n.read).length;
+      const unread = notifications.filter(n => !n.is_read).length;
       setUnreadCount(unread);
     }
   }, [notifications]);
+
+  // Set up realtime subscription for notifications
+  useEffect(() => {
+    if (!user) return;
+    
+    const channel = supabase
+      .channel('public:notifications')
+      .on('postgres_changes', 
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        }, 
+        () => {
+          refetch();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, refetch]);
 
   const markAsRead = async (notificationId: string) => {
     if (!user) return;
     
     await supabase
       .from("notifications")
-      .update({ read: true })
+      .update({ is_read: true })
       .eq("id", notificationId)
       .eq("user_id", user.id);
       
@@ -49,9 +73,9 @@ export function useNotifications() {
     
     await supabase
       .from("notifications")
-      .update({ read: true })
+      .update({ is_read: true })
       .eq("user_id", user.id)
-      .eq("read", false);
+      .eq("is_read", false);
       
     refetch();
   };

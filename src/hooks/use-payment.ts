@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 interface PaymentOptions {
   amount: number;
@@ -27,15 +28,27 @@ export function usePayment() {
     setIsLoading(true);
 
     try {
-      // For mock implementation, we'll simulate a successful payment
-      // In production, you would integrate with Razorpay's SDK
-      console.log('Processing payment with Razorpay:', { amount, currency, description });
+      // Call our Supabase Edge Function that handles payments
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: {
+          amount,
+          currency,
+          payment_method: 'razorpay',
+          description,
+          metadata: {
+            ...metadata,
+            user_id: user?.id
+          }
+        }
+      });
+
+      if (error) throw error;
       
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!data.success) {
+        throw new Error(data.error || 'Payment processing failed');
+      }
       
-      // Generate a mock payment ID
-      const paymentId = `rzp_${Math.random().toString(36).substring(2, 15)}`;
+      const paymentId = data.data.id;
       
       if (onSuccess) {
         await onSuccess(paymentId);
@@ -44,6 +57,8 @@ export function usePayment() {
       return paymentId;
     } catch (error) {
       console.error('Payment error:', error);
+      toast.error('Payment failed. Please try again.');
+      
       if (onError) {
         onError(error);
       }
@@ -64,15 +79,27 @@ export function usePayment() {
     setIsLoading(true);
 
     try {
-      // For mock implementation, we'll simulate a successful payment
-      // In production, you would integrate with PayPal's SDK
-      console.log('Processing payment with PayPal:', { amount, currency, description });
+      // Call our Supabase Edge Function that handles payments
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: {
+          amount,
+          currency,
+          payment_method: 'paypal',
+          description,
+          metadata: {
+            ...metadata,
+            user_id: user?.id
+          }
+        }
+      });
+
+      if (error) throw error;
       
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!data.success) {
+        throw new Error(data.error || 'Payment processing failed');
+      }
       
-      // Generate a mock payment ID
-      const paymentId = `pp_${Math.random().toString(36).substring(2, 15)}`;
+      const paymentId = data.data.id;
       
       if (onSuccess) {
         await onSuccess(paymentId);
@@ -81,6 +108,8 @@ export function usePayment() {
       return paymentId;
     } catch (error) {
       console.error('Payment error:', error);
+      toast.error('Payment failed. Please try again.');
+      
       if (onError) {
         onError(error);
       }
@@ -90,10 +119,7 @@ export function usePayment() {
     }
   };
 
-  const createFreePayment = async ({
-    description,
-    metadata
-  }: Omit<PaymentOptions, "amount" | "currency">) => {
+  const createFreePayment = async (options: Omit<PaymentOptions, "amount" | "currency">) => {
     // For free payments, just generate a reference ID
     return `free_${Math.random().toString(36).substring(2, 15)}`;
   };

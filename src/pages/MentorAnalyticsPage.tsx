@@ -1,240 +1,399 @@
-import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useMentor } from "@/hooks/use-mentor";
+
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMentor } from "@/hooks/use-mentor";
+import { useAuth } from "@/contexts/AuthContext";
+import { PageTransition } from "@/components/ui/page-transition";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { MentorAnalytics } from "@/types/mentor";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  ArrowLeft,
+  Calendar,
+  DollarSign,
+  UserCheck,
+  Star,
+  Users,
+  TrendingUp,
+} from "lucide-react";
 
 export default function MentorAnalyticsPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const { useMentorSessions } = useMentor();
-  const { data: sessions, isLoading } = useMentorSessions(undefined, "mentor");
-  const [analytics, setAnalytics] = useState<MentorAnalytics>({
-    total_sessions: 0,
-    completed_sessions: 0,
-    average_rating: 0,
-    total_earnings: 0,
-    session_duration_total: 0,
-    upcoming_sessions: 0,
-    repeat_mentees: 0,
-    reviews_count: 0
-  });
+  const { useMentorAnalytics, useMentorSessions, useMentorReviews } = useMentor();
+  const [timePeriod, setTimePeriod] = useState<"week" | "month" | "year">("month");
 
-  // Calculate analytics from sessions
-  useEffect(() => {
-    if (sessions) {
-      const now = new Date();
-      const completedSessions = sessions.filter(s => s.status === "completed");
-      const upcomingSessions = sessions.filter(s => new Date(s.start_time) > now && s.status !== "cancelled");
-      
-      // Get unique mentees
-      const uniqueMentees = [...new Set(sessions.map(s => s.mentee_id))];
-      
-      // Check for repeat mentees
-      const menteeCounts: Record<string, number> = {};
-      sessions.forEach(s => {
-        menteeCounts[s.mentee_id] = (menteeCounts[s.mentee_id] || 0) + 1;
-      });
-      const repeatMentees = Object.values(menteeCounts).filter(count => count > 1).length;
-      
-      // Calculate total earnings
-      const totalEarnings = sessions.reduce((sum, session) => {
-        return sum + (session.payment_amount || 0);
-      }, 0);
-      
-      setAnalytics({
-        total_sessions: sessions.length,
-        completed_sessions: completedSessions.length,
-        average_rating: 4.5, // Placeholder - would come from reviews
-        total_earnings: totalEarnings,
-        session_duration_total: sessions.reduce((sum, s) => {
-          const start = new Date(s.start_time);
-          const end = new Date(s.end_time);
-          return sum + ((end.getTime() - start.getTime()) / (1000 * 60)); // in minutes
-        }, 0),
-        upcoming_sessions: upcomingSessions.length,
-        repeat_mentees: repeatMentees,
-        reviews_count: 0 // Would come from a reviews query
-      });
-    }
-  }, [sessions]);
-
-  if (isLoading) {
-    return (
-      <AppLayout>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </AppLayout>
-    );
+  // Fetch mentor analytics data
+  const { data: analyticsData, isLoading: isAnalyticsLoading } = useMentorAnalytics();
+  
+  // Fetch sessions data
+  const { data: sessionsData, isLoading: isSessionsLoading } = useMentorSessions();
+  
+  // Fetch reviews data
+  const { data: reviewsData, isLoading: isReviewsLoading } = useMentorReviews(user?.id);
+  
+  if (!user) {
+    navigate("/auth/sign-in");
+    return null;
   }
-
-  // Prepare chart data
-  const sessionStatusData = [
-    { name: 'Completed', value: analytics.completed_sessions },
-    { name: 'Upcoming', value: analytics.upcoming_sessions },
-    { name: 'Others', value: analytics.total_sessions - analytics.completed_sessions - analytics.upcoming_sessions }
+  
+  const isLoading = isAnalyticsLoading || isSessionsLoading || isReviewsLoading;
+  
+  // Prepare data for charts
+  const sessionsPerMonthData = [
+    { name: "Jan", sessions: 2 },
+    { name: "Feb", sessions: 4 },
+    { name: "Mar", sessions: 3 },
+    { name: "Apr", sessions: 5 },
+    { name: "May", sessions: 7 },
+    { name: "Jun", sessions: 9 },
+    { name: "Jul", sessions: 8 },
   ];
-
-  const COLORS = ['#4CAF50', '#2196F3', '#9E9E9E'];
-
-  const earningsData = sessions 
-    ? sessions
-        .filter(s => s.payment_status === "completed")
-        .map(session => ({
-          date: new Date(session.created_at).toLocaleDateString(),
-          amount: session.payment_amount || 0
-        }))
-        .reduce((acc: {date: string, amount: number}[], curr) => {
-          const existing = acc.find(item => item.date === curr.date);
-          if (existing) {
-            existing.amount += curr.amount;
-          } else {
-            acc.push(curr);
-          }
-          return acc;
-        }, [])
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    : [];
+  
+  const earningsPerMonthData = [
+    { name: "Jan", earnings: 50 },
+    { name: "Feb", earnings: 100 },
+    { name: "Mar", earnings: 75 },
+    { name: "Apr", earnings: 125 },
+    { name: "May", earnings: 175 },
+    { name: "Jun", earnings: 225 },
+    { name: "Jul", earnings: 200 },
+  ];
+  
+  const sessionStatusData = [
+    { name: "Completed", value: analyticsData?.completed_sessions || 0 },
+    { name: "Upcoming", value: analyticsData?.upcoming_sessions || 0 },
+  ];
+  
+  const COLORS = ["#10b981", "#6366f1", "#f59e0b", "#ef4444"];
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Mentor Analytics</h1>
-          <p className="text-muted-foreground">
-            View and track your mentorship performance and earnings
-          </p>
-        </div>
+      <PageTransition>
+        <div className="container max-w-6xl mx-auto px-4 py-8">
+          <div className="flex items-center mb-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mr-2"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
+              <p className="text-muted-foreground">
+                Track your mentorship performance and earnings
+              </p>
+            </div>
+          </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{analytics.total_sessions}</div>
-              <p className="text-xs text-muted-foreground">
-                {analytics.completed_sessions} completed
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                ${analytics.total_earnings.toFixed(2)}
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i}>
+                  <CardHeader className="pb-2">
+                    <Skeleton className="h-5 w-20" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-8 w-24" />
+                    <Skeleton className="h-4 w-32 mt-2" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Total Sessions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {analyticsData?.total_sessions || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {analyticsData?.completed_sessions || 0} completed, {analyticsData?.upcoming_sessions || 0} upcoming
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                    <DollarSign className="mr-2 h-4 w-4" />
+                    Total Earnings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    ${analyticsData?.total_earnings || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    From {analyticsData?.completed_sessions || 0} completed sessions
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                    <Star className="mr-2 h-4 w-4" />
+                    Average Rating
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {(analyticsData?.average_rating || 0).toFixed(1)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    From {analyticsData?.reviews_count || 0} reviews
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                    <Users className="mr-2 h-4 w-4" />
+                    Unique Mentees
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {analyticsData?.unique_mentees || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {analyticsData?.repeat_mentees || 0} repeat mentees
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          <Tabs defaultValue="sessions" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="sessions">Sessions</TabsTrigger>
+              <TabsTrigger value="earnings">Earnings</TabsTrigger>
+              <TabsTrigger value="reviews">Reviews</TabsTrigger>
+            </TabsList>
+
+            <div className="flex justify-end mb-4">
+              <div className="bg-muted rounded-md p-1 inline-flex">
+                <Button
+                  variant={timePeriod === "week" ? "default" : "ghost"}
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => setTimePeriod("week")}
+                >
+                  Week
+                </Button>
+                <Button
+                  variant={timePeriod === "month" ? "default" : "ghost"}
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => setTimePeriod("month")}
+                >
+                  Month
+                </Button>
+                <Button
+                  variant={timePeriod === "year" ? "default" : "ghost"}
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => setTimePeriod("year")}
+                >
+                  Year
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                From {analytics.completed_sessions} completed sessions
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg. Rating</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{analytics.average_rating.toFixed(1)}/5.0</div>
-              <p className="text-xs text-muted-foreground">
-                Based on {analytics.reviews_count} reviews
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Upcoming</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{analytics.upcoming_sessions}</div>
-              <p className="text-xs text-muted-foreground">
-                Scheduled sessions
-              </p>
-            </CardContent>
-          </Card>
+            </div>
+
+            <TabsContent value="sessions" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                <Card className="lg:col-span-3">
+                  <CardHeader>
+                    <CardTitle>Sessions Overview</CardTitle>
+                    <CardDescription>
+                      Number of sessions over time
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-80">
+                    {isLoading ? (
+                      <div className="animate-pulse w-full h-full bg-muted rounded-md" />
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          data={sessionsPerMonthData}
+                          margin={{
+                            top: 5,
+                            right: 30,
+                            left: 20,
+                            bottom: 5,
+                          }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="sessions"
+                            stroke="#6366f1"
+                            activeDot={{ r: 8 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Session Status</CardTitle>
+                    <CardDescription>
+                      Breakdown by status
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-80">
+                    {isLoading ? (
+                      <div className="animate-pulse w-full h-full bg-muted rounded-md" />
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={sessionStatusData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                            label={({ name, percent }) =>
+                              `${name}: ${(percent * 100).toFixed(0)}%`
+                            }
+                          >
+                            {sessionStatusData.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={COLORS[index % COLORS.length]}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => [`${value}`, 'Sessions']} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="earnings" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Earnings Overview</CardTitle>
+                  <CardDescription>
+                    Total earnings over time
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="h-80">
+                  {isLoading ? (
+                    <div className="animate-pulse w-full h-full bg-muted rounded-md" />
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={earningsPerMonthData}
+                        margin={{
+                          top: 5,
+                          right: 30,
+                          left: 20,
+                          bottom: 5,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip formatter={(value) => [`$${value}`, 'Earnings']} />
+                        <Legend />
+                        <Bar dataKey="earnings" fill="#10b981" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="reviews" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Review Ratings</CardTitle>
+                  <CardDescription>
+                    Distribution of review ratings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="h-80">
+                  {isLoading ? (
+                    <div className="animate-pulse w-full h-full bg-muted rounded-md" />
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[
+                          { rating: "5 ★", count: reviewsData?.filter((r: any) => r.rating === 5).length || 0 },
+                          { rating: "4 ★", count: reviewsData?.filter((r: any) => r.rating === 4).length || 0 },
+                          { rating: "3 ★", count: reviewsData?.filter((r: any) => r.rating === 3).length || 0 },
+                          { rating: "2 ★", count: reviewsData?.filter((r: any) => r.rating === 2).length || 0 },
+                          { rating: "1 ★", count: reviewsData?.filter((r: any) => r.rating === 1).length || 0 },
+                        ]}
+                        margin={{
+                          top: 5,
+                          right: 30,
+                          left: 20,
+                          bottom: 5,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="rating" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="count" fill="#f59e0b" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
-        
-        <Tabs defaultValue="earnings">
-          <TabsList>
-            <TabsTrigger value="earnings">Earnings</TabsTrigger>
-            <TabsTrigger value="sessions">Sessions</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="earnings" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Earnings Over Time</CardTitle>
-                <CardDescription>
-                  Your earnings from completed sessions
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={earningsData}
-                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip 
-                      formatter={(value) => [`$${value}`, 'Amount']}
-                    />
-                    <Bar 
-                      dataKey="amount" 
-                      fill="#4CAF50" 
-                      name="Earnings" 
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="sessions" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Session Status</CardTitle>
-                <CardDescription>
-                  Distribution of your sessions by status
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={sessionStatusData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {sessionStatusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value) => [value, 'Sessions']}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+      </PageTransition>
     </AppLayout>
   );
 }

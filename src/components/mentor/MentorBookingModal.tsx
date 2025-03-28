@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { 
@@ -94,13 +95,6 @@ export default function MentorBookingModal({
   const isBookingFree = () => {
     const sessionType = getSelectedSessionTypeDetails();
     return sessionType?.is_free || sessionType?.price === 0;
-  };
-  
-  const createFreePayment = async ({
-    description,
-    metadata
-  }: Omit<PaymentOptions, "amount" | "currency">) => {
-    return `free_${Math.random().toString(36).substring(2, 15)}`;
   };
   
   const handleConfirmBooking = async () => {
