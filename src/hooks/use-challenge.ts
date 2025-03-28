@@ -24,7 +24,7 @@ export function useChallenge() {
         .insert({
           user_id: user.id,
           challenge_id: challengeId,
-          status: 'in_progress',
+          status: 'in_progress' as ChallengeStatus,
           progress: {}
         })
         .select('*, challenge:challenges(*)')
@@ -64,13 +64,13 @@ export function useChallenge() {
 
       // Merge existing progress with new progress
       const updatedProgress = {
-        ...existingChallenge.progress,
+        ...(existingChallenge.progress || {}),
         ...progressData
       };
 
       // Check if all requirements are met
       let status: ChallengeStatus = 'in_progress';
-      const requirements = existingChallenge.challenge.requirements || {};
+      const requirements = existingChallenge.challenge?.requirements || {};
       const requirementsMet = Object.keys(requirements).every(key => 
         key in updatedProgress && updatedProgress[key] >= requirements[key]
       );
@@ -85,7 +85,7 @@ export function useChallenge() {
           progress: updatedProgress,
           status,
           completed_at: status === 'completed' ? new Date().toISOString() : null,
-          xp_earned: status === 'completed' ? existingChallenge.challenge.xp_reward : 0
+          xp_earned: status === 'completed' ? existingChallenge.challenge?.xp_reward : 0
         })
         .eq('id', userChallengeId);
 
@@ -95,7 +95,7 @@ export function useChallenge() {
       if (status === 'completed') {
         const { error: awardXpError } = await supabase.rpc('award_xp', {
           p_user_id: user.id,
-          p_amount: existingChallenge.challenge.xp_reward,
+          p_amount: existingChallenge.challenge?.xp_reward || 0,
           p_type: 'challenge_completed',
           p_reference_id: existingChallenge.challenge_id
         });
@@ -103,7 +103,7 @@ export function useChallenge() {
         if (awardXpError) {
           console.error('Error awarding XP:', awardXpError);
         } else {
-          toast.success(`Challenge completed! +${existingChallenge.challenge.xp_reward} XP`);
+          toast.success(`Challenge completed! +${existingChallenge.challenge?.xp_reward || 0} XP`);
         }
       }
 
@@ -132,7 +132,7 @@ export function useChallenge() {
       const { error } = await supabase
         .from('user_challenges')
         .update({
-          status: 'failed'
+          status: 'failed' as ChallengeStatus
         })
         .eq('id', userChallengeId);
 
