@@ -13,7 +13,14 @@ import {
   MentorAnalytics
 } from "@/types/mentor";
 import { ProfileType } from "@/types/profile";
-import { formatProfileData, formatAvailabilitySlotData, formatSessionData, formatReviewData } from "@/lib/data-utils";
+import { 
+  formatProfileData, 
+  formatAvailabilitySlotData, 
+  formatSessionData, 
+  formatReviewData,
+  formatSessionTypeData
+} from "@/lib/data-utils";
+import { asMentorAvailabilitySlot, asMentorSessionType } from "@/lib/database-types";
 
 export function useMentor() {
   const { user } = useAuth();
@@ -104,7 +111,7 @@ export function useMentor() {
           
         if (error) throw error;
         
-        return data.map(slot => formatAvailabilitySlotData(slot)) as MentorAvailabilitySlot[];
+        return (data || []).map(slot => formatAvailabilitySlotData(asMentorAvailabilitySlot(slot)));
       },
       enabled: !!mentorId,
     });
@@ -265,15 +272,18 @@ export function useMentor() {
   const addAvailabilitySlot = async (slot: { start_time: string; end_time: string; recurring_rule?: string }) => {
     if (!user) throw new Error("User must be logged in");
     
+    // Create slot with correct type structure
+    const newSlot = {
+      mentor_id: user.id,
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      recurring_rule: slot.recurring_rule,
+      is_booked: false
+    };
+    
     const { data, error } = await supabase
       .from("mentor_availability_slots")
-      .insert({
-        mentor_id: user.id,
-        start_time: slot.start_time,
-        end_time: slot.end_time,
-        recurring_rule: slot.recurring_rule,
-        is_booked: false
-      })
+      .insert(newSlot)
       .select()
       .single();
       
@@ -283,7 +293,7 @@ export function useMentor() {
     queryClient.invalidateQueries({ queryKey: ["mentor-availability"] });
     
     toast.success("Availability slot added successfully");
-    return formatAvailabilitySlotData(data);
+    return formatAvailabilitySlotData(asMentorAvailabilitySlot(data));
   };
 
   // Book a session with a mentor
@@ -310,7 +320,10 @@ export function useMentor() {
       
     if (slotError) throw slotError;
     
-    if (slotData.is_booked) {
+    // Format slot data correctly
+    const formattedSlot = asMentorAvailabilitySlot(slotData);
+    
+    if (formattedSlot.is_booked) {
       throw new Error("This slot is already booked");
     }
     
@@ -322,8 +335,8 @@ export function useMentor() {
         mentee_id: user.id,
         title: sessionData.title,
         description: sessionData.description || '',
-        start_time: slotData.start_time,
-        end_time: slotData.end_time,
+        start_time: formattedSlot.start_time,
+        end_time: formattedSlot.end_time,
         status: 'scheduled',
         payment_status: sessionData.payment_id ? 'completed' : 'pending',
         payment_provider: sessionData.payment_provider,
@@ -359,8 +372,8 @@ export function useMentor() {
         message: 'Your mentorship session has been booked',
         metadata: {
           session_id: sessionResult.id,
-          start_time: slotData.start_time,
-          end_time: slotData.end_time
+          start_time: formattedSlot.start_time,
+          end_time: formattedSlot.end_time
         }
       });
     
@@ -395,15 +408,21 @@ export function useMentor() {
       throw new Error("Not authorized to update this session");
     }
     
+    const updateData: any = { status };
+    
+    if (notes !== undefined) {
+      updateData.session_notes = notes;
+    }
+    
+    if (status === 'cancelled') {
+      updateData.cancellation_reason = cancellationReason;
+      updateData.cancelled_by = user.id;
+    }
+    
     // Update session status
     const { data, error } = await supabase
       .from("mentor_sessions")
-      .update({
-        status,
-        session_notes: notes || sessionData.session_notes,
-        cancellation_reason: status === 'cancelled' ? cancellationReason : sessionData.cancellation_reason,
-        cancelled_by: status === 'cancelled' ? user.id : sessionData.cancelled_by
-      })
+      .update(updateData)
       .eq("id", sessionId)
       .select()
       .single();
@@ -419,10 +438,12 @@ export function useMentor() {
     }
     
     // Create notification for the other party
+    const otherPartyId = user.id === sessionData.mentor_id ? sessionData.mentee_id : sessionData.mentor_id;
+    
     await supabase
       .from("notifications")
       .insert({
-        user_id: user.id === sessionData.mentor_id ? sessionData.mentee_id : sessionData.mentor_id,
+        user_id: otherPartyId,
         sender_id: user.id,
         notification_type: `session_${status}`,
         related_id: sessionId,
@@ -604,19 +625,21 @@ export function useMentor() {
         if (updateError) throw updateError;
       } else {
         // Otherwise insert a new session type
+        const newSessionType = {
+          mentor_id: user.id,
+          name: sessionType.name,
+          description: sessionType.description,
+          duration: sessionType.duration,
+          price: sessionType.price,
+          currency: sessionType.currency || 'USD',
+          is_free: sessionType.is_free || false,
+          is_featured: sessionType.is_featured || false,
+          color: sessionType.color
+        };
+        
         const { error: insertError } = await supabase
           .from("mentor_session_types")
-          .insert({
-            mentor_id: user.id,
-            name: sessionType.name,
-            description: sessionType.description,
-            duration: sessionType.duration,
-            price: sessionType.price,
-            currency: sessionType.currency || 'USD',
-            is_free: sessionType.is_free || false,
-            is_featured: sessionType.is_featured || false,
-            color: sessionType.color
-          });
+          .insert(newSessionType);
           
         if (insertError) throw insertError;
       }
@@ -644,6 +667,8 @@ export function useMentor() {
           
         if (sessionsError) throw sessionsError;
         
+        if (!sessionsData) return {} as MentorAnalytics;
+        
         // Get reviews data
         const { data: reviewsData, error: reviewsError } = await supabase
           .from("session_reviews")
@@ -654,6 +679,8 @@ export function useMentor() {
           .eq("session.mentor_id", user.id);
           
         if (reviewsError) throw reviewsError;
+        
+        if (!reviewsData) return {} as MentorAnalytics;
           
         // Calculate analytics
         const completedSessions = sessionsData.filter((s) => s.status === 'completed');
@@ -661,7 +688,9 @@ export function useMentor() {
         
         // Use price as fallback since payment_amount might not exist
         const totalEarnings = completedSessions.reduce((sum, session) => {
-          const amount = session.payment_amount !== null ? session.payment_amount : session.price;
+          const amount = session.payment_amount !== null && session.payment_amount !== undefined 
+            ? session.payment_amount 
+            : session.price;
           return sum + (amount || 0);
         }, 0);
         

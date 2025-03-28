@@ -3,6 +3,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { stripe } from './stripe.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
+// Define Deno variable for TypeScript
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+  serve(handler: (req: Request) => Promise<Response> | Response): void;
+};
+
 // Get Supabase URL and key from environment variables
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
