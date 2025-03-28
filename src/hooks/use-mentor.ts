@@ -20,7 +20,7 @@ import {
   formatReviewData,
   formatSessionTypeData
 } from "@/lib/data-utils";
-import { useMentorApplication } from "./use-mentor-application";
+import { useMentorApplication as importedUseMentorApplication } from "./use-mentor-application";
 
 // API URL constants for direct fetch when needed
 const API_URL = "https://scicbwtczqunflsqnfzu.supabase.co";
@@ -32,9 +32,9 @@ const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 export function useMentor() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-
-  // Fix for circular reference - just import directly instead of using a variable
-  const useMentors = (filter?: MentorFilter) => {
+  
+  // Define the useMentors function directly here instead of using a variable
+  function useMentors(filter?: MentorFilter) {
     return useQuery({
       queryKey: ['mentors', filter],
       queryFn: async () => {
@@ -65,7 +65,7 @@ export function useMentor() {
         return data.map(profile => formatProfileData(profile));
       }
     });
-  };
+  }
 
   // Fetch a single mentor profile
   const useMentorProfile = (mentorId: string) => {
@@ -575,6 +575,6 @@ export function useMentor() {
     useUpdateSessionStatus,
     useLeaveReview,
     useMentorAnalytics,
-    useMentorApplication
+    useMentorApplication: importedUseMentorApplication
   };
 }

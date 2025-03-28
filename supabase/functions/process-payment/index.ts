@@ -2,7 +2,7 @@
 // Import the Supabase client
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.3'
 
-// Define CORS headers
+// Define CORS headers directly in this file instead of importing
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -11,12 +11,12 @@ const corsHeaders = {
 
 // Define Deno variable for TypeScript
 declare global {
-  const Deno: {
+  interface Deno {
     env: {
       get(key: string): string | undefined;
     };
     serve(handler: (req: Request) => Promise<Response> | Response): void;
-  };
+  }
 }
 
 // Get Supabase URL and key from environment variables

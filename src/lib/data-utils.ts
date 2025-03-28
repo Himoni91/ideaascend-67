@@ -1,4 +1,3 @@
-
 import { 
   MentorAvailabilitySlotRow, 
   MentorSessionRow, 
@@ -115,7 +114,8 @@ export function formatSessionData(data: any): MentorSession {
     ? session.metadata as Record<string, any>
     : {};
   
-  return {
+  // Create the base session object
+  const formattedSession: MentorSession = {
     id: session.id,
     mentor_id: session.mentor_id,
     mentee_id: session.mentee_id,
@@ -135,13 +135,19 @@ export function formatSessionData(data: any): MentorSession {
     cancelled_by: session.cancelled_by,
     session_type: session.session_type || "",
     created_at: session.created_at,
-    price: session.price,
     metadata: safeMetadata,
-    
-    // These are not in the MentorSessionRow but might be included in the data from a join
-    mentor: data.mentor ? formatProfileData(data.mentor) : undefined,
-    mentee: data.mentee ? formatProfileData(data.mentee) : undefined
   };
+  
+  // Add mentor and mentee if they exist in the data from a join
+  if (data.mentor) {
+    formattedSession.mentor = formatProfileData(data.mentor);
+  }
+  
+  if (data.mentee) {
+    formattedSession.mentee = formatProfileData(data.mentee);
+  }
+  
+  return formattedSession;
 }
 
 /**
