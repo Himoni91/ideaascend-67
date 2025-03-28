@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -44,7 +43,6 @@ export default function PitchHubIdeaDetail() {
   const { data: reviews, isLoading: isReviewsLoading } = useMentorReviews(id!);
   const { data: analytics, isLoading: isAnalyticsLoading } = useAnalytics(id!);
   
-  // Check if user is a mentor
   const [isMentor, setIsMentor] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
   
@@ -452,7 +450,7 @@ export default function PitchHubIdeaDetail() {
                 isLoading={isReviewsLoading}
                 onAddReview={handleAddReview}
                 isSubmitting={isAddingReview}
-                canReview={isMentor && !hasReviewed}
+                canAddReview={isMentor && !hasReviewed}
               />
             </TabsContent>
             

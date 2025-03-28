@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Award, Send, Star as StarIcon } from "lucide-react";
@@ -50,7 +49,7 @@ interface MentorReviewsProps {
   isLoading: boolean;
   onAddReview: (content: string, rating: number) => void;
   isSubmitting: boolean;
-  canAddReview: boolean;
+  canAddReview: boolean; // Changed property name from canReview to canAddReview
 }
 
 export default function MentorReviews({
@@ -58,7 +57,7 @@ export default function MentorReviews({
   isLoading,
   onAddReview,
   isSubmitting,
-  canAddReview
+  canAddReview 
 }: MentorReviewsProps) {
   const { user } = useAuth();
   const [review, setReview] = useState("");
