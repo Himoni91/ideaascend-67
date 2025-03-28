@@ -1,306 +1,362 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import AppLayout from "@/components/layout/AppLayout";
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { 
+  BarChart3, 
+  Calendar, 
+  Clock, 
+  DollarSign, 
+  Users, 
+  Star, 
+  TrendingUp, 
+  User,
+  Loader2
+} from "lucide-react";
 import { useMentor } from "@/hooks/use-mentor";
 import { useAuth } from "@/contexts/AuthContext";
-import { PageTransition } from "@/components/ui/page-transition";
-import { 
-  Card,
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  ArrowLeft,
-  Calendar,
-  Clock,
-  DollarSign,
-  TrendingUp,
-  Users,
-  Star,
-  BarChart3
-} from "lucide-react";
-import { format } from "date-fns";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import AppLayout from "@/components/layout/AppLayout";
+import { PageTransition } from "@/components/ui/page-transition";
 
 export default function MentorAnalyticsPage() {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const { useMentorAnalytics, useMentorSessions, useMentorReviews } = useMentor();
+  const { useMentorAnalytics, useMentorSessions } = useMentor();
   
-  const [timeRange, setTimeRange] = useState<"all" | "month" | "week">("all");
-  
-  // Get mentor analytics
   const { data: analytics, isLoading: isLoadingAnalytics } = useMentorAnalytics();
+  const { data: sessions = [], isLoading: isLoadingSessions } = useMentorSessions(undefined, "mentor");
   
-  // Get recent sessions
-  const { data: recentSessions = [], isLoading: isLoadingSessions } = useMentorSessions(
-    "all", 
-    "mentor"
-  );
-  
-  // Get recent reviews
-  const { data: reviews = [], isLoading: isLoadingReviews } = useMentorReviews(
-    user?.id
-  );
+  // Check if current user is a mentor
+  const isMentor = user?.is_mentor || false;
   
   if (!user) {
-    navigate("/auth/sign-in");
-    return null;
+    return (
+      <AppLayout>
+        <div className="container mx-auto px-4 py-16">
+          <Alert>
+            <AlertDescription>
+              You need to be logged in to view mentor analytics.
+            </AlertDescription>
+          </Alert>
+          <div className="mt-4">
+            <Button asChild>
+              <Link to="/auth/sign-in">Sign In</Link>
+            </Button>
+          </div>
+        </div>
+      </AppLayout>
+    );
   }
   
-  // Filter sessions based on time range
-  const filteredSessions = recentSessions.filter(session => {
-    const sessionDate = new Date(session.created_at);
-    const now = new Date();
-    
-    if (timeRange === "week") {
-      const weekAgo = new Date();
-      weekAgo.setDate(now.getDate() - 7);
-      return sessionDate >= weekAgo;
-    } else if (timeRange === "month") {
-      const monthAgo = new Date();
-      monthAgo.setMonth(now.getMonth() - 1);
-      return sessionDate >= monthAgo;
-    }
-    
-    return true;
-  });
+  if (!isMentor) {
+    return (
+      <AppLayout>
+        <div className="container mx-auto px-4 py-16">
+          <Alert>
+            <AlertDescription>
+              You need to be a mentor to access this page.
+            </AlertDescription>
+          </Alert>
+          <div className="mt-4">
+            <Button asChild>
+              <Link to="/mentor-space/apply">Become a Mentor</Link>
+            </Button>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+  
+  // Get recent sessions (last 5)
+  const recentSessions = [...sessions]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 5);
   
   return (
     <AppLayout>
       <PageTransition>
-        <div className="container max-w-5xl mx-auto px-4 py-8">
-          <div className="flex items-center mb-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mr-2"
-              onClick={() => navigate(-1)}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">Mentor Analytics</h1>
-              <p className="text-muted-foreground">
-                Track your mentorship performance and impact
-              </p>
-            </div>
-          </div>
-          
-          <Tabs 
-            value={timeRange} 
-            onValueChange={(value) => setTimeRange(value as "all" | "month" | "week")}
-            className="mb-6"
+        <div className="container mx-auto px-4 py-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-8"
           >
-            <TabsList className="w-full md:w-auto">
-              <TabsTrigger value="all">All Time</TabsTrigger>
-              <TabsTrigger value="month">Past Month</TabsTrigger>
-              <TabsTrigger value="week">Past Week</TabsTrigger>
-            </TabsList>
-          </Tabs>
+            <h1 className="text-3xl font-bold mb-2 flex items-center">
+              <BarChart3 className="mr-3 h-7 w-7 text-primary" />
+              Mentor Analytics
+            </h1>
+            <p className="text-muted-foreground max-w-3xl">
+              Track your performance as a mentor, view earnings, and gain insights into your mentorship impact.
+            </p>
+          </motion.div>
           
           {isLoadingAnalytics ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <Card key={index} className="bg-muted/30 animate-pulse">
-                  <CardContent className="p-6 h-28"></CardContent>
-                </Card>
-              ))}
+            <div className="flex justify-center items-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Total Sessions</p>
-                      <p className="text-3xl font-bold">{analytics?.total_sessions || 0}</p>
-                    </div>
-                    <Calendar className="h-10 w-10 text-primary/20" />
-                  </div>
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    <span className="text-green-500 font-medium flex items-center">
-                      <TrendingUp className="h-3 w-3 mr-1" /> 
-                      {analytics?.upcoming_sessions || 0} upcoming
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Completed</p>
-                      <p className="text-3xl font-bold">{analytics?.completed_sessions || 0}</p>
-                    </div>
-                    <Clock className="h-10 w-10 text-primary/20" />
-                  </div>
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    {analytics?.total_sessions ? (
-                      <span className="font-medium">
-                        {Math.round((analytics.completed_sessions / analytics.total_sessions) * 100)}% completion rate
-                      </span>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Session Stats */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+                className="lg:col-span-3"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Total Sessions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">
+                        {analytics?.total_sessions || 0}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Completed Sessions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">
+                        {analytics?.completed_sessions || 0}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Unique Mentees
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">
+                        {analytics?.unique_mentees || 0}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Average Rating
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold flex items-center">
+                        {analytics?.average_rating ? analytics.average_rating.toFixed(1) : "N/A"}
+                        {analytics?.average_rating ? (
+                          <Star className="h-4 w-4 ml-1 text-yellow-500 fill-yellow-500" />
+                        ) : null}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <DollarSign className="h-5 w-5 mr-2 text-primary" />
+                        Earnings
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold mb-4">${analytics?.total_earnings || 0}</div>
+                      <p className="text-sm text-muted-foreground">
+                        Total earnings from {analytics?.completed_sessions || 0} completed sessions
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Star className="h-5 w-5 mr-2 text-primary" />
+                        Reviews
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold mb-4">{analytics?.reviews_count || 0}</div>
+                      <p className="text-sm text-muted-foreground">
+                        Total reviews from mentees with an average rating of {analytics?.average_rating ? analytics.average_rating.toFixed(1) : "N/A"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle>Recent Sessions</CardTitle>
+                    <CardDescription>
+                      Your most recent mentorship sessions
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingSessions ? (
+                      <div className="flex justify-center items-center py-6">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    ) : recentSessions.length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        No sessions recorded yet.
+                      </div>
                     ) : (
-                      <span>No sessions yet</span>
+                      <div className="space-y-6">
+                        {recentSessions.map((session) => (
+                          <div key={session.id} className="flex items-start justify-between border-b pb-4 last:border-0 last:pb-0">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={session.mentee?.avatar_url || undefined} />
+                                <AvatarFallback>
+                                  {session.mentee?.full_name?.charAt(0) || 
+                                  session.mentee?.username?.charAt(0) || "U"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h4 className="font-medium">{session.title}</h4>
+                                <p className="text-sm text-muted-foreground">
+                                  with {session.mentee?.full_name || session.mentee?.username}
+                                </p>
+                                <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                                  <div className="flex items-center">
+                                    <Calendar className="h-3.5 w-3.5 mr-1" />
+                                    {new Date(session.start_time).toLocaleDateString()}
+                                  </div>
+                                  <div className="flex items-center">
+                                    <Clock className="h-3.5 w-3.5 mr-1" />
+                                    {new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-medium">
+                                ${session.payment_amount || 0}
+                              </div>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                {session.status}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="outline" className="w-full" asChild>
+                      <Link to="/mentor-space/sessions">
+                        View All Sessions
+                      </Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </motion.div>
               
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Total Earnings</p>
-                      <p className="text-3xl font-bold">${analytics?.total_earnings || 0}</p>
-                    </div>
-                    <DollarSign className="h-10 w-10 text-primary/20" />
-                  </div>
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    {analytics?.completed_sessions ? (
-                      <span className="font-medium">
-                        ${Math.round((analytics.total_earnings / analytics.completed_sessions) * 100) / 100} avg. per session
-                      </span>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+              >
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle>Upcoming Sessions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingSessions ? (
+                      <div className="flex justify-center items-center py-6">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    ) : sessions.filter(s => s.status === "scheduled" || s.status === "rescheduled").length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        No upcoming sessions.
+                      </div>
                     ) : (
-                      <span>No completed sessions yet</span>
+                      <div className="space-y-4">
+                        {sessions
+                          .filter(s => s.status === "scheduled" || s.status === "rescheduled")
+                          .slice(0, 3)
+                          .map((session) => (
+                            <div key={session.id} className="border rounded-lg p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={session.mentee?.avatar_url || undefined} />
+                                  <AvatarFallback>
+                                    {session.mentee?.full_name?.charAt(0) || 
+                                    session.mentee?.username?.charAt(0) || "U"}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <h4 className="font-medium text-sm">{session.mentee?.full_name || session.mentee?.username}</h4>
+                                </div>
+                              </div>
+                              <div className="text-xs text-muted-foreground flex items-center mb-1">
+                                <Calendar className="h-3.5 w-3.5 mr-1" />
+                                {new Date(session.start_time).toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-muted-foreground flex items-center">
+                                <Clock className="h-3.5 w-3.5 mr-1" />
+                                {new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+                                {new Date(session.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Rating</p>
-                      <div className="flex items-center">
-                        <p className="text-3xl font-bold mr-1">{Math.round(analytics?.average_rating * 10) / 10 || 0}</p>
-                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Performance</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Repeat mentees</span>
+                        <span className="font-medium">{analytics?.repeat_mentees || 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Reviews received</span>
+                        <span className="font-medium">{analytics?.reviews_count || 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Upcoming sessions</span>
+                        <span className="font-medium">{analytics?.upcoming_sessions || 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Completion rate</span>
+                        <span className="font-medium">
+                          {analytics?.total_sessions 
+                            ? Math.round((analytics.completed_sessions / analytics.total_sessions) * 100) 
+                            : 0}%
+                        </span>
                       </div>
                     </div>
-                    <Users className="h-10 w-10 text-primary/20" />
-                  </div>
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    <span className="font-medium">
-                      {analytics?.reviews_count || 0} reviews from {analytics?.unique_mentees || 0} mentees
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="outline" className="w-full" asChild>
+                      <Link to={`/mentor-space/${user.id}`}>
+                        View My Profile
+                      </Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </motion.div>
             </div>
           )}
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center">
-                  <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                  Recent Sessions
-                </CardTitle>
-                <CardDescription>Your most recent mentorship sessions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoadingSessions ? (
-                  <div className="space-y-4">
-                    {Array.from({ length: 3 }).map((_, index) => (
-                      <div key={index} className="bg-muted/30 animate-pulse h-16 rounded-md"></div>
-                    ))}
-                  </div>
-                ) : filteredSessions.length === 0 ? (
-                  <div className="text-center py-6">
-                    <p className="text-muted-foreground">No sessions found in the selected time range</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {filteredSessions.slice(0, 5).map((session) => (
-                      <div key={session.id} className="border p-3 rounded-md">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-medium text-sm">{session.title}</h4>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {format(new Date(session.start_time), "PP")} with {session.mentee?.full_name || session.mentee?.username}
-                            </p>
-                          </div>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            session.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
-                            session.status === 'scheduled' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
-                            session.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
-                            'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                          }`}>
-                            {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                    {filteredSessions.length > 5 && (
-                      <Button variant="outline" className="w-full" onClick={() => navigate("/mentor-space/sessions")}>
-                        View All Sessions
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center">
-                  <Star className="mr-2 h-4 w-4 text-muted-foreground" />
-                  Recent Reviews
-                </CardTitle>
-                <CardDescription>What your mentees are saying about you</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoadingReviews ? (
-                  <div className="space-y-4">
-                    {Array.from({ length: 3 }).map((_, index) => (
-                      <div key={index} className="bg-muted/30 animate-pulse h-16 rounded-md"></div>
-                    ))}
-                  </div>
-                ) : reviews.length === 0 ? (
-                  <div className="text-center py-6">
-                    <p className="text-muted-foreground">No reviews yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {reviews.slice(0, 3).map((review) => (
-                      <div key={review.id} className="border p-3 rounded-md">
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-center">
-                            <div className="flex">
-                              {Array.from({ length: 5 }).map((_, i) => (
-                                <Star 
-                                  key={i} 
-                                  className={`h-4 w-4 ${
-                                    i < review.rating 
-                                      ? 'text-yellow-500 fill-yellow-500' 
-                                      : 'text-gray-300'
-                                  }`} 
-                                />
-                              ))}
-                            </div>
-                            <span className="text-xs ml-2">
-                              {review.reviewer?.full_name || review.reviewer?.username}
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(review.created_at), "PP")}
-                          </span>
-                        </div>
-                        <p className="text-sm mt-2 line-clamp-2">{review.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </PageTransition>
     </AppLayout>

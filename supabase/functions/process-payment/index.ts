@@ -1,5 +1,6 @@
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 
 // Import shared CORS headers
 const corsHeaders = {
@@ -8,7 +9,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-export async function handler(req: Request) {
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -86,7 +87,4 @@ export async function handler(req: Request) {
       }
     );
   }
-}
-
-// This line is needed for Deno to handle requests
-Deno.serve(handler);
+});
