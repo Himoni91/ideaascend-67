@@ -14,26 +14,7 @@ import {
   MentorAnalytics
 } from "@/types/mentor";
 import { ProfileType } from "@/types/profile";
-
-// Utility function to format profile data
-const formatProfileData = (profileData: any): ProfileType => {
-  return {
-    ...profileData,
-    expertise: profileData.expertise || [],
-    badges: profileData.badges || [],
-    stats: profileData.stats || {
-      followers: 0,
-      following: 0,
-      ideas: 0,
-      mentorSessions: 0,
-      posts: 0,
-      mentorRating: 0,
-      mentorReviews: 0
-    },
-    level: profileData.level || 1,
-    xp: profileData.xp || 0
-  };
-};
+import { formatProfileData } from "@/lib/data-utils";
 
 export function useMentor() {
   const { user } = useAuth();
@@ -115,10 +96,13 @@ export function useMentor() {
       queryFn: async () => {
         if (!mentorId) throw new Error("Mentor ID is required");
         
-        const { data, error } = await supabase.rpc('get_mentor_availability', {
-          p_mentor_id: mentorId,
-          p_future_only: true
-        });
+        // Use direct query instead of RPC function
+        const { data, error } = await supabase
+          .from("mentor_availability_slots")
+          .select("*")
+          .eq("mentor_id", mentorId)
+          .gt("start_time", new Date().toISOString())
+          .order("start_time", { ascending: true });
           
         if (error) throw error;
         
@@ -126,16 +110,7 @@ export function useMentor() {
           return [];
         }
         
-        return data.map((slot: any) => ({
-          id: slot.id,
-          mentor_id: slot.mentor_id,
-          start_time: slot.start_time,
-          end_time: slot.end_time,
-          is_booked: slot.is_booked,
-          session_id: slot.session_id,
-          created_at: slot.created_at,
-          recurring_rule: slot.recurring_rule
-        }));
+        return data as MentorAvailabilitySlot[];
       },
       enabled: !!mentorId,
     });
@@ -148,11 +123,32 @@ export function useMentor() {
       queryFn: async () => {
         if (!user) throw new Error("User must be logged in");
         
-        const { data, error } = await supabase.rpc('get_mentor_sessions', {
-          p_user_id: user.id,
-          p_role: role,
-          p_status: status === 'all' ? null : status
-        });
+        // Direct query with joins instead of RPC
+        let query = supabase
+          .from("mentor_sessions")
+          .select(`
+            *,
+            mentor:mentor_id(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats),
+            mentee:mentee_id(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats)
+          `);
+          
+        // Apply filters based on role and status
+        if (role === "mentor") {
+          query = query.eq("mentor_id", user.id);
+        } else if (role === "mentee") {
+          query = query.eq("mentee_id", user.id);
+        } else {
+          query = query.or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`);
+        }
+        
+        if (status && status !== 'all') {
+          query = query.eq("status", status);
+        }
+        
+        // Sort by start time descending
+        query = query.order("start_time", { ascending: false });
+        
+        const { data, error } = await query;
           
         if (error) throw error;
         
@@ -160,7 +156,8 @@ export function useMentor() {
           return [];
         }
         
-        return data.map((session: any) => ({
+        // Transform the data to match MentorSession type
+        return data.map((session) => ({
           id: session.id,
           mentor_id: session.mentor_id,
           mentee_id: session.mentee_id,
@@ -178,11 +175,11 @@ export function useMentor() {
           session_notes: session.session_notes,
           cancellation_reason: session.cancellation_reason,
           cancelled_by: session.cancelled_by,
-          session_type: session.session_type,
+          session_type: session.session_type || 'standard',
           created_at: session.created_at,
           mentor: session.mentor ? formatProfileData(session.mentor) : undefined,
           mentee: session.mentee ? formatProfileData(session.mentee) : undefined
-        }));
+        })) as MentorSession[];
       },
       enabled: !!user,
     });
@@ -195,43 +192,44 @@ export function useMentor() {
       queryFn: async () => {
         if (!sessionId || !user) throw new Error("Session ID and user are required");
         
-        const { data, error } = await supabase.rpc('get_mentor_session_by_id', {
-          p_session_id: sessionId,
-          p_user_id: user.id
-        });
+        // Direct query with joins instead of RPC
+        const { data, error } = await supabase
+          .from("mentor_sessions")
+          .select(`
+            *,
+            mentor:mentor_id(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats),
+            mentee:mentee_id(id, username, full_name, avatar_url, bio, position, company, expertise, is_mentor, stats)
+          `)
+          .eq("id", sessionId)
+          .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`)
+          .single();
           
         if (error) throw error;
         
-        if (!data || !Array.isArray(data) || data.length === 0) {
-          throw new Error("Session not found");
-        }
-        
-        const session = data[0];
-        
-        // Format the data
+        // Transform the data to match MentorSession type
         return {
-          id: session.id,
-          mentor_id: session.mentor_id,
-          mentee_id: session.mentee_id,
-          title: session.title,
-          description: session.description,
-          start_time: session.start_time,
-          end_time: session.end_time,
-          status: session.status,
-          payment_status: session.payment_status,
-          payment_provider: session.payment_provider,
-          payment_id: session.payment_id,
-          payment_amount: session.payment_amount,
-          payment_currency: session.payment_currency,
-          session_url: session.session_url,
-          session_notes: session.session_notes,
-          cancellation_reason: session.cancellation_reason,
-          cancelled_by: session.cancelled_by,
-          session_type: session.session_type,
-          created_at: session.created_at,
-          mentor: session.mentor ? formatProfileData(session.mentor) : undefined,
-          mentee: session.mentee ? formatProfileData(session.mentee) : undefined
-        };
+          id: data.id,
+          mentor_id: data.mentor_id,
+          mentee_id: data.mentee_id,
+          title: data.title,
+          description: data.description,
+          start_time: data.start_time,
+          end_time: data.end_time,
+          status: data.status,
+          payment_status: data.payment_status,
+          payment_provider: data.payment_provider,
+          payment_id: data.payment_id,
+          payment_amount: data.payment_amount,
+          payment_currency: data.payment_currency,
+          session_url: data.session_url,
+          session_notes: data.session_notes,
+          cancellation_reason: data.cancellation_reason,
+          cancelled_by: data.cancelled_by,
+          session_type: data.session_type || 'standard',
+          created_at: data.created_at,
+          mentor: data.mentor ? formatProfileData(data.mentor) : undefined,
+          mentee: data.mentee ? formatProfileData(data.mentee) : undefined
+        } as MentorSession;
       },
       enabled: !!sessionId && !!user,
     });
@@ -244,9 +242,16 @@ export function useMentor() {
       queryFn: async () => {
         if (!mentorId) throw new Error("Mentor ID is required");
         
-        const { data, error } = await supabase.rpc('get_mentor_reviews', {
-          p_mentor_id: mentorId
-        });
+        // Direct query with joins instead of RPC
+        const { data, error } = await supabase
+          .from("session_reviews")
+          .select(`
+            *,
+            session:session_id(mentor_id),
+            reviewer:reviewer_id(id, username, full_name, avatar_url, bio, position, company, expertise, stats)
+          `)
+          .eq("session.mentor_id", mentorId)
+          .order("created_at", { ascending: false });
           
         if (error) throw error;
         
@@ -254,16 +259,17 @@ export function useMentor() {
           return [];
         }
         
-        return data.map((review: any) => ({
+        // Transform the data to match MentorReviewExtended type
+        return data.map((review) => ({
           id: review.id,
           session_id: review.session_id,
           reviewer_id: review.reviewer_id,
-          mentor_id: review.mentor_id,
+          mentor_id: review.session?.mentor_id,
           rating: review.rating,
           content: review.content,
           created_at: review.created_at,
           reviewer: review.reviewer ? formatProfileData(review.reviewer) : undefined
-        }));
+        })) as MentorReviewExtended[];
       },
       enabled: !!mentorId,
     });
@@ -321,12 +327,18 @@ export function useMentor() {
   const addAvailabilitySlot = async (slot: { start_time: string; end_time: string; recurring_rule?: string }) => {
     if (!user) throw new Error("User must be logged in");
     
-    const { data, error } = await supabase.rpc('add_mentor_availability_slot', {
-      p_mentor_id: user.id,
-      p_start_time: slot.start_time,
-      p_end_time: slot.end_time,
-      p_recurring_rule: slot.recurring_rule
-    });
+    // Direct insert instead of RPC
+    const { data, error } = await supabase
+      .from("mentor_availability_slots")
+      .insert({
+        mentor_id: user.id,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        recurring_rule: slot.recurring_rule,
+        is_booked: false
+      })
+      .select()
+      .single();
       
     if (error) throw error;
     
@@ -352,25 +364,75 @@ export function useMentor() {
   }) => {
     if (!user) throw new Error("User must be logged in");
     
-    const { data, error } = await supabase.rpc('book_mentor_session', {
-      p_slot_id: slotId,
-      p_mentee_id: user.id,
-      p_title: sessionData.title,
-      p_description: sessionData.description || '',
-      p_session_type: sessionData.session_type,
-      p_payment_provider: sessionData.payment_provider,
-      p_payment_id: sessionData.payment_id,
-      p_payment_amount: sessionData.payment_amount
-    });
+    // Get the slot details
+    const { data: slotData, error: slotError } = await supabase
+      .from("mentor_availability_slots")
+      .select("*")
+      .eq("id", slotId)
+      .single();
       
-    if (error) throw error;
+    if (slotError) throw slotError;
+    
+    if (slotData.is_booked) {
+      throw new Error("This slot is already booked");
+    }
+    
+    // Create the session
+    const { data: sessionResult, error: sessionError } = await supabase
+      .from("mentor_sessions")
+      .insert({
+        mentor_id: mentorId,
+        mentee_id: user.id,
+        title: sessionData.title,
+        description: sessionData.description || '',
+        start_time: slotData.start_time,
+        end_time: slotData.end_time,
+        status: 'scheduled',
+        payment_status: sessionData.payment_id ? 'completed' : 'pending',
+        payment_provider: sessionData.payment_provider,
+        payment_id: sessionData.payment_id,
+        payment_amount: sessionData.payment_amount,
+        session_type: sessionData.session_type
+      })
+      .select()
+      .single();
+      
+    if (sessionError) throw sessionError;
+    
+    // Update the slot to be booked
+    const { error: updateError } = await supabase
+      .from("mentor_availability_slots")
+      .update({
+        is_booked: true,
+        session_id: sessionResult.id
+      })
+      .eq("id", slotId);
+      
+    if (updateError) throw updateError;
+    
+    // Create notification for the mentor
+    await supabase
+      .from("notifications")
+      .insert({
+        user_id: mentorId,
+        sender_id: user.id,
+        notification_type: 'session_booked',
+        related_id: sessionResult.id,
+        related_type: 'mentor_session',
+        message: 'Your mentorship session has been booked',
+        metadata: {
+          session_id: sessionResult.id,
+          start_time: slotData.start_time,
+          end_time: slotData.end_time
+        }
+      });
     
     // Invalidate queries
     queryClient.invalidateQueries({ queryKey: ["mentor-sessions"] });
     queryClient.invalidateQueries({ queryKey: ["mentor-availability"] });
     
     toast.success("Session booked successfully!");
-    return data;
+    return sessionResult;
   };
 
   // Update session status
@@ -382,15 +444,54 @@ export function useMentor() {
   }) => {
     if (!user) throw new Error("User must be logged in");
     
-    const { data, error } = await supabase.rpc('update_mentor_session_status', {
-      p_session_id: sessionId,
-      p_user_id: user.id,
-      p_status: status,
-      p_notes: notes,
-      p_cancellation_reason: cancellationReason
-    });
+    // Get the session first
+    const { data: sessionData, error: sessionError } = await supabase
+      .from("mentor_sessions")
+      .select("*")
+      .eq("id", sessionId)
+      .single();
+      
+    if (sessionError) throw sessionError;
+    
+    // Check if user is authorized
+    if (sessionData.mentor_id !== user.id && sessionData.mentee_id !== user.id) {
+      throw new Error("Not authorized to update this session");
+    }
+    
+    // Update session status
+    const { data, error } = await supabase
+      .from("mentor_sessions")
+      .update({
+        status,
+        session_notes: notes || sessionData.session_notes,
+        cancellation_reason: status === 'cancelled' ? cancellationReason : sessionData.cancellation_reason,
+        cancelled_by: status === 'cancelled' ? user.id : sessionData.cancelled_by
+      })
+      .eq("id", sessionId)
+      .select()
+      .single();
       
     if (error) throw error;
+    
+    // If cancelled, free up the slot
+    if (status === 'cancelled') {
+      await supabase
+        .from("mentor_availability_slots")
+        .update({ is_booked: false })
+        .eq("session_id", sessionId);
+    }
+    
+    // Create notification for the other party
+    await supabase
+      .from("notifications")
+      .insert({
+        user_id: user.id === sessionData.mentor_id ? sessionData.mentee_id : sessionData.mentor_id,
+        sender_id: user.id,
+        notification_type: `session_${status}`,
+        related_id: sessionId,
+        related_type: 'mentor_session',
+        message: `Your session has been ${status}`
+      });
     
     // Invalidate queries
     queryClient.invalidateQueries({ queryKey: ["mentor-sessions"] });
@@ -416,14 +517,92 @@ export function useMentor() {
   }) => {
     if (!user) throw new Error("User must be logged in");
     
-    const { data, error } = await supabase.rpc('submit_mentor_session_review', {
-      p_session_id: sessionId,
-      p_reviewer_id: user.id,
-      p_rating: rating,
-      p_content: content
-    });
+    // Get the session first
+    const { data: sessionData, error: sessionError } = await supabase
+      .from("mentor_sessions")
+      .select("*")
+      .eq("id", sessionId)
+      .single();
+      
+    if (sessionError) throw sessionError;
+    
+    // Check if user is authorized
+    if (sessionData.mentor_id !== user.id && sessionData.mentee_id !== user.id) {
+      throw new Error("Not authorized to review this session");
+    }
+    
+    // Check if session is completed
+    if (sessionData.status !== 'completed') {
+      throw new Error("Can only review completed sessions");
+    }
+    
+    // Check if user already submitted a review
+    const { data: existingReview, error: reviewCheckError } = await supabase
+      .from("session_reviews")
+      .select("*")
+      .eq("session_id", sessionId)
+      .eq("reviewer_id", user.id)
+      .maybeSingle();
+      
+    if (reviewCheckError) throw reviewCheckError;
+    
+    if (existingReview) {
+      throw new Error("You've already submitted a review for this session");
+    }
+    
+    // Create the review
+    const { data, error } = await supabase
+      .from("session_reviews")
+      .insert({
+        session_id: sessionId,
+        reviewer_id: user.id,
+        rating,
+        content
+      })
+      .select()
+      .single();
       
     if (error) throw error;
+    
+    // Update profile stats for mentor
+    // Get all reviews for the mentor
+    const { data: mentorReviews, error: mentorReviewsError } = await supabase
+      .from("session_reviews")
+      .select("rating")
+      .eq("session.mentor_id", sessionData.mentor_id)
+      .select(`
+        rating,
+        session:session_id(mentor_id)
+      `);
+      
+    if (!mentorReviewsError && mentorReviews) {
+      const averageRating = mentorReviews.reduce((sum, review) => sum + review.rating, 0) / mentorReviews.length;
+      
+      // Update the mentor's profile stats
+      await supabase
+        .from("profiles")
+        .update({
+          stats: {
+            mentorRating: averageRating,
+            mentorReviews: mentorReviews.length
+          }
+        })
+        .eq("id", sessionData.mentor_id);
+    }
+    
+    // Create notification for the mentor
+    if (user.id !== sessionData.mentor_id) {
+      await supabase
+        .from("notifications")
+        .insert({
+          user_id: sessionData.mentor_id,
+          sender_id: user.id,
+          notification_type: 'new_review',
+          related_id: data.id,
+          related_type: 'session_review',
+          message: 'You received a new review'
+        });
+    }
     
     // Invalidate queries
     queryClient.invalidateQueries({ queryKey: ["mentor-reviews"] });
@@ -498,9 +677,13 @@ export function useMentor() {
         if (sessionsError) throw sessionsError;
         
         // Get reviews data
-        const { data: reviewsData, error: reviewsError } = await supabase.rpc('get_mentor_reviews', {
-          p_mentor_id: user.id
-        });
+        const { data: reviewsData, error: reviewsError } = await supabase
+          .from("session_reviews")
+          .select(`
+            rating,
+            session:session_id(mentor_id)
+          `)
+          .eq("session.mentor_id", user.id);
           
         if (reviewsError) throw reviewsError;
           
@@ -535,7 +718,7 @@ export function useMentor() {
           unique_mentees: uniqueMentees,
           repeat_mentees: repeatMentees,
           reviews_count: reviewsData.length
-        };
+        } as MentorAnalytics;
       },
       enabled: !!user,
     });

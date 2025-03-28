@@ -1,4 +1,3 @@
-
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import AppLayout from "@/components/layout/AppLayout";
@@ -11,7 +10,7 @@ const ProfilePage = lazy(() => import("@/pages/Profile"));
 const EnhancedProfile = lazy(() => import("@/pages/EnhancedProfile"));
 const NotFoundPage = lazy(() => import("@/pages/NotFound"));
 const PitchHub = lazy(() => import("@/pages/PitchHub"));
-const SubmitPitch = lazy(() => import("@/pages/SubmitPitch"));
+const SubmitPitch = lazy(() => import("@/pages/PitchHub"));
 const PitchDetail = lazy(() => import("@/pages/PitchDetail"));
 const PitchHubIdea = lazy(() => import("@/pages/PitchHubIdea"));
 const PitchHubIdeaDetail = lazy(() => import("@/pages/PitchHubIdeaDetail"));
