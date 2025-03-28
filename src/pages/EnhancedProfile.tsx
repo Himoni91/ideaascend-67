@@ -1,9 +1,9 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useExtendedProfile } from "@/hooks/use-extended-profile";
 import AppLayout from "@/components/layout/AppLayout";
-import ProfileEnhancedHeader from "@/components/profile/ProfileEnhancedHeader";
+import AnimatedProfileHeader from "@/components/profile/AnimatedProfileHeader";
 import ProfileAdvancedContent from "@/components/profile/ProfileAdvancedContent";
 import EnhancedProfileEditModal from "@/components/profile/EnhancedProfileEditModal";
 import ProfileOnboarding from "@/components/profile/ProfileOnboarding";
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/ui/page-transition";
 import { ArrowLeft } from "lucide-react";
 import { ExtendedProfileType } from "@/types/profile-extended";
+import { ProfileType } from "@/types/profile";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -30,7 +31,6 @@ export default function EnhancedProfile() {
     isLoading,
     error,
     updateProfile,
-    uploadAvatar,
     isOwnProfile
   } = useExtendedProfile(username || undefined);
 
@@ -81,7 +81,7 @@ export default function EnhancedProfile() {
           
           {isLoading ? (
             <div className="space-y-6">
-              <Skeleton className="h-48 w-full rounded-xl" />
+              <Skeleton className="h-56 w-full rounded-xl" />
               <Skeleton className="h-24 w-full rounded-xl" />
               <Skeleton className="h-96 w-full rounded-xl" />
             </div>
@@ -91,8 +91,8 @@ export default function EnhancedProfile() {
                 <ProfileOnboarding profile={profile} />
               )}
               
-              <ProfileEnhancedHeader 
-                profile={profile} 
+              <AnimatedProfileHeader 
+                profile={profile as ProfileType} 
                 isCurrentUser={isOwnProfile} 
                 onEdit={handleEdit} 
               />
@@ -106,7 +106,7 @@ export default function EnhancedProfile() {
                     {isOwnProfile && <ProfileCompletionTracker />}
                     {isOwnProfile && <ProfileViewers />}
                     <ProfileVerification profile={profile} />
-                    <ProfileConnections profile={profile} />
+                    <ProfileConnections profile={profile as ProfileType} />
                   </div>
                 </div>
               </div>

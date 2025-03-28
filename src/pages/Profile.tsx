@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProfile } from "@/hooks/use-profile";
 import AppLayout from "@/components/layout/AppLayout";
-import ProfileHeader from "@/components/profile/ProfileHeader";
+import AnimatedProfileHeader from "@/components/profile/AnimatedProfileHeader";
 import ProfileContent from "@/components/profile/ProfileContent";
 import ProfileEditModal from "@/components/profile/ProfileEditModal";
 import ProfileViewers from "@/components/profile/ProfileViewers";
@@ -27,7 +27,6 @@ export default function Profile() {
     isLoading,
     error,
     updateProfile,
-    uploadAvatar,
     isOwnProfile
   } = useProfile(username ? username : undefined);
 
@@ -78,14 +77,14 @@ export default function Profile() {
           
           {isLoading ? (
             <div className="space-y-6">
-              <Skeleton className="h-40 w-full rounded-xl" />
+              <Skeleton className="h-56 w-full rounded-xl" />
               <Skeleton className="h-24 w-full rounded-xl" />
               <Skeleton className="h-96 w-full rounded-xl" />
             </div>
           ) : profile ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2 space-y-6">
-                <ProfileHeader 
+                <AnimatedProfileHeader 
                   profile={profile} 
                   isCurrentUser={isOwnProfile} 
                   onEdit={handleEdit} 
