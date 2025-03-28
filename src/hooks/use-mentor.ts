@@ -13,7 +13,7 @@ import {
   MentorAnalytics
 } from "@/types/mentor";
 import { ProfileType } from "@/types/profile";
-import { formatProfileData } from "@/lib/data-utils";
+import { formatProfileData, formatAvailabilitySlotData, formatSessionData, formatReviewData } from "@/lib/data-utils";
 
 export function useMentor() {
   const { user } = useAuth();
@@ -104,7 +104,7 @@ export function useMentor() {
           
         if (error) throw error;
         
-        return data as MentorAvailabilitySlot[];
+        return data.map(slot => formatAvailabilitySlotData(slot)) as MentorAvailabilitySlot[];
       },
       enabled: !!mentorId,
     });
@@ -150,29 +150,7 @@ export function useMentor() {
         }
         
         // Transform the data to match MentorSession type
-        return data.map((session) => ({
-          id: session.id,
-          mentor_id: session.mentor_id,
-          mentee_id: session.mentee_id,
-          title: session.title,
-          description: session.description,
-          start_time: session.start_time,
-          end_time: session.end_time,
-          status: session.status,
-          payment_status: session.payment_status,
-          payment_provider: session.payment_provider || undefined,
-          payment_id: session.payment_id || undefined,
-          payment_amount: session.payment_amount || undefined,
-          payment_currency: session.payment_currency || undefined,
-          session_url: session.session_url,
-          session_notes: session.session_notes || undefined,
-          cancellation_reason: session.cancellation_reason || undefined,
-          cancelled_by: session.cancelled_by || undefined,
-          session_type: session.session_type || 'standard',
-          created_at: session.created_at,
-          mentor: session.mentor ? formatProfileData(session.mentor) : undefined,
-          mentee: session.mentee ? formatProfileData(session.mentee) : undefined
-        })) as MentorSession[];
+        return data.map(session => formatSessionData(session)) as MentorSession[];
       },
       enabled: !!user,
     });
@@ -199,29 +177,7 @@ export function useMentor() {
         if (error) throw error;
         
         // Transform the data to match MentorSession type
-        return {
-          id: data.id,
-          mentor_id: data.mentor_id,
-          mentee_id: data.mentee_id,
-          title: data.title,
-          description: data.description,
-          start_time: data.start_time,
-          end_time: data.end_time,
-          status: data.status,
-          payment_status: data.payment_status,
-          payment_provider: data.payment_provider || undefined,
-          payment_id: data.payment_id || undefined,
-          payment_amount: data.payment_amount || undefined,
-          payment_currency: data.payment_currency || undefined,
-          session_url: data.session_url,
-          session_notes: data.session_notes || undefined,
-          cancellation_reason: data.cancellation_reason || undefined,
-          cancelled_by: data.cancelled_by || undefined,
-          session_type: data.session_type || 'standard',
-          created_at: data.created_at,
-          mentor: data.mentor ? formatProfileData(data.mentor) : undefined,
-          mentee: data.mentee ? formatProfileData(data.mentee) : undefined
-        } as MentorSession;
+        return formatSessionData(data);
       },
       enabled: !!sessionId && !!user,
     });
@@ -251,16 +207,7 @@ export function useMentor() {
         }
         
         // Transform the data to match MentorReviewExtended type
-        return data.map((review) => ({
-          id: review.id,
-          session_id: review.session_id,
-          reviewer_id: review.reviewer_id,
-          mentor_id: review.session?.mentor_id,
-          rating: review.rating,
-          content: review.content,
-          created_at: review.created_at,
-          reviewer: review.reviewer ? formatProfileData(review.reviewer) : undefined
-        })) as MentorReviewExtended[];
+        return data.map(review => formatReviewData(review)) as MentorReviewExtended[];
       },
       enabled: !!mentorId,
     });
@@ -336,7 +283,7 @@ export function useMentor() {
     queryClient.invalidateQueries({ queryKey: ["mentor-availability"] });
     
     toast.success("Availability slot added successfully");
-    return data;
+    return formatAvailabilitySlotData(data);
   };
 
   // Book a session with a mentor
@@ -422,7 +369,7 @@ export function useMentor() {
     queryClient.invalidateQueries({ queryKey: ["mentor-availability"] });
     
     toast.success("Session booked successfully!");
-    return sessionResult;
+    return formatSessionData(sessionResult);
   };
 
   // Update session status
@@ -496,7 +443,7 @@ export function useMentor() {
     };
     
     toast.success(statusMessages[status] || "Session status updated");
-    return data;
+    return formatSessionData(data);
   };
 
   // Submit a review for a session
@@ -601,7 +548,7 @@ export function useMentor() {
     queryClient.invalidateQueries({ queryKey: ["mentor-reviews"] });
     
     toast.success("Your review has been submitted");
-    return data;
+    return formatReviewData(data);
   };
 
   // Setup mentor profile with session types
