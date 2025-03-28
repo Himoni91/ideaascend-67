@@ -20,31 +20,32 @@ export default function AnalyticsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview');
   
+  // Updated to match the actual hook interface
   const {
-    userAnalytics,
-    analyticsSnapshots,
-    analyticsEvents,
-    realtimeAnalytics,
-    chartData,
-    isLoading,
     timeRange,
     setTimeRange,
-    isRealtime,
-    setIsRealtime,
-    recordEvent,
-    incrementMetric,
+    trackEvent,
+    fetchAnalytics,
+    loading: isLoading,
+    data: analyticsData,
+    exportAnalytics
   } = useAnalytics();
+
+  const [isRealtime, setIsRealtime] = useState(false);
+  
+  // Extract the data needed from the hook
+  const userAnalytics = analyticsData?.userAnalytics;
+  const analyticsSnapshots = analyticsData?.snapshots;
+  const analyticsEvents = analyticsData?.events;
+  const chartData = analyticsData?.chartData;
 
   // Record page view on component mount
   useEffect(() => {
     if (user) {
       // Record analytics event
-      recordEvent('page_view', 'analytics');
-      
-      // Increment page view counter
-      incrementMetric.mutate({ metric: 'page_views' });
+      trackEvent('page_view', 'analytics');
     }
-  }, [user]);
+  }, [user, trackEvent]);
 
   // Generate CSV data for export
   const exportCSV = () => {
@@ -57,31 +58,8 @@ export default function AnalyticsPage() {
       return;
     }
     
-    // Convert snapshots to CSV
-    const headers = ["Date", "Page Views", "Profile Views", "Pitch Views", "Followers Gained", "Engagement Rate"];
-    const rows = analyticsSnapshots.map(snapshot => [
-      snapshot.snapshot_date,
-      snapshot.page_views,
-      snapshot.profile_views,
-      snapshot.pitch_views,
-      snapshot.followers_gained,
-      snapshot.engagement_rate
-    ]);
-    
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.join(","))
-    ].join("\n");
-    
-    // Create download link
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `analytics_export_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Execute the export function
+    exportAnalytics();
     
     toast({
       title: "Export complete",
@@ -92,7 +70,7 @@ export default function AnalyticsPage() {
   // Handle manual refresh
   const handleRefresh = () => {
     // Force refetch of all analytics data
-    window.location.reload();
+    fetchAnalytics();
   };
 
   // Animation variants

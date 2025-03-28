@@ -2,12 +2,13 @@
 import React from 'react';
 import { HelpCategory } from '@/types/help';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, HelpCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArticleList } from './ArticleList';
 import { useHelpCenter } from '@/hooks/use-help-center';
 import * as LucideIcons from 'lucide-react';
+import { LucideIcon } from 'lucide-react';
 
 interface ArticleCategoryProps {
   categorySlug: string;
@@ -22,10 +23,10 @@ export function ArticleCategory({ categorySlug }: ArticleCategoryProps) {
   
   const category = categories?.find(c => c.slug === categorySlug);
 
-  // Dynamically get the icon component
-  const IconComponent = category?.icon && (LucideIcons as Record<string, React.FC<{ className?: string }>>)[category.icon] 
-    ? (LucideIcons as Record<string, React.FC<{ className?: string }>>)[category.icon]
-    : LucideIcons.HelpCircle;
+  // Type assertion for the icon component
+  const IconComponent = category?.icon 
+    ? (LucideIcons as Record<string, LucideIcon>)[category.icon] as LucideIcon || HelpCircle
+    : HelpCircle;
 
   if (isCategoriesLoading) {
     return (

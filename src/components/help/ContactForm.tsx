@@ -36,7 +36,15 @@ export function ContactForm() {
   });
 
   const onSubmit = (data: ContactFormValues) => {
-    submitContactForm.mutate(data, {
+    // Ensure all required fields are present
+    const formData = {
+      name: data.name,
+      email: data.email || '', // This should never be empty due to validation
+      subject: data.subject,
+      message: data.message
+    };
+    
+    submitContactForm.mutate(formData, {
       onSuccess: () => {
         form.reset({
           name: user?.user_metadata?.full_name || '',

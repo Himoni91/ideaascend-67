@@ -1,93 +1,58 @@
 
-// Follow this setup guide to integrate the Deno runtime into your application:
-// https://docs.deno.com/runtime/manual/
+import { createClient } from '@supabase/supabase-js';
+import { stripe } from './stripe';
 
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-// Set up CORS headers
+// Define CORS headers for browser access
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-serve(async (req: Request) => {
-  // Handle CORS preflight request
+// Create Supabase client
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
+
+export const handler = async (req: Request): Promise<Response> => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Parse the request body
-    const { sessionId, mentorId, menteeId, sessionData } = await req.json();
+    // Get request body
+    const { amount, currency, paymentMethodId, customerId, description } = await req.json();
 
-    // Get Supabase URL and key from environment variables
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    console.log("Processing payment (Development mode - mock payment):", sessionId);
-
-    // Mock session data (always successful in development mode)
-    const mockSession = {
-      payment_status: 'paid',
-      id: sessionId || `mock_${Date.now()}`,
-      amount_total: sessionData.price ? sessionData.price * 100 : 0
-    };
-
-    // Update the database to mark session as paid
-    const { data, error } = await supabase
-      .from('mentor_sessions')
-      .update({
-        payment_status: 'completed',
-        payment_id: mockSession.id,
-        payment_amount: mockSession.amount_total ? mockSession.amount_total / 100 : 0,
-        payment_provider: 'mock'
-      })
-      .eq('id', sessionData.session_id)
-      .select();
-
-    if (error) {
-      console.error('Database update error:', error);
+    // Validate inputs
+    if (!amount || !currency || !paymentMethodId) {
       return new Response(
-        JSON.stringify({ error: 'Failed to update payment status' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500 
-        }
+        JSON.stringify({ error: 'Missing required parameters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create notification for the mentor
-    await supabase
-      .from('notifications')
-      .insert({
-        user_id: mentorId,
-        sender_id: menteeId,
-        notification_type: 'payment_received',
-        related_id: sessionData.session_id,
-        related_type: 'mentor_session',
-        message: 'Payment has been received for your session (Development Mode)'
-      });
+    // Create a payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency,
+      payment_method: paymentMethodId,
+      customer: customerId,
+      description,
+      confirm: true,
+    });
 
-    console.log("Payment processed successfully (Development mode)");
-    
+    // Return the payment intent
     return new Response(
-      JSON.stringify({ success: true, data }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
+      JSON.stringify({ paymentIntent }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error processing payment:', error);
+    // Handle errors
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
+      JSON.stringify({ error: errorMessage }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+};
