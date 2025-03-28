@@ -140,7 +140,9 @@ export function DiscoverFilter({
   
   // Type-safe handler for select component
   const handleSortByChange = (value: string) => {
-    setSortBy(value as "latest" | "trending" | "popular");
+    if (value === "latest" || value === "trending" || value === "popular") {
+      setSortBy(value);
+    }
   };
 
   return (

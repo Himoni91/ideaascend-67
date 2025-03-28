@@ -28,7 +28,7 @@ export interface DiscoverContent {
     avatar_url: string;
     position: string;
     company: string;
-  };
+  } | null;
   // Computed properties
   likes_count?: number;
   saves_count?: number;
@@ -124,14 +124,21 @@ export function useDiscover() {
 
         // Process data to match DiscoverContent interface
         const processedData = data.map(item => {
-          // Initialize default properties
+          // Initialize default properties with proper type handling for profile
           const processedItem: DiscoverContent = {
             ...item,
             likes_count: 0,
             saves_count: 0,
             user_has_liked: false,
             user_has_saved: false,
-            profile: item.profile
+            // Handle profile data safely
+            profile: item.profile && typeof item.profile === 'object' && !('error' in item.profile) ? {
+              username: item.profile.username || '',
+              full_name: item.profile.full_name || '',
+              avatar_url: item.profile.avatar_url || '',
+              position: item.profile.position || '',
+              company: item.profile.company || ''
+            } : null
           };
           
           return processedItem;
@@ -207,14 +214,21 @@ export function useDiscover() {
           throw error;
         }
 
-        // Create a properly shaped content item
+        // Create a properly shaped content item with safe profile handling
         const contentItem: DiscoverContent = {
           ...data,
           likes_count: 0,
           saves_count: 0,
           user_has_liked: false,
           user_has_saved: false,
-          profile: data.profile
+          // Handle profile data safely
+          profile: data.profile && typeof data.profile === 'object' && !('error' in data.profile) ? {
+            username: data.profile.username || '',
+            full_name: data.profile.full_name || '',
+            avatar_url: data.profile.avatar_url || '',
+            position: data.profile.position || '',
+            company: data.profile.company || ''
+          } : null
         };
 
         // Record a view
