@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +20,7 @@ import {
   formatReviewData,
   formatSessionTypeData
 } from "@/lib/data-utils";
+import { useMentorApplication } from "./use-mentor-application";
 
 // API URL constants for direct fetch when needed
 const API_URL = "https://scicbwtczqunflsqnfzu.supabase.co";

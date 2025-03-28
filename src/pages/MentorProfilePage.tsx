@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMentor } from "@/hooks/use-mentor";
@@ -16,7 +16,13 @@ import {
   MapPin,
   ExternalLink,
   MessageSquare,
-  Share
+  Share,
+  Linkedin,
+  Globe,
+  Twitter,
+  CheckCircle,
+  BookOpen,
+  Verified
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -24,12 +30,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import MentorSessionCard from "@/components/mentor/MentorSessionCard";
 import MentorAvailabilityCalendar from "@/components/mentor/MentorAvailabilityCalendar";
 import MentorBookingModal from "@/components/mentor/MentorBookingModal";
 import { PageTransition } from "@/components/ui/page-transition";
+import { formatDate, formatRelativeTime } from "@/lib/date-utils";
 
 export default function MentorProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -56,9 +69,10 @@ export default function MentorProfilePage() {
       await bookSession.mutateAsync(bookingData);
       setBookingModalOpen(false);
       setSelectedSlot(null);
+      toast.success("Session booked successfully! Check your upcoming sessions.");
     } catch (error) {
       console.error("Booking error:", error);
-      toast.error("Failed to book session");
+      toast.error("Failed to book session. Please try again.");
     }
   };
   
@@ -80,6 +94,19 @@ export default function MentorProfilePage() {
   
   // Check if current user is the mentor
   const isOwnProfile = user?.id === id;
+  
+  // Share profile
+  const handleShareProfile = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: `${mentor?.full_name || mentor?.username} - Mentor Profile`,
+        url: window.location.href
+      }).catch(err => console.error('Could not share:', err));
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success("Profile link copied to clipboard!");
+    }
+  };
   
   // Handle errors
   if (mentorError) {
@@ -109,403 +136,511 @@ export default function MentorProfilePage() {
     );
   }
   
+  // format the reviews
+  const sortedReviews = reviews ? [...reviews].sort((a, b) => {
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  }) : [];
+
+  // Get average rating
+  const averageRating = mentor.stats?.mentorRating || sortedReviews.reduce((sum, review) => sum + review.rating, 0) / (sortedReviews.length || 1);
+  const reviewCount = mentor.stats?.mentorReviews || sortedReviews.length;
+  
+  // Get formatted experience and education
+  const workExperience = mentor.work_experience || [];
+  const education = mentor.education || [];
+  
   return (
     <AppLayout>
       <PageTransition>
         <div className="container mx-auto px-4 py-8">
-          {/* Profile Header */}
-          <div className="rounded-lg overflow-hidden mb-8">
-            {/* Cover Image */}
-            <div className="h-48 bg-gradient-to-r from-primary/20 to-primary/5 relative">
+          {/* Hero Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="mb-8"
+          >
+            <div className="relative rounded-xl overflow-hidden h-40 md:h-64 bg-gradient-to-r from-primary/20 to-primary/5">
               {mentor.profile_header_url && (
-                <img
-                  src={mentor.profile_header_url}
-                  alt="Profile header"
+                <img 
+                  src={mentor.profile_header_url} 
+                  alt="Profile Header" 
                   className="w-full h-full object-cover"
                 />
               )}
-            </div>
-            
-            {/* Profile Info */}
-            <div className="bg-card border rounded-b-lg p-6 pt-0 relative">
-              <div className="flex flex-col md:flex-row gap-6">
-                <div className="-mt-12">
-                  <Avatar className="h-24 w-24 border-4 border-background">
-                    <AvatarImage src={mentor.avatar_url || undefined} />
-                    <AvatarFallback className="text-xl">
-                      {mentor.full_name?.charAt(0) || mentor.username?.charAt(0) || "M"}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
+              
+              <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+              
+              <div className="absolute bottom-4 left-4 md:left-8 flex items-end gap-4">
+                <Avatar className="h-16 w-16 md:h-24 md:w-24 border-4 border-background rounded-xl">
+                  <AvatarImage src={mentor.avatar_url || undefined} alt={mentor.full_name || mentor.username} />
+                  <AvatarFallback className="text-2xl">
+                    {mentor.full_name?.charAt(0) || mentor.username?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
                 
-                <div className="flex-1 mt-4 md:mt-0">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h1 className="text-3xl font-bold">
-                          {mentor.full_name || mentor.username}
-                        </h1>
-                        {mentor.is_verified && (
-                          <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                            <Award className="h-3.5 w-3.5 mr-1" />
-                            Verified Mentor
-                          </Badge>
-                        )}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h1 className="text-2xl md:text-3xl font-bold">
+                      {mentor.full_name || mentor.username}
+                    </h1>
+                    {mentor.is_verified && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Verified className="h-5 w-5 text-blue-500" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Verified Mentor</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                  <p className="text-lg text-muted-foreground">{mentor.position}{mentor.company ? ` at ${mentor.company}` : ''}</p>
+                </div>
+              </div>
+              
+              <div className="absolute top-4 right-4 flex gap-2">
+                <Button size="sm" variant="ghost" className="bg-background/50 hover:bg-background/90" onClick={handleShareProfile}>
+                  <Share className="h-4 w-4 mr-2" />
+                  Share
+                </Button>
+                
+                {!isOwnProfile && (
+                  <Button size="sm" variant="ghost" className="bg-background/50 hover:bg-background/90" asChild>
+                    <Link to={`/messages?user=${mentor.id}`}>
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Message
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            </div>
+          </motion.div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Sidebar */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="space-y-6"
+            >
+              {/* Basic Info Card */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xl">About</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-muted-foreground">
+                    {mentor.mentor_bio || mentor.bio || "No bio provided."}
+                  </p>
+                  
+                  <div className="space-y-2">
+                    {mentor.location && (
+                      <div className="flex items-center text-sm">
+                        <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+                        <span>{mentor.location}</span>
                       </div>
-                      <p className="text-lg text-muted-foreground">
-                        {mentor.position} {mentor.company && `at ${mentor.company}`}
-                      </p>
-                      
-                      <div className="flex flex-wrap items-center gap-3 mt-2">
-                        {mentor.location && (
-                          <span className="flex items-center text-sm text-muted-foreground">
-                            <MapPin className="h-3.5 w-3.5 mr-1" />
-                            {mentor.location}
-                          </span>
-                        )}
-                        
-                        <span className="flex items-center text-sm">
-                          <Star className="h-3.5 w-3.5 mr-1 text-yellow-500 fill-yellow-500" />
-                          {mentor.stats?.mentorRating?.toFixed(1) || "New"} 
-                          {mentor.stats?.mentorReviews ? ` (${mentor.stats.mentorReviews} reviews)` : ""}
-                        </span>
-                        
-                        <span className="flex items-center text-sm text-muted-foreground">
-                          <Users className="h-3.5 w-3.5 mr-1" />
-                          {mentor.stats?.mentorSessions || 0} sessions completed
-                        </span>
+                    )}
+                    
+                    {mentor.position && mentor.company && (
+                      <div className="flex items-center text-sm">
+                        <Briefcase className="h-4 w-4 mr-2 text-muted-foreground" />
+                        <span>{mentor.position} at {mentor.company}</span>
                       </div>
+                    )}
+                    
+                    <div className="flex items-center text-sm">
+                      <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span>Mentor since {formatDate(mentor.created_at)}</span>
                     </div>
                     
-                    <div className="flex flex-wrap items-center gap-2">
-                      {!isOwnProfile && (
-                        <>
-                          <Button variant="outline" size="sm">
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Message
-                          </Button>
-                          <Button size="sm">
-                            <Calendar className="h-4 w-4 mr-2" />
-                            Book Session
-                          </Button>
-                        </>
-                      )}
-                      {isOwnProfile && (
-                        <Button variant="outline" size="sm" asChild>
-                          <a href="/mentor-space/analytics">
-                            <Award className="h-4 w-4 mr-2" />
-                            Mentor Dashboard
-                          </a>
-                        </Button>
-                      )}
+                    <div className="flex items-center text-sm">
+                      <Users className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span>{mentor.stats?.mentorSessions || 0} sessions completed</span>
                     </div>
                   </div>
-                </div>
-              </div>
-              
-              {/* Expertise Tags */}
-              <div className="mt-4 flex flex-wrap gap-2">
-                {mentor.expertise && mentor.expertise.map((exp) => (
-                  <Badge key={exp} variant="outline" className="bg-primary/5">
-                    {exp}
-                  </Badge>
-                ))}
-              </div>
-              
-              {/* Bio */}
-              <div className="mt-4">
-                <p className="text-muted-foreground">
-                  {mentor.mentor_bio || mentor.bio || "No bio provided."}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Sidebar */}
-            <div className="order-2 lg:order-1 lg:col-span-1">
-              <div className="space-y-6 sticky top-24">
-                {/* Session Types */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Mentorship Options</CardTitle>
-                    <CardDescription>
-                      Session types offered by this mentor
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {typesLoading ? (
-                      <div className="animate-pulse space-y-3">
-                        <div className="h-16 bg-muted rounded"></div>
-                        <div className="h-16 bg-muted rounded"></div>
+                  
+                  {(mentor.linkedin_url || mentor.twitter_url || mentor.website) && (
+                    <div className="pt-2">
+                      <div className="flex gap-2">
+                        {mentor.linkedin_url && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                                  <a href={mentor.linkedin_url} target="_blank" rel="noopener noreferrer">
+                                    <Linkedin className="h-4 w-4" />
+                                  </a>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>LinkedIn Profile</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        
+                        {mentor.twitter_url && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                                  <a href={mentor.twitter_url} target="_blank" rel="noopener noreferrer">
+                                    <Twitter className="h-4 w-4" />
+                                  </a>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Twitter Profile</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        
+                        {mentor.website && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                                  <a href={mentor.website} target="_blank" rel="noopener noreferrer">
+                                    <Globe className="h-4 w-4" />
+                                  </a>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Personal Website</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       </div>
-                    ) : sessionTypes && sessionTypes.length > 0 ? (
-                      sessionTypes.map((type) => (
-                        <div
-                          key={type.id}
-                          className="border rounded-lg p-3 hover:border-primary/20 transition-colors"
-                        >
-                          <div className="flex justify-between">
-                            <h3 className="font-medium">{type.name}</h3>
-                            <span className="text-sm font-medium">
-                              {type.is_free ? "Free" : `$${type.price}`}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {type.description}
-                          </p>
-                          <div className="flex items-center mt-2 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {type.duration} minutes
-                          </div>
-                        </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              
+              {/* Expertise Card */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Areas of Expertise</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {mentor.expertise && mentor.expertise.length > 0 ? (
+                      mentor.expertise.map((skill, index) => (
+                        <Badge key={index} variant="secondary">
+                          {skill}
+                        </Badge>
                       ))
                     ) : (
-                      <div className="text-center py-6 text-muted-foreground">
-                        No session types defined yet
+                      <p className="text-sm text-muted-foreground">No expertise listed</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Ratings & Reviews Summary */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center">
+                    <Star className="mr-2 h-4 w-4 text-yellow-500" />
+                    Ratings & Reviews
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {reviewCount > 0 ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <span className="text-3xl font-bold mr-2">{averageRating.toFixed(1)}</span>
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-5 w-5 ${
+                                  i < Math.round(averageRating)
+                                    ? "text-yellow-500 fill-yellow-500"
+                                    : "text-muted"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                          {reviewCount} {reviewCount === 1 ? "review" : "reviews"}
+                        </span>
                       </div>
-                    )}
-                    
-                    {!isOwnProfile && sessionTypes && sessionTypes.length > 0 && (
-                      <Button className="w-full mt-2" onClick={() => setBookingModalOpen(true)}>
-                        <Calendar className="mr-2 h-4 w-4" />
-                        Book a Session
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-                
-                {/* Contact */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Contact</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Mail className="mr-2 h-4 w-4" />
-                      Send Message
-                    </Button>
-                    
-                    {mentor.linkedin_url && (
-                      <Button variant="outline" className="w-full justify-start" asChild>
-                        <a href={mentor.linkedin_url} target="_blank" rel="noopener noreferrer">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            className="h-4 w-4 mr-2 fill-current"
-                          >
-                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                          </svg>
-                          LinkedIn Profile
-                        </a>
-                      </Button>
-                    )}
-                    
-                    {mentor.website && (
-                      <Button variant="outline" className="w-full justify-start" asChild>
-                        <a href={mentor.website} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Website
-                        </a>
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+                      
+                      <div className="space-y-1">
+                        {[5, 4, 3, 2, 1].map((rating) => {
+                          const count = sortedReviews.filter(r => r.rating === rating).length;
+                          const percentage = reviewCount > 0 ? (count / reviewCount) * 100 : 0;
+                          
+                          return (
+                            <div key={rating} className="flex items-center text-sm">
+                              <span className="w-12">{rating} stars</span>
+                              <div className="flex-1 mx-2 h-2 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-yellow-500 rounded-full" 
+                                  style={{ width: `${percentage}%` }}
+                                ></div>
+                              </div>
+                              <span className="w-8 text-right text-muted-foreground">{count}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground">No reviews yet</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
             
             {/* Main Content */}
-            <div className="order-1 lg:order-2 lg:col-span-2">
-              <Tabs defaultValue="availability">
-                <TabsList className="w-full grid grid-cols-3">
-                  <TabsTrigger value="availability">Availability</TabsTrigger>
-                  <TabsTrigger value="reviews">Reviews</TabsTrigger>
-                  <TabsTrigger value="about">About</TabsTrigger>
-                </TabsList>
-                
-                {/* Availability Tab */}
-                <TabsContent value="availability" className="mt-6">
-                  <MentorAvailabilityCalendar 
-                    slots={availabilitySlots || []}
-                    isOwnProfile={isOwnProfile}
-                    onSelectSlot={handleSelectSlot}
-                  />
-                </TabsContent>
-                
-                {/* Reviews Tab */}
-                <TabsContent value="reviews" className="mt-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <Star className="h-5 w-5 mr-2 text-yellow-500 fill-yellow-500" />
-                        Reviews
-                        {mentor.stats?.mentorReviews && mentor.stats.mentorReviews > 0 && (
-                          <Badge variant="outline" className="ml-2">
-                            {mentor.stats.mentorReviews}
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription>
-                        What mentees are saying about {mentor.full_name || mentor.username}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {reviewsLoading ? (
-                        <div className="animate-pulse space-y-4">
-                          <div className="h-24 bg-muted rounded"></div>
-                          <div className="h-24 bg-muted rounded"></div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              className="lg:col-span-2 space-y-6"
+            >
+              {/* Session Types and Booking */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xl">Session Types</CardTitle>
+                  <CardDescription>
+                    Choose the type of mentoring session that best fits your needs
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {typesLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((n) => (
+                        <div key={n} className="h-24 rounded-lg bg-muted animate-pulse" />
+                      ))}
+                    </div>
+                  ) : sessionTypes && sessionTypes.length > 0 ? (
+                    <div className="space-y-4">
+                      {sessionTypes.map((type) => (
+                        <div
+                          key={type.id}
+                          className={`p-4 border rounded-lg hover:border-primary/50 transition-colors ${
+                            type.is_featured ? "bg-primary/5 border-primary/20" : ""
+                          }`}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <div>
+                              <h3 className="font-medium">{type.name}</h3>
+                              <p className="text-sm text-muted-foreground mb-2">
+                                {type.description}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              {type.is_free ? (
+                                <Badge variant="outline">Free</Badge>
+                              ) : (
+                                <span className="font-medium">
+                                  ${type.price.toFixed(2)} {type.currency}
+                                </span>
+                              )}
+                              <span className="text-xs text-muted-foreground mt-1">
+                                {type.duration} minutes
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      ) : reviews && reviews.length > 0 ? (
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">
+                        This mentor has not set up any session types yet.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              
+              {/* Available Time Slots */}
+              {!isOwnProfile && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xl">Book a Session</CardTitle>
+                    <CardDescription>
+                      Select an available time slot to schedule a session with {mentor.full_name || mentor.username}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <MentorAvailabilityCalendar
+                      availabilitySlots={availabilitySlots || []}
+                      onSelectSlot={handleSelectSlot}
+                      isLoading={slotsLoading}
+                    />
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Mentor Experience */}
+              <Card>
+                <CardHeader>
+                  <Tabs defaultValue="reviews">
+                    <TabsList className="grid w-full grid-cols-3 mb-4">
+                      <TabsTrigger value="reviews" className="text-sm">
+                        Reviews
+                      </TabsTrigger>
+                      <TabsTrigger value="experience" className="text-sm">
+                        Experience
+                      </TabsTrigger>
+                      <TabsTrigger value="education" className="text-sm">
+                        Education
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="reviews" className="mt-0">
+                      {reviewsLoading ? (
+                        <div className="space-y-4">
+                          {[1, 2, 3].map((n) => (
+                            <div key={n} className="h-32 rounded-lg bg-muted animate-pulse" />
+                          ))}
+                        </div>
+                      ) : sortedReviews.length > 0 ? (
                         <div className="space-y-6">
-                          {reviews.map((review) => (
-                            <motion.div
-                              key={review.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.3 }}
-                              className="border rounded-lg p-4"
-                            >
-                              <div className="flex items-start gap-4">
-                                <Avatar className="h-10 w-10">
-                                  <AvatarImage src={review.reviewer?.avatar_url || undefined} />
-                                  <AvatarFallback>
-                                    {review.reviewer?.full_name?.charAt(0) || 
-                                     review.reviewer?.username?.charAt(0) || 
-                                     "?"}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <h4 className="font-medium">
+                          {sortedReviews.map((review) => (
+                            <div key={review.id} className="space-y-2">
+                              <div className="flex justify-between items-start">
+                                <div className="flex items-center">
+                                  <Avatar className="h-8 w-8 mr-2">
+                                    <AvatarImage src={review.reviewer?.avatar_url || undefined} />
+                                    <AvatarFallback>
+                                      {review.reviewer?.full_name?.charAt(0) || 
+                                       review.reviewer?.username?.charAt(0) || "?"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="font-medium">
                                       {review.reviewer?.full_name || review.reviewer?.username || "Anonymous"}
-                                    </h4>
-                                    <div className="flex items-center">
-                                      {Array.from({ length: 5 }).map((_, i) => (
-                                        <Star
-                                          key={i}
-                                          className={`h-4 w-4 ${
-                                            i < review.rating
-                                              ? "text-yellow-500 fill-yellow-500"
-                                              : "text-muted-foreground"
-                                          }`}
-                                        />
-                                      ))}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {formatRelativeTime(review.created_at)}
                                     </div>
                                   </div>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    {new Date(review.created_at).toLocaleDateString()}
-                                  </p>
-                                  <p className="mt-2">{review.content}</p>
+                                </div>
+                                <div className="flex">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`h-4 w-4 ${
+                                        i < review.rating
+                                          ? "text-yellow-500 fill-yellow-500"
+                                          : "text-gray-300"
+                                      }`}
+                                    />
+                                  ))}
                                 </div>
                               </div>
-                            </motion.div>
+                              <p className="text-sm pl-10">{review.content}</p>
+                              <Separator className="my-4" />
+                            </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-12">
+                        <div className="text-center py-8">
                           <Star className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
                           <h3 className="text-lg font-medium mb-1">No reviews yet</h3>
-                          <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                            This mentor hasn't received any reviews yet.
+                          <p className="text-sm text-muted-foreground">
+                            This mentor has not received any reviews yet.
                           </p>
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-                
-                {/* About Tab */}
-                <TabsContent value="about" className="mt-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>About {mentor.full_name || mentor.username}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {/* Bio Section */}
-                      <div>
-                        <h3 className="text-lg font-medium mb-2">Bio</h3>
-                        <p className="text-muted-foreground">
-                          {mentor.mentor_bio || mentor.bio || "No detailed bio provided."}
-                        </p>
-                      </div>
-                      
-                      <Separator />
-                      
-                      {/* Work Experience */}
-                      <div>
-                        <h3 className="text-lg font-medium mb-3">Work Experience</h3>
-                        {mentor.work_experience && mentor.work_experience.length > 0 ? (
-                          <div className="space-y-4">
-                            {mentor.work_experience.map((exp: any, index: number) => (
-                              <div key={index} className="border rounded-lg p-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="p-2 rounded-md bg-primary/10">
-                                    <Briefcase className="h-5 w-5 text-primary" />
+                    </TabsContent>
+                    
+                    <TabsContent value="experience" className="mt-0">
+                      {workExperience && workExperience.length > 0 ? (
+                        <div className="space-y-6">
+                          {workExperience.map((job: any, index: number) => (
+                            <div key={index} className="space-y-2">
+                              <div className="flex items-start">
+                                <Briefcase className="h-5 w-5 mr-3 mt-1 text-muted-foreground" />
+                                <div>
+                                  <div className="font-medium">{job.position}</div>
+                                  <div className="text-sm">{job.company}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {job.start_date} - {job.is_current ? "Present" : job.end_date}
                                   </div>
-                                  <div>
-                                    <h4 className="font-medium">{exp.title}</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {exp.company} • {exp.startDate}
-                                      {exp.endDate ? ` - ${exp.endDate}` : " - Present"}
-                                    </p>
-                                  </div>
+                                  {job.description && (
+                                    <p className="text-sm text-muted-foreground mt-2">{job.description}</p>
+                                  )}
                                 </div>
-                                {exp.description && (
-                                  <p className="text-sm text-muted-foreground mt-2">
-                                    {exp.description}
-                                  </p>
-                                )}
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-muted-foreground">No work experience listed.</p>
-                        )}
-                      </div>
-                      
-                      <Separator />
-                      
-                      {/* Education */}
-                      <div>
-                        <h3 className="text-lg font-medium mb-3">Education</h3>
-                        {mentor.education && mentor.education.length > 0 ? (
-                          <div className="space-y-4">
-                            {mentor.education.map((edu: any, index: number) => (
-                              <div key={index} className="border rounded-lg p-4">
-                                <h4 className="font-medium">{edu.degree}</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {edu.institution} • {edu.startYear}
-                                  {edu.endYear ? ` - ${edu.endYear}` : " - Present"}
-                                </p>
-                                {edu.description && (
-                                  <p className="text-sm text-muted-foreground mt-2">
-                                    {edu.description}
-                                  </p>
-                                )}
+                              {index < workExperience.length - 1 && <Separator className="my-4" />}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Briefcase className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
+                          <h3 className="text-lg font-medium mb-1">No experience listed</h3>
+                          <p className="text-sm text-muted-foreground">
+                            This mentor has not added their work experience yet.
+                          </p>
+                        </div>
+                      )}
+                    </TabsContent>
+                    
+                    <TabsContent value="education" className="mt-0">
+                      {education && education.length > 0 ? (
+                        <div className="space-y-6">
+                          {education.map((edu: any, index: number) => (
+                            <div key={index} className="space-y-2">
+                              <div className="flex items-start">
+                                <BookOpen className="h-5 w-5 mr-3 mt-1 text-muted-foreground" />
+                                <div>
+                                  <div className="font-medium">{edu.degree}</div>
+                                  <div className="text-sm">{edu.institution}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {edu.start_date} - {edu.is_current ? "Present" : edu.end_date}
+                                  </div>
+                                  {edu.field && (
+                                    <div className="text-sm">{edu.field}</div>
+                                  )}
+                                  {edu.description && (
+                                    <p className="text-sm text-muted-foreground mt-2">{edu.description}</p>
+                                  )}
+                                </div>
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-muted-foreground">No education listed.</p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </div>
+                              {index < education.length - 1 && <Separator className="my-4" />}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <BookOpen className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
+                          <h3 className="text-lg font-medium mb-1">No education listed</h3>
+                          <p className="text-sm text-muted-foreground">
+                            This mentor has not added their education history yet.
+                          </p>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </CardHeader>
+              </Card>
+            </motion.div>
           </div>
           
           {/* Booking Modal */}
           <MentorBookingModal
             isOpen={bookingModalOpen}
-            onClose={() => {
-              setBookingModalOpen(false);
-              setSelectedSlot(null);
-            }}
+            onClose={() => setBookingModalOpen(false)}
+            slot={selectedSlot}
             mentor={mentor}
-            selectedSlot={selectedSlot}
+            sessionTypes={sessionTypes}
             onConfirmBooking={handleConfirmBooking}
             isProcessing={bookSession.isPending}
           />

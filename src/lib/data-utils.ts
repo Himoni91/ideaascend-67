@@ -1,145 +1,201 @@
 
-import { Json } from "@/integrations/supabase/types";
-import { MentorAvailabilitySlotRow, MentorSessionTypeRow, MentorSessionRow } from "./database-types";
-import { MentorAvailabilitySlot, MentorSession, MentorSessionTypeInfo, MentorReviewExtended } from "@/types/mentor";
+import { 
+  MentorAvailabilitySlotRow, 
+  MentorSessionRow, 
+  MentorSessionTypeRow,
+  asMentorAvailabilitySlot,
+  asMentorSessionType,
+  asMentorSession
+} from "@/lib/database-types";
+import { 
+  MentorAvailabilitySlot, 
+  MentorSession, 
+  MentorSessionTypeInfo,
+  MentorReviewExtended
+} from "@/types/mentor";
 import { ProfileType } from "@/types/profile";
 
-export const formatProfileData = (data: any): ProfileType => {
-  const defaultBadges = [
-    { name: "New Member", icon: "👋", description: "Welcome to Idolyst", earned: true }
-  ];
-  
-  const defaultStats = {
-    followers: 0,
-    following: 0,
-    ideas: 0,
-    mentorSessions: 0,
-    posts: 0,
-    rank: Math.floor(Math.random() * 100) + 1
-  };
-
-  let badges = defaultBadges;
-  try {
-    if (data.badges) {
-      if (Array.isArray(data.badges)) {
-        badges = data.badges as any;
-      } else if (typeof data.badges === 'object') {
-        badges = Object.values(data.badges);
-      }
-    }
-  } catch (e) {
-    console.error("Error parsing badges:", e);
-  }
-
-  let stats = defaultStats;
-  try {
-    if (data.stats) {
-      if (typeof data.stats === 'object' && !Array.isArray(data.stats)) {
-        stats = {
-          ...defaultStats,
-          ...data.stats
-        };
-      }
-    }
-  } catch (e) {
-    console.error("Error parsing stats:", e);
-  }
-
-  return {
-    ...data,
-    level: data.level || Math.floor(Math.random() * 5) + 1,
-    xp: data.xp || Math.floor(Math.random() * 2000) + 500,
-    badges: badges,
-    stats: stats
-  } as ProfileType;
-};
-
-export const formatAvailabilitySlotData = (data: MentorAvailabilitySlotRow): MentorAvailabilitySlot => {
-  if (!data) return {} as MentorAvailabilitySlot;
-  
+/**
+ * Format profile data from database
+ */
+export function formatProfileData(data: any): ProfileType {
   return {
     id: data.id,
-    mentor_id: data.mentor_id,
-    start_time: data.start_time,
-    end_time: data.end_time,
-    is_booked: data.is_booked || false,
-    session_id: data.session_id,
+    username: data.username,
+    full_name: data.full_name,
+    avatar_url: data.avatar_url,
+    bio: data.bio,
+    location: data.location,
+    website: data.website,
+    linkedin_url: data.linkedin_url,
+    twitter_url: data.twitter_url,
+    company: data.company,
+    position: data.position,
+    expertise: data.expertise,
+    is_mentor: data.is_mentor || false,
+    is_verified: data.is_verified || false,
     created_at: data.created_at,
-    recurring_rule: data.recurring_rule
+    updated_at: data.updated_at || data.created_at,
+    byline: data.byline || null,
+    profile_completion_percentage: data.profile_completion_percentage || 0,
+    profile_header_url: data.profile_header_url || null,
+    professional_headline: data.professional_headline || null,
+    mentor_bio: data.mentor_bio || null,
+    mentor_hourly_rate: data.mentor_hourly_rate || null,
+    level: data.level || 1,
+    xp: data.xp || 0,
+    badges: data.badges || [],
+    stats: data.stats || {
+      followers: 0,
+      following: 0,
+      ideas: 0,
+      mentorSessions: 0,
+      posts: 0,
+      rank: 0,
+      mentorRating: 0,
+      mentorReviews: 0
+    },
+    
+    // If mentor_session_types is included in the query
+    mentor_session_types: data.mentor_session_types 
+      ? data.mentor_session_types.map((type: any) => formatSessionTypeData(type))
+      : null,
+      
+    // Additional fields that may be used in the UI
+    work_experience: data.work_experience || [],
+    education: data.education || []
   };
-};
+}
 
-export const formatSessionData = (data: any): MentorSession => {
-  if (!data) return {} as MentorSession;
-  
-  // Fix the metadata type issue
-  const metadata = typeof data.metadata === 'string' 
-    ? (data.metadata ? JSON.parse(data.metadata) : {}) 
-    : (data.metadata || {}) as Record<string, any>;
-  
-  // Create basic session object without mentor/mentee
-  const session: MentorSession = {
-    id: data.id,
-    mentor_id: data.mentor_id,
-    mentee_id: data.mentee_id,
-    title: data.title,
-    description: data.description,
-    start_time: data.start_time,
-    end_time: data.end_time,
-    status: data.status as any,
-    payment_status: data.payment_status as any,
-    payment_provider: data.payment_provider as any,
-    payment_id: data.payment_id,
-    payment_amount: data.payment_amount,
-    payment_currency: data.payment_currency,
-    session_url: data.session_url,
-    session_notes: data.session_notes,
-    cancellation_reason: data.cancellation_reason,
-    cancelled_by: data.cancelled_by,
-    session_type: data.session_type as any,
-    created_at: data.created_at,
-    metadata: metadata
-  };
-  
-  // Add mentor/mentee data if available
-  if (data.mentor) {
-    session.mentor = formatProfileData(data.mentor);
-  }
-  
-  if (data.mentee) {
-    session.mentee = formatProfileData(data.mentee);
-  }
-  
-  return session;
-};
-
-export const formatSessionTypeData = (data: MentorSessionTypeRow): MentorSessionTypeInfo => {
-  if (!data) return {} as MentorSessionTypeInfo;
+/**
+ * Format availability slot data from database
+ */
+export function formatAvailabilitySlotData(data: MentorAvailabilitySlotRow): MentorAvailabilitySlot {
+  const slot = asMentorAvailabilitySlot(data);
   
   return {
-    id: data.id,
-    name: data.name,
-    description: data.description,
-    duration: data.duration,
-    price: data.price,
-    currency: data.currency,
-    is_free: data.is_free,
-    is_featured: data.is_featured,
-    color: data.color
+    id: slot.id,
+    mentor_id: slot.mentor_id,
+    start_time: slot.start_time,
+    end_time: slot.end_time,
+    is_booked: slot.is_booked,
+    session_id: slot.session_id,
+    created_at: slot.created_at,
+    recurring_rule: slot.recurring_rule
   };
-};
+}
 
-export const formatReviewData = (data: any): MentorReviewExtended => {
-  if (!data) return {} as MentorReviewExtended;
+/**
+ * Format session type data from database
+ */
+export function formatSessionTypeData(data: MentorSessionTypeRow): MentorSessionTypeInfo {
+  const sessionType = asMentorSessionType(data);
   
+  return {
+    id: sessionType.id,
+    name: sessionType.name,
+    description: sessionType.description,
+    duration: sessionType.duration,
+    price: sessionType.price,
+    currency: sessionType.currency || 'USD',
+    is_free: sessionType.is_free || false,
+    is_featured: sessionType.is_featured || false,
+    color: sessionType.color || null
+  };
+}
+
+/**
+ * Format session data from database
+ */
+export function formatSessionData(data: MentorSessionRow): MentorSession {
+  const session = asMentorSession(data);
+  
+  return {
+    id: session.id,
+    mentor_id: session.mentor_id,
+    mentee_id: session.mentee_id,
+    title: session.title,
+    description: session.description,
+    start_time: session.start_time,
+    end_time: session.end_time,
+    status: session.status as any,
+    payment_status: session.payment_status as any,
+    payment_provider: session.payment_provider as any,
+    payment_id: session.payment_id,
+    payment_amount: session.payment_amount,
+    payment_currency: session.payment_currency,
+    session_url: session.session_url,
+    session_notes: session.session_notes,
+    cancellation_reason: session.cancellation_reason,
+    cancelled_by: session.cancelled_by,
+    session_type: session.session_type || "",
+    created_at: session.created_at,
+    price: session.price,
+    metadata: session.metadata || {},
+    
+    // If the mentor/mentee profile is included in the query
+    mentor: data.mentor ? formatProfileData(data.mentor) : undefined,
+    mentee: data.mentee ? formatProfileData(data.mentee) : undefined
+  };
+}
+
+/**
+ * Format review data from database
+ */
+export function formatReviewData(data: any): MentorReviewExtended {
   return {
     id: data.id,
     session_id: data.session_id,
     reviewer_id: data.reviewer_id,
-    mentor_id: data.session?.mentor_id,
+    mentor_id: data.mentor_id || "",
     rating: data.rating,
     content: data.content,
     created_at: data.created_at,
+    
+    // If the reviewer profile is included in the query
     reviewer: data.reviewer ? formatProfileData(data.reviewer) : undefined
   };
-};
+}
+
+/**
+ * Transform any database data to the expected frontend format
+ */
+export function transformDatabaseData<T>(data: any, transform: (item: any) => T): T[] {
+  if (!data || !Array.isArray(data)) return [];
+  return data.map(transform);
+}
+
+/**
+ * Create a safe placeholder profile
+ */
+export function createSafeProfile(partialProfile?: Partial<ProfileType>): ProfileType {
+  return {
+    id: partialProfile?.id || "",
+    username: partialProfile?.username || "",
+    full_name: partialProfile?.full_name || null,
+    avatar_url: partialProfile?.avatar_url || null,
+    bio: partialProfile?.bio || null,
+    location: partialProfile?.location || null,
+    website: partialProfile?.website || null,
+    linkedin_url: partialProfile?.linkedin_url || null,
+    twitter_url: partialProfile?.twitter_url || null,
+    company: partialProfile?.company || null,
+    position: partialProfile?.position || null,
+    expertise: partialProfile?.expertise || null,
+    is_mentor: partialProfile?.is_mentor || false,
+    is_verified: partialProfile?.is_verified || false,
+    created_at: partialProfile?.created_at || new Date().toISOString(),
+    updated_at: partialProfile?.updated_at || new Date().toISOString(),
+    byline: partialProfile?.byline || null,
+    level: partialProfile?.level || 1,
+    xp: partialProfile?.xp || 0,
+    badges: partialProfile?.badges || [],
+    stats: partialProfile?.stats || {
+      followers: 0,
+      following: 0,
+      ideas: 0,
+      mentorSessions: 0,
+      posts: 0,
+    },
+  };
+}

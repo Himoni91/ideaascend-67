@@ -286,7 +286,7 @@ export default function MentorSpacePage() {
           {/* Verified Mentors Section */}
           {!hasFilters && featuredMentors.length > 0 && (
             <section className="mb-12">
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold flex items-center">
                   <BadgeCheck className="mr-2 h-5 w-5 text-blue-500" />
                   Verified Mentors
@@ -300,7 +300,7 @@ export default function MentorSpacePage() {
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {featuredMentors.slice(0, 3).map((mentor) => (
-                  <MentorCard key={mentor.id} mentor={mentor} />
+                  <MentorCard key={mentor.id} mentor={mentor} featured />
                 ))}
               </div>
             </section>
