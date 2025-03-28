@@ -1,5 +1,6 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// Import the Supabase client
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.3'
 import { stripe } from './stripe.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 

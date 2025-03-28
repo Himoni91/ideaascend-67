@@ -187,8 +187,13 @@ export function useMentor() {
 
   // Hook for mentor application
   const useApplyAsMentor = () => {
-    const mutation = useMutation({
-      mutationFn: async (application: Omit<MentorApplication, 'id' | 'created_at' | 'updated_at' | 'status' | 'user_id'>) => {
+    // Fix for type instantiation error - explicitly define the return type
+    return useMutation<
+      any, 
+      Error, 
+      Omit<MentorApplication, 'id' | 'created_at' | 'updated_at' | 'status' | 'user_id'>
+    >({
+      mutationFn: async (application) => {
         if (!user?.id) throw new Error('User not authenticated');
         
         const { data, error } = await supabase
@@ -210,8 +215,6 @@ export function useMentor() {
         queryClient.invalidateQueries({ queryKey: ['mentor-application'] });
       }
     });
-    
-    return mutation;
   };
 
   // Create/update availability slots
