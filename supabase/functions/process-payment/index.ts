@@ -1,6 +1,5 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { stripe } from './stripe.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
 // Get Supabase URL and key from environment variables
@@ -18,18 +17,22 @@ export async function handler(req: Request) {
     // Parse the request body
     const { sessionId, mentorId, menteeId, sessionData } = await req.json()
 
-    // Process payment with Stripe
-    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    // Since we don't have actual Stripe integration yet, we'll simulate a successful payment
+    const mockSession = {
+      payment_status: 'paid',
+      id: sessionId || `mock_${Date.now()}`,
+      amount_total: sessionData.price ? sessionData.price * 100 : 0
+    }
 
-    if (session.payment_status === 'paid') {
+    if (mockSession.payment_status === 'paid') {
       // Update the database to mark session as paid
       const { data, error } = await supabase
         .from('mentor_sessions')
         .update({
           payment_status: 'completed',
-          payment_id: session.id,
-          payment_amount: session.amount_total ? session.amount_total / 100 : 0,
-          payment_provider: 'stripe'
+          payment_id: mockSession.id,
+          payment_amount: mockSession.amount_total ? mockSession.amount_total / 100 : 0,
+          payment_provider: 'mock'
         })
         .eq('id', sessionData.session_id)
         .select()

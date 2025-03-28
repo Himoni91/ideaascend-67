@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { MentorBookingModal } from "@/components/mentor/MentorBookingModal";
 import { MentorAvailabilitySlot } from "@/types/mentor";
 import { toast } from "sonner";
+import { PageTransition } from "@/components/PageTransition";
 
 export default function MentorProfile() {
   const { id } = useParams<{ id: string }>();
@@ -118,8 +119,8 @@ export default function MentorProfile() {
 
   return (
     <AppLayout>
-      <div className="container max-w-6xl mx-auto py-8">
-        <div className="mb-8">
+      <PageTransition>
+        <div className="container mx-auto px-4 pb-8">
           <Button
             variant="ghost"
             className="mb-4"
@@ -129,8 +130,8 @@ export default function MentorProfile() {
             Back to Mentor Space
           </Button>
           
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="md:w-2/3">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -404,7 +405,7 @@ export default function MentorProfile() {
               </motion.div>
             </div>
             
-            <div className="md:w-1/3">
+            <div className="lg:col-span-1">
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -463,9 +464,9 @@ export default function MentorProfile() {
                     <div className="flex flex-col space-y-3">
                       <Button
                         onClick={() => {
-                          const tabElement = document.querySelector('[value="availability"]');
-                          if (tabElement) {
-                            tabElement.dispatchEvent(new Event('click'));
+                          const tabElement = document.querySelector('[data-value="availability"]');
+                          if (tabElement instanceof HTMLElement) {
+                            tabElement.click();
                           }
                         }}
                       >
@@ -500,7 +501,7 @@ export default function MentorProfile() {
             </div>
           </div>
         </div>
-      </div>
+      </PageTransition>
       
       {isBookingModalOpen && selectedSlot && (
         <MentorBookingModal

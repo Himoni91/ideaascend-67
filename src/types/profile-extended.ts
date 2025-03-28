@@ -50,7 +50,7 @@ export interface SocialLinks {
   [key: string]: string | undefined;
 }
 
-export interface ExtendedProfileType extends ProfileType {
+export interface ExtendedProfileType extends Omit<ProfileType, 'public_email'> {
   professional_summary?: string | null;
   education?: Education[] | null;
   work_experience?: WorkExperience[] | null;

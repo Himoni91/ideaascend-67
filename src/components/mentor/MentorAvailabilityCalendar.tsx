@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -34,7 +33,6 @@ export function MentorAvailabilityCalendar({
   
   const availabilityDates = Object.keys(availableSlotsByDate);
   
-  // Group slots by date
   useEffect(() => {
     const groupedSlots: Record<string, MentorAvailabilitySlot[]> = {};
     
@@ -60,7 +58,6 @@ export function MentorAvailabilityCalendar({
       return;
     }
     
-    // Parse times
     try {
       const startDate = parse(`${format(selectedDate, 'yyyy-MM-dd')} ${newSlotStartTime}`, 'yyyy-MM-dd HH:mm', new Date());
       const endDate = parse(`${format(selectedDate, 'yyyy-MM-dd')} ${newSlotEndTime}`, 'yyyy-MM-dd HH:mm', new Date());
@@ -109,12 +106,11 @@ export function MentorAvailabilityCalendar({
     }
   };
   
-  // Generate some quick time slot options for the current date
   const generateQuickTimeSlots = () => {
     if (!selectedDate) return [];
     
     const today = new Date();
-    const startHour = isToday(selectedDate) ? today.getHours() + 2 : 9; // Start 2 hours from now if today
+    const startHour = isToday(selectedDate) ? today.getHours() + 2 : 9;
     const quickSlots = [];
     
     for (let hour = startHour; hour < 20; hour += 2) {
@@ -137,7 +133,6 @@ export function MentorAvailabilityCalendar({
   const selectedDateFormatted = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
   const slotsForSelectedDate = selectedDateFormatted ? (availableSlotsByDate[selectedDateFormatted] || []) : [];
   
-  // Sort slots by start time
   const sortedSlotsForSelectedDate = slotsForSelectedDate.sort((a, b) => 
     new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
   );
@@ -171,12 +166,6 @@ export function MentorAvailabilityCalendar({
                     fontWeight: "bold",
                     backgroundColor: "var(--primary-50)",
                     color: "var(--primary-900)" 
-                  }
-                }}
-                styles={{
-                  day_selected: { 
-                    fontWeight: "bold",
-                    border: "1px solid var(--primary)"
                   }
                 }}
                 components={{
@@ -274,7 +263,6 @@ export function MentorAvailabilityCalendar({
         </CardContent>
       </Card>
       
-      {/* Add Slot Dialog */}
       <Dialog open={isAddSlotDialogOpen} onOpenChange={setIsAddSlotDialogOpen}>
         <DialogContent>
           <DialogHeader>
