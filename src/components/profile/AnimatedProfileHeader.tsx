@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ProfileType } from "@/types/profile";
 import { CheckCircle, MapPin, Link2, Briefcase, Building, Pencil, MessageCircle, Users, Upload, Camera, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import { useProfileBanner } from "@/hooks/use-profile-banner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
+
 interface AnimatedProfileHeaderProps {
   profile: ProfileType;
   isCurrentUser: boolean;
@@ -46,6 +48,8 @@ export default function AnimatedProfileHeader({
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState("");
+  const isMobile = useIsMobile();
+  
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -53,6 +57,7 @@ export default function AnimatedProfileHeader({
       await uploadProfileImage(file);
     }
   };
+  
   const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -60,12 +65,14 @@ export default function AnimatedProfileHeader({
       await uploadProfileBanner(file);
     }
   };
+  
   const handleAvatarClick = () => {
     if (profile.avatar_url) {
       setPreviewImage(profile.avatar_url);
       setImagePreviewOpen(true);
     }
   };
+  
   const containerVariants = {
     hidden: {
       opacity: 0
@@ -78,6 +85,7 @@ export default function AnimatedProfileHeader({
       }
     }
   };
+  
   const itemVariants = {
     hidden: {
       opacity: 0,
@@ -91,6 +99,7 @@ export default function AnimatedProfileHeader({
       }
     }
   };
+  
   const stats = [{
     label: "Followers",
     value: followersCount || 0,
@@ -110,6 +119,30 @@ export default function AnimatedProfileHeader({
     label: "Level",
     value: profile.level || 1
   }];
+  
+  // Create execution of the edge function to ensure the bucket exists
+  useEffect(() => {
+    const checkAndCreateBucket = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-buckets`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          }
+        });
+        
+        if (!response.ok) {
+          console.error('Failed to check/create buckets');
+        }
+      } catch (error) {
+        console.error('Error calling bucket creation function:', error);
+      }
+    };
+    
+    checkAndCreateBucket();
+  }, []);
+  
   return <>
       <motion.div initial="hidden" animate="visible" variants={containerVariants} className="rounded-xl overflow-hidden bg-card border border-border relative">
         {/* Banner */}
@@ -141,8 +174,8 @@ export default function AnimatedProfileHeader({
         
         {/* Profile content */}
         <div className="p-4 md:p-6 pt-16 md:pt-20">
-          {/* Avatar */}
-          <div className="absolute -top-12 md:-top-16 left-4 md:left-6 z-10">
+          {/* Avatar - Position it like mobile view consistently */}
+          <div className={`absolute ${isMobile ? '-top-12 left-4' : '-top-16 left-1/2 transform -translate-x-1/2'} z-10`}>
             <div className="relative group">
               <motion.div initial={{
               scale: 0.8,
@@ -153,7 +186,7 @@ export default function AnimatedProfileHeader({
             }} transition={{
               duration: 0.5,
               delay: 0.2
-            }} className="rounded-full border-4 border-background px-0 py-0 mx-[4px] my-[159px]">
+            }} className="rounded-full border-4 border-background">
                 <Avatar className="h-24 w-24 md:h-32 md:w-32 cursor-pointer hover:opacity-90 transition-opacity" onClick={handleAvatarClick}>
                   <AvatarImage src={profile.avatar_url || undefined} />
                   <AvatarFallback className="text-2xl md:text-3xl bg-muted">
@@ -176,8 +209,8 @@ export default function AnimatedProfileHeader({
           </div>
           
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-2">
-            <motion.div variants={itemVariants} className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
+            <motion.div variants={itemVariants} className="space-y-2 md:ml-0 text-center md:text-left mt-14 md:mt-0">
+              <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start">
                 <h1 className="text-xl md:text-2xl font-bold">
                   {profile.full_name || profile.username}
                 </h1>
@@ -204,7 +237,7 @@ export default function AnimatedProfileHeader({
                 </motion.p>}
             </motion.div>
             
-            <motion.div variants={itemVariants} className="flex justify-start md:justify-end mt-2 md:mt-0">
+            <motion.div variants={itemVariants} className="flex justify-center md:justify-end mt-2 md:mt-0">
               {isCurrentUser ? <Button variant="outline" size="sm" onClick={onEdit} className="gap-1 hover:bg-muted/80">
                   <Pencil className="w-3.5 h-3.5" />
                   Edit Profile
@@ -220,12 +253,12 @@ export default function AnimatedProfileHeader({
           
           <motion.div variants={itemVariants} className="mt-4 space-y-2 text-sm text-muted-foreground">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {profile.location && <div className="flex items-center gap-2">
+              {profile.location && <div className="flex items-center gap-2 justify-center md:justify-start">
                   <MapPin className="h-3.5 w-3.5" />
                   <span>{profile.location}</span>
                 </div>}
               
-              {(profile.company || profile.position) && <div className="flex items-center gap-2">
+              {(profile.company || profile.position) && <div className="flex items-center gap-2 justify-center md:justify-start">
                   {profile.company && profile.position ? <>
                       <Briefcase className="h-3.5 w-3.5" />
                       <span>{profile.position} at {profile.company}</span>
@@ -238,7 +271,7 @@ export default function AnimatedProfileHeader({
                     </>}
                 </div>}
               
-              {profile.website && <div className="flex items-center gap-2">
+              {profile.website && <div className="flex items-center gap-2 justify-center md:justify-start">
                   <Link2 className="h-3.5 w-3.5" />
                   <a href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                     {profile.website.replace(/^https?:\/\//, '')}
@@ -247,7 +280,7 @@ export default function AnimatedProfileHeader({
             </div>
           </motion.div>
           
-          {profile.bio && <motion.div variants={itemVariants} className="mt-4">
+          {profile.bio && <motion.div variants={itemVariants} className="mt-4 text-center md:text-left">
               <p className="text-sm whitespace-pre-line">{profile.bio}</p>
             </motion.div>}
           
