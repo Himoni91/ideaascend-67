@@ -1,3 +1,4 @@
+
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
@@ -31,6 +32,12 @@ import AuthLayout from "@/components/layout/AuthLayout";
 import PitchHub from "./pages/PitchHub";
 import PitchHubIdeaDetail from "./pages/PitchHubIdeaDetail";
 import DiscoverDetail from "@/pages/discover/DiscoverDetail";
+
+// Import help pages
+import HelpCenter from "@/pages/help/HelpCenter";
+import CategoryPage from "@/pages/help/CategoryPage";
+import ArticlePage from "@/pages/help/ArticlePage";
+import ContactPage from "@/pages/help/ContactPage";
 
 // Import mentor pages
 import MentorApplicationPage from "@/pages/MentorApplicationPage";
@@ -159,11 +166,13 @@ export default function App() {
                     <PostDetailPage />
                   </RouteGuard>
                 } />
-                <Route path="/help" element={
-                  <RouteGuard>
-                    <Help />
-                  </RouteGuard>
-                } />
+                
+                {/* Help Center Routes */}
+                <Route path="/help" element={<Help />} />
+                <Route path="/help/category/:slug" element={<CategoryPage />} />
+                <Route path="/help/article/:slug" element={<ArticlePage />} />
+                <Route path="/help/contact" element={<ContactPage />} />
+                <Route path="/help/index" element={<HelpCenter />} />
 
                 {/* 404 Route */}
                 <Route path="*" element={<NotFound />} />
