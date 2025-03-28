@@ -1,0 +1,15 @@
+
+project_id = "scicbwtczqunflsqnfzu"
+
+[api]
+enabled = true
+port = 54321
+base_path = "/_api"
+
+[[api.headers]]
+name = "Access-Control-Allow-Origin"
+value = "*"
+
+[[api.headers]]
+name = "Access-Control-Allow-Headers"
+value = "authorization, x-client-info, apikey, content-type"
