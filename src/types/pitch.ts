@@ -32,7 +32,7 @@ export interface Pitch {
   trending_score: number;
   is_premium: boolean;
   created_at: string;
-  updated_at?: string; // Made optional to resolve TypeScript errors
+  updated_at: string; // Changed from optional to required to match usage in use-pitches.ts
   author?: ProfileType;
   user_vote?: 'up' | 'down' | null;
   

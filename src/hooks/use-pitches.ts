@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -105,7 +104,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
           solution: pitch.solution || '',
           author: formattedAuthor,
           user_vote: userVotes[pitch.id] || null,
-          updated_at: pitch.updated_at || pitch.created_at, // Add updated_at field with fallback
+          updated_at: pitch.updated_at || pitch.created_at, // Ensure updated_at is always set
         } as Pitch;
       }) || [];
 
@@ -242,7 +241,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         solution: data.solution || '',
         author: data.author ? formatProfileData(data.author) : undefined,
         user_vote: null,
-        updated_at: data.updated_at || data.created_at, // Add updated_at field with fallback
+        updated_at: data.updated_at || data.created_at, // Ensure updated_at is always set
       } as Pitch;
       
       return formattedPitch;
@@ -402,7 +401,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
           solution: data.solution || '', 
           author: data.author ? formatProfileData(data.author) : undefined,
           user_vote: userVote,
-          updated_at: data.updated_at || data.created_at, // Add updated_at field with fallback
+          updated_at: data.updated_at || data.created_at, // Ensure updated_at is always set
         } as Pitch;
         
         return formattedPitch;
@@ -596,7 +595,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
           target_audience: pitch.target_audience || '',
           solution: pitch.solution || '',
           author: pitch.author ? formatProfileData(pitch.author) : undefined,
-          updated_at: pitch.updated_at || pitch.created_at // Add updated_at field with fallback
+          updated_at: pitch.updated_at || pitch.created_at // Ensure updated_at is always set
         })) as Pitch[];
       },
       staleTime: 1000 * 60 * 5,
