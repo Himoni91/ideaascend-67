@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -32,28 +31,23 @@ export default function MentorSessionsPage() {
   
   const { useMentorSessions, updateSessionStatus } = useMentor();
   
-  // Get sessions for current user as mentee
   const { 
     data: menteeSessions = [], 
     isLoading: isLoadingMenteeSessions 
   } = useMentorSessions(undefined, "mentee");
   
-  // Get sessions for current user as mentor
   const { 
     data: mentorSessions = [], 
     isLoading: isLoadingMentorSessions 
   } = useMentorSessions(undefined, "mentor");
   
-  // Check if current user is a mentor
   const isMentor = user?.is_mentor || false;
   
-  // Handle cancelling a session
   const handleCancelSession = async (session: MentorSession) => {
     setSessionToCancel(session);
     setCancelDialogOpen(true);
   };
   
-  // Confirm cancellation of a session
   const confirmCancelSession = async () => {
     if (!sessionToCancel) return;
     
@@ -82,13 +76,11 @@ export default function MentorSessionsPage() {
     }
   };
   
-  // Handle adding a meeting link to a session
   const handleAddMeetingLink = (session: MentorSession) => {
     setSessionToAddLink(session);
     setMeetingLinkDialogOpen(true);
   };
   
-  // Confirm adding a meeting link to a session
   const confirmAddMeetingLink = async () => {
     if (!sessionToAddLink) return;
     
@@ -97,7 +89,7 @@ export default function MentorSessionsPage() {
         sessionId: sessionToAddLink.id,
         status: sessionToAddLink.status,
         notes: sessionToAddLink.session_notes,
-        sessionUrl: meetingLink
+        meetingLink: meetingLink
       });
       
       toast({
@@ -118,7 +110,6 @@ export default function MentorSessionsPage() {
     }
   };
   
-  // Handle completing a session
   const handleCompleteSession = async (session: MentorSession) => {
     try {
       await updateSessionStatus({
@@ -140,7 +131,6 @@ export default function MentorSessionsPage() {
     }
   };
   
-  // Handle joining a session
   const handleJoinSession = (session: MentorSession) => {
     if (session.session_url) {
       window.open(session.session_url, "_blank");
@@ -249,7 +239,6 @@ export default function MentorSessionsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
               >
-                {/* Quick Stats */}
                 <Card className="mb-6">
                   <CardHeader>
                     <CardTitle className="text-lg">Session Stats</CardTitle>
@@ -296,7 +285,6 @@ export default function MentorSessionsPage() {
                   </CardContent>
                 </Card>
                 
-                {/* Actions */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Quick Actions</CardTitle>
@@ -340,7 +328,6 @@ export default function MentorSessionsPage() {
             </div>
           </div>
           
-          {/* Cancel Session Dialog */}
           <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
             <DialogContent>
               <DialogHeader>
@@ -377,7 +364,6 @@ export default function MentorSessionsPage() {
             </DialogContent>
           </Dialog>
           
-          {/* Add Meeting Link Dialog */}
           <Dialog open={meetingLinkDialogOpen} onOpenChange={setMeetingLinkDialogOpen}>
             <DialogContent>
               <DialogHeader>

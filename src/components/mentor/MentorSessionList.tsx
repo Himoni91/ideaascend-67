@@ -19,7 +19,7 @@ interface MentorSessionListProps {
   isLoading: boolean;
   onCancelSession?: (session: MentorSession) => Promise<void>;
   onJoinSession?: (session: MentorSession) => void;
-  onAddMeetingLink?: (session: MentorSession, link: string) => Promise<void>;
+  onAddMeetingLink?: (session: MentorSession) => void; // Update the type definition
   onCompleteSession?: (session: MentorSession) => Promise<void>;
   onRescheduleSession?: (session: MentorSession) => void;
   asMentor?: boolean;

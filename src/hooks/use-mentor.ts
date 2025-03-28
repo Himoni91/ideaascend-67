@@ -426,11 +426,18 @@ export function useMentor() {
   };
 
   // Update session status
-  const updateSessionStatus = async ({ sessionId, status, notes, cancellationReason }: { 
+  const updateSessionStatus = async ({ 
+    sessionId, 
+    status, 
+    notes, 
+    cancellationReason, 
+    meetingLink 
+  }: { 
     sessionId: string; 
     status: string; 
     notes?: string;
     cancellationReason?: string;
+    meetingLink?: string;
   }) => {
     if (!user) throw new Error("User must be logged in");
     
@@ -455,7 +462,8 @@ export function useMentor() {
         status,
         session_notes: notes || sessionData.session_notes,
         cancellation_reason: status === 'cancelled' ? cancellationReason : sessionData.cancellation_reason,
-        cancelled_by: status === 'cancelled' ? user.id : sessionData.cancelled_by
+        cancelled_by: status === 'cancelled' ? user.id : sessionData.cancelled_by,
+        session_url: meetingLink || sessionData.session_url
       })
       .eq("id", sessionId)
       .select()
@@ -568,7 +576,7 @@ export function useMentor() {
       // Calculate average rating
       const ratings = mentorReviews.map((review) => review.rating);
       const averageRating = ratings.length > 0 
-        ? ratings.reduce((a, b) => a + b, 0) / ratings.length 
+        ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length 
         : 0;
       
       // Update the mentor's profile stats
