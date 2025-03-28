@@ -1,71 +1,126 @@
 
 import { useState, useEffect } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { format, parseISO, isBefore } from "date-fns";
 import { motion } from "framer-motion";
-import { Loader2, ArrowLeft, MessageSquare, Calendar, Star, Award } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import AppLayout from "@/components/layout/AppLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useProfile } from "@/hooks/use-profile";
+import AppLayout from "@/components/layout/AppLayout";
+import { Calendar, Clock, MapPin, Briefcase, CheckCircle, ThumbsUp, MessageSquare, Star, Users, ExternalLink, FileText, ChevronLeft, CalendarClock, Loader } from "lucide-react";
+import { useMentor } from "@/hooks/use-mentor";
 import { useAuth } from "@/contexts/AuthContext";
+import { MentorBookingModal } from "@/components/mentor/MentorBookingModal";
+import { MentorAvailabilitySlot } from "@/types/mentor";
+import { toast } from "sonner";
 
-const MentorProfile = () => {
+export default function MentorProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("about");
-  
-  const { profile, isLoading, error } = useProfile(id);
+  const { useMentorProfile, useMentorAvailability, useMentorReviews, bookMentorSession } = useMentor();
   const { user } = useAuth();
+  
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<MentorAvailabilitySlot | null>(null);
+  const [isProcessingBooking, setIsProcessingBooking] = useState(false);
+  
+  // Get mentor profile data
+  const { data: mentor, isLoading: isLoadingMentor, error: mentorError } = useMentorProfile(id);
+  
+  // Get mentor availability
+  const { data: availabilitySlots = [], isLoading: isLoadingAvailability } = useMentorAvailability(id);
+  
+  // Get mentor reviews
+  const { data: reviews = [], isLoading: isLoadingReviews } = useMentorReviews(id);
+  
+  // Alert on error
+  useEffect(() => {
+    if (mentorError) {
+      toast.error("Failed to load mentor profile. Please try again.");
+      console.error(mentorError);
+    }
+  }, [mentorError]);
+  
+  // Handle session booking
+  const handleSelectTimeSlot = (slot: MentorAvailabilitySlot) => {
+    setSelectedSlot(slot);
+    setIsBookingModalOpen(true);
+  };
+  
+  const handleBookSession = async (bookingData: {
+    mentorId: string;
+    slotId: string;
+    sessionData: {
+      title: string;
+      description?: string;
+      session_type: string;
+      payment_provider?: string;
+      payment_id?: string;
+      payment_amount?: number;
+    }
+  }) => {
+    if (!user) {
+      toast.error("You must be logged in to book a session");
+      return;
+    }
+    
+    setIsProcessingBooking(true);
+    
+    try {
+      await bookMentorSession(bookingData);
+      toast.success("Session booked successfully!");
+      setIsBookingModalOpen(false);
+    } catch (error) {
+      console.error("Booking error:", error);
+      toast.error("Failed to book the session. Please try again.");
+    } finally {
+      setIsProcessingBooking(false);
+    }
+  };
+  
+  // Get future available slots
+  const futureSlots = availabilitySlots.filter(slot => 
+    !slot.is_booked && isBefore(new Date(), parseISO(slot.start_time))
+  );
 
-  if (isLoading) {
+  // Organize slots by date
+  const slotsByDate: Record<string, MentorAvailabilitySlot[]> = {};
+  futureSlots.forEach(slot => {
+    const date = format(parseISO(slot.start_time), 'yyyy-MM-dd');
+    if (!slotsByDate[date]) {
+      slotsByDate[date] = [];
+    }
+    slotsByDate[date].push(slot);
+  });
+  
+  // Handle loading state
+  if (isLoadingMentor) {
     return (
       <AppLayout>
-        <div className="flex flex-col justify-center items-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-idolyst-blue mb-4" />
-          <span className="text-lg text-muted-foreground">Loading mentor profile...</span>
+        <div className="container max-w-6xl mx-auto py-8 flex justify-center items-center min-h-[60vh]">
+          <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </AppLayout>
     );
   }
-
-  if (error || !profile) {
+  
+  // Handle not found
+  if (!mentor) {
     return (
       <AppLayout>
-        <div className="max-w-4xl mx-auto text-center py-12">
-          <h2 className="text-2xl font-semibold mb-2">Mentor Not Found</h2>
-          <p className="text-muted-foreground mb-6">
-            {error ? `Error: ${(error as Error).message}` : "The requested mentor could not be found."}
-          </p>
-          <Button onClick={() => navigate(-1)}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Go Back
-          </Button>
-        </div>
-      </AppLayout>
-    );
-  }
-
-  // Verify this is actually a mentor profile
-  if (!profile.is_mentor) {
-    return (
-      <AppLayout>
-        <div className="max-w-4xl mx-auto text-center py-12">
-          <h2 className="text-2xl font-semibold mb-2">Not a Mentor</h2>
-          <p className="text-muted-foreground mb-6">
-            This user is not currently offering mentorship.
-          </p>
-          <div className="flex gap-4 justify-center">
-            <Button onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Go Back
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to={`/profile/${id}`}>
-                View Profile
-              </Link>
+        <div className="container max-w-6xl mx-auto py-8">
+          <div className="text-center py-12">
+            <Users className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
+            <h2 className="text-2xl font-bold mb-2">Mentor Not Found</h2>
+            <p className="text-muted-foreground">The mentor you're looking for doesn't exist or may have been removed.</p>
+            <Button 
+              className="mt-6" 
+              onClick={() => navigate('/mentor-space')}
+            >
+              <ChevronLeft className="mr-2 h-4 w-4" />
+              Back to Mentor Space
             </Button>
           </div>
         </div>
@@ -73,349 +128,398 @@ const MentorProfile = () => {
     );
   }
 
-  // Animation variants
-  const pageVariants = {
-    initial: { opacity: 0, y: 20 },
-    animate: { 
-      opacity: 1, 
-      y: 0,
-      transition: {
-        duration: 0.4,
-        staggerChildren: 0.1
-      }
-    },
-    exit: { opacity: 0, y: -20 }
-  };
-
-  const itemVariants = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -20 }
-  };
-
   return (
     <AppLayout>
-      <motion.div 
-        className="max-w-4xl mx-auto px-4 sm:px-6 pb-20"
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        variants={pageVariants}
-      >
-        {/* Back Button */}
-        <motion.div variants={itemVariants} className="mb-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => navigate(-1)}
-            className="flex items-center text-muted-foreground hover:text-foreground"
+      <div className="container max-w-6xl mx-auto py-8">
+        <div className="mb-8">
+          <Button
+            variant="ghost"
+            className="mb-4"
+            onClick={() => navigate('/mentor-space')}
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Mentors
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Back to Mentor Space
           </Button>
-        </motion.div>
-        
-        {/* Mentor Header Card */}
-        <motion.div variants={itemVariants}>
-          <Card className="mb-6 overflow-hidden border-2 border-primary/5">
-            <div className="h-32 bg-gradient-to-r from-idolyst-blue/30 to-idolyst-indigo/30 relative">
-              <div className="absolute -bottom-16 left-6">
-                <Avatar className="h-32 w-32 border-4 border-background">
-                  <AvatarImage src={profile.avatar_url || undefined} alt={profile.full_name || "Mentor"} />
-                  <AvatarFallback className="text-3xl">
-                    {profile.full_name?.charAt(0) || profile.username?.charAt(0) || "M"}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-              <div className="absolute top-4 right-4 flex gap-2">
-                <Badge className="bg-idolyst-blue/90">Verified Mentor</Badge>
-                {profile.id === user?.id && (
-                  <Badge variant="outline" className="bg-background/80">This is you</Badge>
-                )}
-              </div>
-            </div>
-            
-            <CardContent className="pt-20 pb-6">
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl font-bold mb-1">{profile.full_name}</h1>
-                  <p className="text-muted-foreground">
-                    {profile.position && profile.company ? (
-                      <>
-                        {profile.position} at {profile.company} 
-                        {profile.location && <> · {profile.location}</>}
-                      </>
-                    ) : (
-                      profile.location || "@" + profile.username
-                    )}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="flex items-center">
-                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 mr-1" />
-                      <span className="font-medium">4.9</span>
-                      <span className="text-muted-foreground ml-1 text-sm">(24 reviews)</span>
-                    </div>
-                    <span className="text-muted-foreground">•</span>
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                      <span className="text-muted-foreground text-sm">{profile.stats?.mentorSessions || 0} sessions</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <Button>
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Book a Session
-                  </Button>
-                  <Button variant="outline">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Message
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Left Column - Sidebar Info */}
-          <motion.div variants={itemVariants} className="space-y-6">
-            {/* Expertise Card */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center">
-                  <Award className="mr-2 h-5 w-5 text-idolyst-blue" />
-                  Areas of Expertise
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {profile.expertise?.map((item, i) => (
-                    <Badge key={i} variant="outline" className="bg-primary/5">
-                      {item}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Availability Card */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center">
-                  <Calendar className="mr-2 h-5 w-5 text-idolyst-blue" />
-                  Availability
-                </CardTitle>
-                <CardDescription>
-                  Upcoming available time slots
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 gap-2">
-                  <Button variant="outline" className="justify-start">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Tomorrow, 10:00 AM
-                  </Button>
-                  <Button variant="outline" className="justify-start">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Tomorrow, 2:00 PM
-                  </Button>
-                  <Button variant="outline" className="justify-start">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Friday, 11:00 AM
-                  </Button>
-                  <Button variant="outline" className="justify-start">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Friday, 3:00 PM
-                  </Button>
-                </div>
-                <Button className="w-full">
-                  View All Available Times
-                </Button>
-              </CardContent>
-            </Card>
-            
-            {/* Session Types Card */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Session Types</CardTitle>
-                <CardDescription>
-                  Ways to connect with this mentor
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="border rounded-lg p-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium">Quick Chat</h3>
-                      <p className="text-xs text-muted-foreground mt-1">30 minutes • Video call</p>
-                    </div>
-                    <Badge>Free</Badge>
-                  </div>
-                  <p className="text-sm mt-3">
-                    Brief session for specific questions or quick advice on your startup journey.
-                  </p>
-                </div>
-                
-                <div className="border rounded-lg p-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium">Deep Dive</h3>
-                      <p className="text-xs text-muted-foreground mt-1">60 minutes • Video call</p>
-                    </div>
-                    <Badge variant="outline">Credits: 2</Badge>
-                  </div>
-                  <p className="text-sm mt-3">
-                    In-depth consultation for comprehensive feedback and strategic planning.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
           
-          {/* Right Column - Main Content Tabs */}
-          <motion.div variants={itemVariants} className="md:col-span-2">
-            <Tabs defaultValue="about" onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="about">About</TabsTrigger>
-                <TabsTrigger value="reviews">Reviews</TabsTrigger>
-                <TabsTrigger value="topics">Topics</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="about" className="mt-6">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle>About {profile.full_name}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="text-sm leading-relaxed">
-                      {profile.bio || (
-                        <p className="text-muted-foreground">
-                          This mentor hasn't added a bio yet.
-                        </p>
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="md:w-2/3">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="flex items-start gap-6">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage src={mentor.avatar_url || undefined} />
+                    <AvatarFallback>{mentor.full_name?.charAt(0) || mentor.username?.charAt(0) || 'M'}</AvatarFallback>
+                  </Avatar>
+                  
+                  <div>
+                    <div className="flex items-center flex-wrap gap-2">
+                      <h1 className="text-3xl font-bold">{mentor.full_name || mentor.username}</h1>
+                      {mentor.is_verified && (
+                        <Badge className="bg-idolyst-blue/90">Verified</Badge>
                       )}
                     </div>
                     
-                    {(profile.website || profile.linkedin_url || profile.twitter_url) && (
-                      <div className="pt-3 border-t">
-                        <h3 className="font-medium mb-2">Connect</h3>
-                        <div className="flex flex-wrap gap-3">
-                          {profile.website && (
-                            <Button variant="outline" size="sm" asChild>
-                              <a href={profile.website} target="_blank" rel="noopener noreferrer">
-                                Website
-                              </a>
-                            </Button>
-                          )}
-                          {profile.linkedin_url && (
-                            <Button variant="outline" size="sm" asChild>
-                              <a href={profile.linkedin_url} target="_blank" rel="noopener noreferrer">
-                                LinkedIn
-                              </a>
-                            </Button>
-                          )}
-                          {profile.twitter_url && (
-                            <Button variant="outline" size="sm" asChild>
-                              <a href={profile.twitter_url} target="_blank" rel="noopener noreferrer">
-                                Twitter
-                              </a>
-                            </Button>
-                          )}
+                    <p className="text-xl text-muted-foreground mt-1">
+                      {mentor.position} {mentor.company && `at ${mentor.company}`}
+                    </p>
+                    
+                    <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
+                      {mentor.location && (
+                        <div className="flex items-center text-muted-foreground">
+                          <MapPin className="mr-1 h-4 w-4" />
+                          {mentor.location}
                         </div>
+                      )}
+                      
+                      <div className="flex items-center text-muted-foreground">
+                        <Briefcase className="mr-1 h-4 w-4" />
+                        {mentor.stats?.mentorSessions || 0} sessions conducted
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                      
+                      <div className="flex items-center">
+                        <Star className="mr-1 h-4 w-4 text-yellow-500 fill-yellow-500" />
+                        <span>{mentor.stats?.mentorRating || "New"}</span>
+                        <span className="text-muted-foreground ml-1">({mentor.stats?.mentorReviews || 0} reviews)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-6">
+                  <p className="text-muted-foreground whitespace-pre-line">
+                    {mentor.mentor_bio || mentor.bio}
+                  </p>
+                </div>
+                
+                <div className="mt-4">
+                  <h3 className="text-lg font-medium mb-2">Areas of Expertise</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {mentor.expertise?.map((expertise, i) => (
+                      <Badge key={i} variant="outline" className="bg-primary/5">
+                        {expertise}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
               
-              <TabsContent value="reviews" className="mt-6">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle>Mentor Reviews</CardTitle>
-                    <CardDescription>
-                      See what others say about sessions with {profile.full_name}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Mocked reviews */}
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="border-b last:border-0 pb-4 last:pb-0">
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-start">
-                            <Avatar className="h-10 w-10">
-                              <AvatarFallback>
-                                {["JD", "AR", "MC"][i-1]}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="ml-3">
-                              <p className="font-medium">{["Jane Doe", "Alex Rodriguez", "Mark Chen"][i-1]}</p>
-                              <div className="flex text-yellow-500 mt-0.5">
-                                {Array(5).fill(0).map((_, idx) => (
-                                  <Star key={idx} className="h-3 w-3 fill-yellow-500" />
-                                ))}
-                              </div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="mt-10"
+              >
+                <Tabs defaultValue="about">
+                  <TabsList className="w-full max-w-md">
+                    <TabsTrigger value="about">About</TabsTrigger>
+                    <TabsTrigger value="reviews">Reviews</TabsTrigger>
+                    <TabsTrigger value="availability">Availability</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="about" className="mt-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Background & Experience</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {mentor.work_experience && mentor.work_experience.length > 0 ? (
+                          <div>
+                            <h3 className="text-lg font-medium mb-3">Work Experience</h3>
+                            <div className="space-y-4">
+                              {(mentor.work_experience as any[]).map((work, i) => (
+                                <div key={i} className="border-l-2 border-muted pl-4">
+                                  <h4 className="font-medium">{work.title}</h4>
+                                  <p className="text-sm text-muted-foreground">{work.company}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {work.start_date} - {work.end_date || 'Present'}
+                                  </p>
+                                  {work.description && (
+                                    <p className="text-sm mt-1">{work.description}</p>
+                                  )}
+                                </div>
+                              ))}
                             </div>
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            {["2 weeks ago", "1 month ago", "2 months ago"][i-1]}
-                          </span>
+                        ) : (
+                          <div>
+                            <h3 className="text-lg font-medium mb-2">Work Experience</h3>
+                            <p className="text-muted-foreground">No work experience information provided.</p>
+                          </div>
+                        )}
+                        
+                        <div className="pt-4">
+                          <h3 className="text-lg font-medium mb-3">External Links</h3>
+                          <div className="flex flex-wrap gap-3">
+                            {mentor.linkedin_url && (
+                              <Button variant="outline" size="sm" asChild>
+                                <a href={mentor.linkedin_url} target="_blank" rel="noopener noreferrer">
+                                  <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                                  </svg>
+                                  LinkedIn
+                                </a>
+                              </Button>
+                            )}
+                            
+                            {mentor.website && (
+                              <Button variant="outline" size="sm" asChild>
+                                <a href={mentor.website} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="h-4 w-4 mr-2" />
+                                  Website
+                                </a>
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-sm mt-3">
-                          {[
-                            "Incredibly insightful session. I came away with actionable steps to improve my startup's marketing strategy. Would highly recommend!",
-                            "Great mentor! Provided valuable feedback on my pitch deck and helped me refine my value proposition.",
-                            "Excellent advice on fundraising strategies. Very knowledgeable and approachable."
-                          ][i-1]}
-                        </p>
-                      </div>
-                    ))}
-                    
-                    <div className="text-center mt-4">
-                      <Button variant="outline">View All Reviews</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="topics" className="mt-6">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle>Mentorship Topics</CardTitle>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="reviews" className="mt-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Mentor Reviews</CardTitle>
+                        <CardDescription>
+                          What others are saying about {mentor.full_name || mentor.username}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {isLoadingReviews ? (
+                          <div className="flex justify-center items-center py-8">
+                            <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : reviews.length === 0 ? (
+                          <div className="text-center py-6 border rounded-lg">
+                            <MessageSquare className="h-10 w-10 mx-auto text-muted-foreground opacity-20 mb-2" />
+                            <h3 className="text-lg font-medium mb-1">No Reviews Yet</h3>
+                            <p className="text-sm text-muted-foreground">
+                              This mentor doesn't have any reviews yet.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            {reviews.map((review) => (
+                              <div key={review.id} className="border-b pb-5 last:border-0">
+                                <div className="flex items-start">
+                                  <Avatar className="h-8 w-8 mr-3">
+                                    <AvatarImage src={review.reviewer?.avatar_url || undefined} />
+                                    <AvatarFallback>
+                                      {review.reviewer?.full_name?.charAt(0) || review.reviewer?.username?.charAt(0) || 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="flex items-center">
+                                      <h4 className="font-medium">
+                                        {review.reviewer?.full_name || review.reviewer?.username || 'Anonymous'}
+                                      </h4>
+                                    </div>
+                                    <div className="flex items-center my-1">
+                                      {[...Array(5)].map((_, i) => (
+                                        <Star 
+                                          key={i} 
+                                          className={`h-3.5 w-3.5 ${
+                                            i < review.rating 
+                                              ? 'text-yellow-500 fill-yellow-500' 
+                                              : 'text-gray-300 dark:text-gray-600'
+                                          }`} 
+                                        />
+                                      ))}
+                                      <span className="text-xs text-muted-foreground ml-2">
+                                        {new Date(review.created_at).toLocaleDateString('en-US', {
+                                          month: 'short',
+                                          day: 'numeric',
+                                          year: 'numeric'
+                                        })}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm">
+                                      {review.content}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="availability" className="mt-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Book a Session</CardTitle>
+                        <CardDescription>
+                          Select an available time slot to schedule a mentorship session
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {isLoadingAvailability ? (
+                          <div className="flex justify-center items-center py-8">
+                            <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : futureSlots.length === 0 ? (
+                          <div className="text-center py-6 border rounded-lg">
+                            <CalendarClock className="h-10 w-10 mx-auto text-muted-foreground opacity-20 mb-2" />
+                            <h3 className="text-lg font-medium mb-1">No Available Slots</h3>
+                            <p className="text-sm text-muted-foreground">
+                              This mentor hasn't set any available time slots yet.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            {Object.entries(slotsByDate).map(([date, slots]) => {
+                              const formattedDate = format(parseISO(date), 'EEEE, MMMM d, yyyy');
+                              
+                              return (
+                                <div key={date}>
+                                  <h4 className="text-sm font-medium mb-3 flex items-center">
+                                    <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                                    {formattedDate}
+                                  </h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                    {slots.map(slot => {
+                                      const startTime = parseISO(slot.start_time);
+                                      const endTime = parseISO(slot.end_time);
+                                      const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+                                      
+                                      return (
+                                        <Button 
+                                          key={slot.id} 
+                                          variant="outline" 
+                                          className="justify-start"
+                                          onClick={() => handleSelectTimeSlot(slot)}
+                                        >
+                                          <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+                                          <span>
+                                            {format(startTime, 'h:mm a')} - {format(endTime, 'h:mm a')}
+                                          </span>
+                                          <span className="text-xs text-muted-foreground ml-auto">
+                                            {duration} min
+                                          </span>
+                                        </Button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </motion.div>
+            </div>
+            
+            <div className="md:w-1/3">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                <Card className="sticky top-20">
+                  <CardHeader>
+                    <CardTitle>Schedule a Session</CardTitle>
                     <CardDescription>
-                      Specific areas {profile.full_name} can help with
+                      Book time with {mentor.full_name || mentor.username} to get personalized mentorship
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-6">
                     <div className="space-y-4">
-                      {[
+                      {(mentor.mentor_session_types || [
                         {
-                          title: "Startup Fundraising",
-                          description: "Strategies for raising seed and Series A funding, investor pitches, and term sheet negotiations."
+                          id: "quick",
+                          name: "Quick Chat",
+                          description: "30-minute session for specific questions",
+                          duration: 30,
+                          price: 0,
+                          is_free: true
                         },
                         {
-                          title: "Product-Market Fit",
-                          description: "Validating your business idea, identifying target customers, and optimizing your value proposition."
-                        },
-                        {
-                          title: "Growth Hacking",
-                          description: "Customer acquisition strategies, viral marketing techniques, and scaling user base efficiently."
+                          id: "standard",
+                          name: "Standard Session",
+                          description: "60-minute in-depth consultation",
+                          duration: 60,
+                          price: 25
                         }
-                      ].map((topic, i) => (
-                        <div key={i} className="border rounded-lg p-4">
-                          <h3 className="font-medium mb-2">{topic.title}</h3>
-                          <p className="text-sm text-muted-foreground">{topic.description}</p>
-                        </div>
+                      ]).map((sessionType: any, i: number) => (
+                        <Card key={i} className="overflow-hidden">
+                          <div className={`p-2 text-center text-white ${sessionType.color || "bg-idolyst-blue"}`}>
+                            <p className="text-sm font-medium">{sessionType.name}</p>
+                          </div>
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-center mb-2">
+                              <div className="flex items-center">
+                                <Clock className="h-4 w-4 mr-1 text-muted-foreground" />
+                                <span className="text-sm">{sessionType.duration} min</span>
+                              </div>
+                              <div className="font-semibold">
+                                {sessionType.is_free || sessionType.price === 0 
+                                  ? 'Free' 
+                                  : `${sessionType.currency || '$'}${sessionType.price}`}
+                              </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {sessionType.description}
+                            </p>
+                          </CardContent>
+                        </Card>
                       ))}
+                    </div>
+                    
+                    <div className="flex flex-col space-y-3">
+                      <Button
+                        onClick={() => document.querySelector('[data-tab="availability"]')?.click()}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        View Available Times
+                      </Button>
+                      <Button variant="outline" asChild>
+                        <a href={`mailto:${mentor.public_email ? mentor.public_email : ''}`}>
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          Contact Mentor
+                        </a>
+                      </Button>
+                    </div>
+                    
+                    <div className="pt-4 border-t">
+                      <div className="flex items-center mb-2 text-sm">
+                        <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                        <span>Money-back satisfaction guarantee</span>
+                      </div>
+                      <div className="flex items-center mb-2 text-sm">
+                        <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                        <span>Secure payment via Razorpay/PayPal</span>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <FileText className="h-4 w-4 mr-2 text-green-500" />
+                        <span>Post-session notes & resources</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
-            </Tabs>
-          </motion.div>
+              </motion.div>
+            </div>
+          </div>
         </div>
-      </motion.div>
+      </div>
+      
+      {/* Booking Modal */}
+      {isBookingModalOpen && selectedSlot && (
+        <MentorBookingModal
+          isOpen={isBookingModalOpen}
+          onClose={() => setIsBookingModalOpen(false)}
+          mentor={mentor}
+          selectedSlot={selectedSlot}
+          onConfirmBooking={handleBookSession}
+          isProcessing={isProcessingBooking}
+        />
+      )}
     </AppLayout>
   );
-};
-
-export default MentorProfile;
+}

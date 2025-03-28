@@ -253,6 +253,47 @@ export type Database = {
         }
         Relationships: []
       }
+      mentor_availability_slots: {
+        Row: {
+          created_at: string
+          end_time: string
+          id: string
+          is_booked: boolean | null
+          mentor_id: string
+          recurring_rule: string | null
+          session_id: string | null
+          start_time: string
+        }
+        Insert: {
+          created_at?: string
+          end_time: string
+          id?: string
+          is_booked?: boolean | null
+          mentor_id: string
+          recurring_rule?: string | null
+          session_id?: string | null
+          start_time: string
+        }
+        Update: {
+          created_at?: string
+          end_time?: string
+          id?: string
+          is_booked?: boolean | null
+          mentor_id?: string
+          recurring_rule?: string | null
+          session_id?: string | null
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_availability_slots_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mentor_reviews: {
         Row: {
           content: string
@@ -288,8 +329,60 @@ export type Database = {
           },
         ]
       }
+      mentor_session_types: {
+        Row: {
+          color: string | null
+          created_at: string
+          currency: string | null
+          description: string
+          duration: number
+          id: string
+          is_featured: boolean | null
+          is_free: boolean | null
+          mentor_id: string
+          name: string
+          price: number
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          currency?: string | null
+          description: string
+          duration: number
+          id?: string
+          is_featured?: boolean | null
+          is_free?: boolean | null
+          mentor_id: string
+          name: string
+          price: number
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string
+          duration?: number
+          id?: string
+          is_featured?: boolean | null
+          is_free?: boolean | null
+          mentor_id?: string
+          name?: string
+          price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_session_types_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mentor_sessions: {
         Row: {
+          cancellation_reason: string | null
+          cancelled_by: string | null
           created_at: string
           description: string | null
           end_time: string
@@ -297,14 +390,22 @@ export type Database = {
           mentee_id: string
           mentor_id: string
           metadata: Json | null
+          payment_amount: number | null
+          payment_currency: string | null
+          payment_id: string | null
+          payment_provider: string | null
           payment_status: string | null
           price: number | null
+          session_notes: string | null
+          session_type: string | null
           session_url: string | null
           start_time: string
           status: string
           title: string
         }
         Insert: {
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
           created_at?: string
           description?: string | null
           end_time: string
@@ -312,14 +413,22 @@ export type Database = {
           mentee_id: string
           mentor_id: string
           metadata?: Json | null
+          payment_amount?: number | null
+          payment_currency?: string | null
+          payment_id?: string | null
+          payment_provider?: string | null
           payment_status?: string | null
           price?: number | null
+          session_notes?: string | null
+          session_type?: string | null
           session_url?: string | null
           start_time: string
           status?: string
           title: string
         }
         Update: {
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
           created_at?: string
           description?: string | null
           end_time?: string
@@ -327,8 +436,14 @@ export type Database = {
           mentee_id?: string
           mentor_id?: string
           metadata?: Json | null
+          payment_amount?: number | null
+          payment_currency?: string | null
+          payment_id?: string | null
+          payment_provider?: string | null
           payment_status?: string | null
           price?: number | null
+          session_notes?: string | null
+          session_type?: string | null
           session_url?: string | null
           start_time?: string
           status?: string

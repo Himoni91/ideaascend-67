@@ -1,6 +1,7 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Users, Search, Filter, Award, Calendar, ThumbsUp, MessageSquare, ArrowRight, Star } from "lucide-react";
+import { Users, Search, Filter, Award, Calendar, ThumbsUp, MessageSquare, ArrowRight, Star, Loader } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AppLayout from "@/components/layout/AppLayout";
@@ -9,103 +10,43 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
-
-// Mock mentor data
-const mentors = [
-  {
-    id: "mentor1",
-    name: "Sarah Johnson",
-    position: "Product Lead",
-    company: "TechCorp",
-    avatar: "",
-    expertise: ["Product Strategy", "UX Design", "Team Management"],
-    rating: 4.9,
-    sessions: 24,
-    testimonials: 17,
-    availability: ["Mon", "Wed", "Fri"],
-    bio: "10+ years helping startups build successful products. Previously led product at Dropbox and Slack.",
-  },
-  {
-    id: "mentor2",
-    name: "Michael Chen",
-    position: "Venture Partner",
-    company: "Sequoia Capital",
-    avatar: "",
-    expertise: ["Fundraising", "Pitch Decks", "Financial Modeling"],
-    rating: 4.8,
-    sessions: 36,
-    testimonials: 29,
-    availability: ["Tue", "Thu", "Sat"],
-    bio: "Helped 20+ startups raise over $50M in funding. Angel investor in 15 companies.",
-  },
-  {
-    id: "mentor3",
-    name: "Alex Rivera",
-    position: "CTO",
-    company: "StartupX",
-    avatar: "",
-    expertise: ["Technical Architecture", "Engineering Leadership", "Scaling Systems"],
-    rating: 4.7,
-    sessions: 19,
-    testimonials: 14,
-    availability: ["Mon", "Wed", "Fri"],
-    bio: "Led engineering teams at scale. Expertise in helping technical founders build scalable products.",
-  },
-  {
-    id: "mentor4",
-    name: "Priya Sharma",
-    position: "Growth Advisor",
-    company: "Growth Hackers",
-    avatar: "",
-    expertise: ["User Acquisition", "Conversion Optimization", "Analytics"],
-    rating: 4.9,
-    sessions: 42,
-    testimonials: 31,
-    availability: ["Tue", "Thu", "Sun"],
-    bio: "Specializing in helping startups achieve product-market fit and scale their user acquisition.",
-  },
-  {
-    id: "mentor5",
-    name: "David Wilson",
-    position: "CEO",
-    company: "LaunchPad",
-    avatar: "",
-    expertise: ["Leadership", "Strategic Planning", "Startup Operations"],
-    rating: 4.8,
-    sessions: 28,
-    testimonials: 22,
-    availability: ["Mon", "Wed", "Fri"],
-    bio: "Serial entrepreneur with 3 successful exits. Passionate about helping first-time founders succeed.",
-  },
-];
-
-// Mock upcoming sessions data
-const upcomingSessions = [
-  {
-    id: "session1",
-    mentor: "Sarah Johnson",
-    title: "Product Strategy Discussion",
-    date: "2023-07-15T14:00:00",
-    duration: 30,
-  },
-  {
-    id: "session2",
-    mentor: "Michael Chen",
-    title: "Funding Strategy Review",
-    date: "2023-07-17T10:00:00",
-    duration: 60,
-  },
-];
+import { useMentor } from "@/hooks/use-mentor";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { ProfileType } from "@/types/profile";
+import { MentorSession } from "@/types/mentor";
 
 const MentorSpace = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("discover");
   const [selectedExpertise, setSelectedExpertise] = useState<string[]>([]);
+  const { useMentors, useMentorSessions } = useMentor();
+  const { user } = useAuth();
   
+  // Define expertise options - in real app this would come from a database
   const expertiseOptions = [
     "Product Strategy", "UX Design", "Fundraising", "Marketing", 
     "Engineering", "Leadership", "Financial Modeling", "Sales"
   ];
+  
+  // Fetch mentors with optional filters
+  const { data: mentors = [], isLoading: isLoadingMentors, error: mentorsError } = useMentors({
+    specialties: selectedExpertise.length > 0 ? selectedExpertise : undefined,
+    search: searchTerm.length > 0 ? searchTerm : undefined,
+  });
+
+  // Fetch user's upcoming sessions
+  const { data: upcomingSessions = [], isLoading: isLoadingSessions } = useMentorSessions(
+    'scheduled', // Get scheduled sessions
+    user?.id ? undefined : 'mentee' // If user is logged in, get sessions as mentee
+  );
+  
+  useEffect(() => {
+    if (mentorsError) {
+      toast.error("Failed to load mentors. Please try again later.");
+      console.error(mentorsError);
+    }
+  }, [mentorsError]);
   
   const toggleExpertise = (expertise: string) => {
     if (selectedExpertise.includes(expertise)) {
@@ -114,22 +55,6 @@ const MentorSpace = () => {
       setSelectedExpertise([...selectedExpertise, expertise]);
     }
   };
-  
-  const filteredMentors = mentors.filter(mentor => {
-    // Filter by search term (name, company, position)
-    const matchesSearch = 
-      searchTerm === "" || 
-      mentor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentor.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentor.position.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Filter by selected expertise
-    const matchesExpertise = 
-      selectedExpertise.length === 0 || 
-      mentor.expertise.some(exp => selectedExpertise.includes(exp));
-    
-    return matchesSearch && matchesExpertise;
-  });
 
   // Animation variants
   const container = {
@@ -209,7 +134,11 @@ const MentorSpace = () => {
                   </div>
                 </div>
                 
-                {filteredMentors.length === 0 ? (
+                {isLoadingMentors ? (
+                  <div className="flex justify-center items-center py-20">
+                    <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : mentors.length === 0 ? (
                   <div className="text-center py-12 border rounded-lg">
                     <Users className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
                     <h3 className="text-lg font-medium mb-1">No mentors found</h3>
@@ -224,47 +153,50 @@ const MentorSpace = () => {
                     initial="hidden"
                     animate="show"
                   >
-                    {filteredMentors.map((mentor) => (
+                    {mentors.map((mentor: ProfileType) => (
                       <motion.div key={mentor.id} variants={item}>
                         <Link to={`/mentor-space/${mentor.id}`}>
                           <Card className="h-full hover:border-primary/20 transition-all hover:shadow-sm">
                             <CardHeader className="pb-4">
                               <div className="flex items-start gap-4">
                                 <Avatar className="h-12 w-12">
-                                  <AvatarImage src={mentor.avatar} />
-                                  <AvatarFallback>{mentor.name.charAt(0)}</AvatarFallback>
+                                  <AvatarImage src={mentor.avatar_url || undefined} />
+                                  <AvatarFallback>{mentor.full_name?.charAt(0) || mentor.username?.charAt(0) || 'M'}</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                  <CardTitle className="text-lg">{mentor.name}</CardTitle>
+                                  <CardTitle className="text-lg">{mentor.full_name || mentor.username}</CardTitle>
                                   <CardDescription className="mt-1">
-                                    {mentor.position} at {mentor.company}
+                                    {mentor.position} {mentor.company && `at ${mentor.company}`}
                                   </CardDescription>
                                 </div>
                               </div>
                             </CardHeader>
                             <CardContent className="pb-4">
                               <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                                {mentor.bio}
+                                {mentor.mentor_bio || mentor.bio}
                               </p>
                               <div className="flex flex-wrap gap-2 mb-3">
-                                {mentor.expertise.map((exp) => (
-                                  <Badge key={exp} variant="outline" className="bg-primary/5">
+                                {mentor.expertise?.slice(0, 3).map((exp: string, i: number) => (
+                                  <Badge key={i} variant="outline" className="bg-primary/5">
                                     {exp}
                                   </Badge>
                                 ))}
+                                {(mentor.expertise?.length || 0) > 3 && (
+                                  <Badge variant="outline">+{(mentor.expertise?.length || 0) - 3} more</Badge>
+                                )}
                               </div>
                               <div className="flex items-center justify-between text-sm">
                                 <div className="flex items-center">
                                   <ThumbsUp className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                                  <span>{mentor.rating} Rating</span>
+                                  <span>{mentor.stats?.mentorRating || "New"}</span>
                                 </div>
                                 <div className="flex items-center">
                                   <Calendar className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                                  <span>{mentor.sessions} Sessions</span>
+                                  <span>{mentor.stats?.mentorSessions || 0} Sessions</span>
                                 </div>
                                 <div className="flex items-center">
                                   <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                                  <span>{mentor.testimonials} Reviews</span>
+                                  <span>{mentor.stats?.mentorReviews || 0} Reviews</span>
                                 </div>
                               </div>
                             </CardContent>
@@ -294,41 +226,53 @@ const MentorSpace = () => {
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        {upcomingSessions.length === 0 ? (
+                        {isLoadingSessions ? (
+                          <div className="flex justify-center items-center py-8">
+                            <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : upcomingSessions.length === 0 ? (
                           <div className="text-center py-8 border rounded-lg">
                             <Calendar className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
                             <h3 className="text-lg font-medium mb-1">No upcoming sessions</h3>
                             <p className="text-sm text-muted-foreground max-w-sm mx-auto">
                               You don't have any scheduled mentorship sessions. Find a mentor and book a session.
                             </p>
-                            <Button className="mt-4" variant="outline">
+                            <Button 
+                              className="mt-4" 
+                              variant="outline"
+                              onClick={() => setActiveTab("discover")}
+                            >
                               <Calendar className="mr-2 h-4 w-4" />
                               Find a Mentor
                             </Button>
                           </div>
                         ) : (
                           <div className="space-y-4">
-                            {upcomingSessions.map((session) => (
+                            {upcomingSessions.map((session: MentorSession) => (
                               <div key={session.id} className="border rounded-lg p-4 hover:border-primary/20 transition-colors">
                                 <div className="flex items-start justify-between">
                                   <div>
                                     <h3 className="font-medium">{session.title}</h3>
                                     <p className="text-sm text-muted-foreground">
-                                      With {session.mentor} • {session.duration} minutes
+                                      With {session.mentor?.full_name || 'Unknown Mentor'} • 
+                                      {new Date(session.end_time).getTime() - new Date(session.start_time).getTime() === 0 
+                                        ? 'Duration unknown' 
+                                        : `${Math.round((new Date(session.end_time).getTime() - new Date(session.start_time).getTime()) / (1000 * 60))} minutes`
+                                      }
                                     </p>
                                     <p className="text-sm mt-1">
-                                      {new Date(session.date).toLocaleDateString('en-US', { 
+                                      {new Date(session.start_time).toLocaleDateString('en-US', { 
                                         weekday: 'short',
                                         month: 'short', 
                                         day: 'numeric',
-                                      })} at {new Date(session.date).toLocaleTimeString('en-US', { 
+                                      })} at {new Date(session.start_time).toLocaleTimeString('en-US', { 
                                         hour: 'numeric', 
                                         minute: '2-digit' 
                                       })}
                                     </p>
                                   </div>
                                   <Button variant="outline" size="sm">
-                                    Join Call
+                                    {session.session_url ? 'Join Call' : 'View Details'}
                                   </Button>
                                 </div>
                               </div>
@@ -346,36 +290,11 @@ const MentorSpace = () => {
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="space-y-4">
-                          {[1, 2, 3].map((i) => (
-                            <div key={i} className="border rounded-lg p-4">
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <h3 className="font-medium">{
-                                    ["Product Strategy Session", "Fundraising Strategy", "Technical Architecture Review"][i-1]
-                                  }</h3>
-                                  <p className="text-sm text-muted-foreground">
-                                    With {["Sarah Johnson", "Michael Chen", "Alex Rivera"][i-1]} • 
-                                    {[30, 60, 45][i-1]} minutes
-                                  </p>
-                                  <p className="text-sm mt-1">
-                                    {["Jun 5, 2023", "May 22, 2023", "May 10, 2023"][i-1]} at 
-                                    {["10:00 AM", "2:00 PM", "11:30 AM"][i-1]}
-                                  </p>
-                                </div>
-                                <Button variant="outline" size="sm">
-                                  View Notes
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
+                        {/* We'll implement the past sessions view later */}
+                        <div className="text-center py-6">
+                          <p className="text-muted-foreground">No past sessions found.</p>
                         </div>
                       </CardContent>
-                      <CardFooter>
-                        <Button variant="ghost" className="w-full">
-                          View All Past Sessions
-                        </Button>
-                      </CardFooter>
                     </Card>
                   </div>
                   
@@ -389,31 +308,26 @@ const MentorSpace = () => {
                       </CardHeader>
                       <CardContent className="space-y-6">
                         <div className="text-center py-3 border rounded-lg bg-primary/5">
-                          <h3 className="text-3xl font-bold text-primary">{upcomingSessions.length + 5}</h3>
+                          <h3 className="text-3xl font-bold text-primary">{upcomingSessions.length}</h3>
                           <p className="text-sm text-muted-foreground">Total Sessions</p>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-3">
                           <div className="text-center py-3 border rounded-lg">
-                            <h3 className="text-2xl font-bold">12</h3>
+                            <h3 className="text-2xl font-bold">0</h3>
                             <p className="text-xs text-muted-foreground">Hours Mentored</p>
                           </div>
                           <div className="text-center py-3 border rounded-lg">
-                            <h3 className="text-2xl font-bold">4</h3>
+                            <h3 className="text-2xl font-bold">0</h3>
                             <p className="text-xs text-muted-foreground">Different Mentors</p>
                           </div>
                         </div>
                         
                         <div className="pt-3 border-t">
                           <h3 className="font-medium mb-3">Top Topics Discussed</h3>
-                          <div className="space-y-2">
-                            {["Product Strategy", "Fundraising", "Team Building"].map((topic, i) => (
-                              <div key={topic} className="flex items-center justify-between text-sm">
-                                <span>{topic}</span>
-                                <span className="text-muted-foreground">{[3, 2, 1][i]} sessions</span>
-                              </div>
-                            ))}
-                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Complete a session to see your most discussed topics.
+                          </p>
                         </div>
                       </CardContent>
                     </Card>
@@ -452,41 +366,45 @@ const MentorSpace = () => {
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {mentors.slice(0, 4).map((mentor) => (
+              {isLoadingMentors ? (
+                <div className="col-span-full flex justify-center items-center py-12">
+                  <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : mentors.slice(0, 4).map((mentor: ProfileType) => (
                 <Card key={mentor.id} className="hover:border-primary/20 transition-all">
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start">
                       <Avatar className="h-12 w-12">
-                        <AvatarImage src={mentor.avatar} />
-                        <AvatarFallback>{mentor.name.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={mentor.avatar_url || undefined} />
+                        <AvatarFallback>{mentor.full_name?.charAt(0) || mentor.username?.charAt(0) || 'M'}</AvatarFallback>
                       </Avatar>
                       <Badge className="bg-idolyst-blue/90">Featured</Badge>
                     </div>
-                    <CardTitle className="mt-3 text-lg">{mentor.name}</CardTitle>
+                    <CardTitle className="mt-3 text-lg">{mentor.full_name || mentor.username}</CardTitle>
                     <CardDescription className="line-clamp-1">
-                      {mentor.position} at {mentor.company}
+                      {mentor.position} {mentor.company && `at ${mentor.company}`}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pb-3">
                     <div className="flex flex-wrap gap-1 mb-3">
-                      {mentor.expertise.slice(0, 2).map((exp) => (
-                        <Badge key={exp} variant="outline" className="text-xs">
+                      {mentor.expertise?.slice(0, 2).map((exp: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-xs">
                           {exp}
                         </Badge>
                       ))}
-                      {mentor.expertise.length > 2 && (
+                      {(mentor.expertise?.length || 0) > 2 && (
                         <Badge variant="outline" className="text-xs">
-                          +{mentor.expertise.length - 2} more
+                          +{(mentor.expertise?.length || 0) - 2} more
                         </Badge>
                       )}
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <div className="flex items-center">
                         <Star className="fill-yellow-500 text-yellow-500 h-3 w-3 mr-1" />
-                        {mentor.rating} ({mentor.testimonials})
+                        {mentor.stats?.mentorRating || "New"} ({mentor.stats?.mentorReviews || 0})
                       </div>
                       <div>
-                        Available on: {mentor.availability.join(", ")}
+                        Available
                       </div>
                     </div>
                   </CardContent>

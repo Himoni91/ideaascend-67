@@ -26,7 +26,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { usePayment } from "@/hooks/use-payment";
 import { toast } from "sonner";
 
-interface MentorBookingModalProps {
+export function MentorBookingModal({
+  isOpen,
+  onClose,
+  mentor,
+  selectedSlot,
+  onConfirmBooking,
+  isProcessing
+}: {
   isOpen: boolean;
   onClose: () => void;
   mentor: ProfileType;
@@ -44,16 +51,7 @@ interface MentorBookingModalProps {
     }
   }) => Promise<void>;
   isProcessing: boolean;
-}
-
-export default function MentorBookingModal({
-  isOpen,
-  onClose,
-  mentor,
-  selectedSlot,
-  onConfirmBooking,
-  isProcessing
-}: MentorBookingModalProps) {
+}) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedSessionType, setSelectedSessionType] = useState<string>("");
