@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AscendProvider } from "@/contexts/AscendContext";
 import { RouteGuard } from "@/components/auth/RouteGuard";
 import { PageTransition } from "@/components/PageTransition";
+import { HelmetProvider } from "react-helmet-async";
 
 // Import pages
 import Index from "@/pages/Index";
@@ -57,130 +58,132 @@ export default function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <AuthProvider>
-            <AscendProvider>
-              <Routes>
-                {/* Auth Routes */}
-                <Route path="/auth" element={<AuthLayout />}>
-                  <Route path="sign-in" element={<SignIn />} />
-                  <Route path="sign-up" element={<SignUp />} />
-                  <Route path="forgot-password" element={<ForgotPassword />} />
-                  <Route path="reset-password" element={<ResetPassword />} />
-                </Route>
+          <HelmetProvider>
+            <AuthProvider>
+              <AscendProvider>
+                <Routes>
+                  {/* Auth Routes */}
+                  <Route path="/auth" element={<AuthLayout />}>
+                    <Route path="sign-in" element={<SignIn />} />
+                    <Route path="sign-up" element={<SignUp />} />
+                    <Route path="forgot-password" element={<ForgotPassword />} />
+                    <Route path="reset-password" element={<ResetPassword />} />
+                  </Route>
 
-                {/* Public Routes */}
-                <Route path="/" element={<Index />} />
-                
-                {/* Protected Routes */}
-                <Route path="/launchpad" element={
-                  <RouteGuard>
-                    <Launchpad />
-                  </RouteGuard>
-                } />
-                <Route path="/mentor-space" element={
-                  <RouteGuard>
-                    <MentorSpace />
-                  </RouteGuard>
-                } />
-                <Route path="/mentor-space/apply" element={
-                  <RouteGuard>
-                    <MentorApplicationPage />
-                  </RouteGuard>
-                } />
-                <Route path="/mentor-space/sessions" element={
-                  <RouteGuard>
-                    <MentorSessionsPage />
-                  </RouteGuard>
-                } />
-                <Route path="/mentor-space/analytics" element={
-                  <RouteGuard>
-                    <MentorAnalyticsPage />
-                  </RouteGuard>
-                } />
-                <Route path="/mentor-space/:id" element={
-                  <RouteGuard>
-                    <MentorProfile />
-                  </RouteGuard>
-                } />
-                <Route path="/ascend" element={
-                  <RouteGuard>
-                    <Ascend />
-                  </RouteGuard>
-                } />
-                <Route path="/pitch-hub" element={
-                  <RouteGuard>
-                    <PitchHub />
-                  </RouteGuard>
-                } />
-                <Route path="/pitch-hub/:id" element={
-                  <RouteGuard>
-                    <PitchHubIdeaDetail />
-                  </RouteGuard>
-                } />
-                
-                {/* Profile Routes - Important: Order matters for route matching */}
-                <Route path="/profile/settings" element={
-                  <RouteGuard>
-                    <ProfileSettings />
-                  </RouteGuard>
-                } />
-                <Route path="/profile/:username" element={
-                  <RouteGuard>
-                    <Profile />
-                  </RouteGuard>
-                } />
-                <Route path="/profile" element={
-                  <RouteGuard>
-                    <Profile />
-                  </RouteGuard>
-                } />
-                
-                <Route path="/discover" element={
-                  <RouteGuard>
-                    <Discover />
-                  </RouteGuard>
-                } />
-                <Route path="/discover/:id" element={
-                  <RouteGuard>
-                    <DiscoverDetail />
-                  </RouteGuard>
-                } />
-                <Route path="/calendar" element={
-                  <RouteGuard>
-                    <Calendar />
-                  </RouteGuard>
-                } />
-                <Route path="/analytics" element={
-                  <RouteGuard>
-                    <Analytics />
-                  </RouteGuard>
-                } />
-                <Route path="/achievements" element={
-                  <RouteGuard>
-                    <Achievements />
-                  </RouteGuard>
-                } />
-                
-                <Route path="/post/:id" element={
-                  <RouteGuard>
-                    <PostDetailPage />
-                  </RouteGuard>
-                } />
-                
-                {/* Help Center Routes */}
-                <Route path="/help" element={<Help />} />
-                <Route path="/help/category/:slug" element={<CategoryPage />} />
-                <Route path="/help/article/:slug" element={<ArticlePage />} />
-                <Route path="/help/contact" element={<ContactPage />} />
-                <Route path="/help/index" element={<HelpCenter />} />
+                  {/* Public Routes */}
+                  <Route path="/" element={<Index />} />
+                  
+                  {/* Protected Routes */}
+                  <Route path="/launchpad" element={
+                    <RouteGuard>
+                      <Launchpad />
+                    </RouteGuard>
+                  } />
+                  <Route path="/mentor-space" element={
+                    <RouteGuard>
+                      <MentorSpace />
+                    </RouteGuard>
+                  } />
+                  <Route path="/mentor-space/apply" element={
+                    <RouteGuard>
+                      <MentorApplicationPage />
+                    </RouteGuard>
+                  } />
+                  <Route path="/mentor-space/sessions" element={
+                    <RouteGuard>
+                      <MentorSessionsPage />
+                    </RouteGuard>
+                  } />
+                  <Route path="/mentor-space/analytics" element={
+                    <RouteGuard>
+                      <MentorAnalyticsPage />
+                    </RouteGuard>
+                  } />
+                  <Route path="/mentor-space/:id" element={
+                    <RouteGuard>
+                      <MentorProfile />
+                    </RouteGuard>
+                  } />
+                  <Route path="/ascend" element={
+                    <RouteGuard>
+                      <Ascend />
+                    </RouteGuard>
+                  } />
+                  <Route path="/pitch-hub" element={
+                    <RouteGuard>
+                      <PitchHub />
+                    </RouteGuard>
+                  } />
+                  <Route path="/pitch-hub/:id" element={
+                    <RouteGuard>
+                      <PitchHubIdeaDetail />
+                    </RouteGuard>
+                  } />
+                  
+                  {/* Profile Routes - Important: Order matters for route matching */}
+                  <Route path="/profile/settings" element={
+                    <RouteGuard>
+                      <ProfileSettings />
+                    </RouteGuard>
+                  } />
+                  <Route path="/profile/:username" element={
+                    <RouteGuard>
+                      <Profile />
+                    </RouteGuard>
+                  } />
+                  <Route path="/profile" element={
+                    <RouteGuard>
+                      <Profile />
+                    </RouteGuard>
+                  } />
+                  
+                  <Route path="/discover" element={
+                    <RouteGuard>
+                      <Discover />
+                    </RouteGuard>
+                  } />
+                  <Route path="/discover/:id" element={
+                    <RouteGuard>
+                      <DiscoverDetail />
+                    </RouteGuard>
+                  } />
+                  <Route path="/calendar" element={
+                    <RouteGuard>
+                      <Calendar />
+                    </RouteGuard>
+                  } />
+                  <Route path="/analytics" element={
+                    <RouteGuard>
+                      <Analytics />
+                    </RouteGuard>
+                  } />
+                  <Route path="/achievements" element={
+                    <RouteGuard>
+                      <Achievements />
+                    </RouteGuard>
+                  } />
+                  
+                  <Route path="/post/:id" element={
+                    <RouteGuard>
+                      <PostDetailPage />
+                    </RouteGuard>
+                  } />
+                  
+                  {/* Help Center Routes */}
+                  <Route path="/help" element={<Help />} />
+                  <Route path="/help/category/:slug" element={<CategoryPage />} />
+                  <Route path="/help/article/:slug" element={<ArticlePage />} />
+                  <Route path="/help/contact" element={<ContactPage />} />
+                  <Route path="/help/index" element={<HelpCenter />} />
 
-                {/* 404 Route */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+                  {/* 404 Route */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
 
-              <Toaster position="top-right" />
-            </AscendProvider>
-          </AuthProvider>
+                <Toaster position="top-right" />
+              </AscendProvider>
+            </AuthProvider>
+          </HelmetProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </ThemeProvider>

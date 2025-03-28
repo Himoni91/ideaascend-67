@@ -5,7 +5,7 @@ import { SearchBar } from '@/components/help/SearchBar';
 import { CategoryCard } from '@/components/help/CategoryCard';
 import { FeaturedArticles } from '@/components/help/FeaturedArticles';
 import { useHelpCenter } from '@/hooks/use-help-center';
-import { Helmet } from 'react-helmet';
+import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 
 const HelpCenter = () => {

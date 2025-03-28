@@ -38,8 +38,8 @@ export function ContactForm() {
   const onSubmit = (data: ContactFormValues) => {
     // Ensure all required fields are present
     const formData = {
-      name: data.name,
-      email: data.email || '', // This should never be empty due to validation
+      name: data.name || '',
+      email: data.email, // This should never be empty due to validation
       subject: data.subject,
       message: data.message
     };

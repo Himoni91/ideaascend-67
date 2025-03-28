@@ -4,10 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { HelpCategory } from '@/types/help';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import * as LucideIcons from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { HelpCircle } from 'lucide-react';
-import { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import * as LucideIcons from 'lucide-react';
 
 interface CategoryCardProps {
   category: HelpCategory;
@@ -17,10 +16,11 @@ interface CategoryCardProps {
 export function CategoryCard({ category, className }: CategoryCardProps) {
   const navigate = useNavigate();
   
-  // Type assertion to tell TypeScript that we know the structure
-  const IconComponent = category.icon 
-    ? (LucideIcons as Record<string, LucideIcon>)[category.icon] as LucideIcon || HelpCircle
-    : HelpCircle;
+  // Get the icon dynamically from lucide-react
+  let IconComponent = HelpCircle;
+  if (category.icon && typeof category.icon === 'string' && category.icon in LucideIcons) {
+    IconComponent = (LucideIcons as any)[category.icon] || HelpCircle;
+  }
 
   return (
     <motion.div

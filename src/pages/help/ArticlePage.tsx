@@ -5,7 +5,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import { SearchBar } from '@/components/help/SearchBar';
 import { ArticleContent } from '@/components/help/ArticleContent';
 import { useHelpCenter } from '@/hooks/use-help-center';
-import { Helmet } from 'react-helmet';
+import { Helmet } from 'react-helmet-async';
 
 const ArticlePage = () => {
   const { slug } = useParams<{ slug: string }>();
