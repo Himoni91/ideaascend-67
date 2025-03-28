@@ -127,17 +127,18 @@ export function useDiscover() {
           // Initialize default properties with proper type handling for profile
           const processedItem: DiscoverContent = {
             ...item,
+            content_type: item.content_type as DiscoverContentType, // Cast to DiscoverContentType
             likes_count: 0,
             saves_count: 0,
             user_has_liked: false,
             user_has_saved: false,
-            // Handle profile data safely
+            // Handle profile data safely with null checks
             profile: item.profile && typeof item.profile === 'object' && !('error' in item.profile) ? {
-              username: item.profile.username || '',
-              full_name: item.profile.full_name || '',
-              avatar_url: item.profile.avatar_url || '',
-              position: item.profile.position || '',
-              company: item.profile.company || ''
+              username: item.profile?.username || '',
+              full_name: item.profile?.full_name || '',
+              avatar_url: item.profile?.avatar_url || '',
+              position: item.profile?.position || '',
+              company: item.profile?.company || ''
             } : null
           };
           
@@ -217,17 +218,18 @@ export function useDiscover() {
         // Create a properly shaped content item with safe profile handling
         const contentItem: DiscoverContent = {
           ...data,
+          content_type: data.content_type as DiscoverContentType, // Cast to DiscoverContentType
           likes_count: 0,
           saves_count: 0,
           user_has_liked: false,
           user_has_saved: false,
-          // Handle profile data safely
+          // Handle profile data safely with null checks
           profile: data.profile && typeof data.profile === 'object' && !('error' in data.profile) ? {
-            username: data.profile.username || '',
-            full_name: data.profile.full_name || '',
-            avatar_url: data.profile.avatar_url || '',
-            position: data.profile.position || '',
-            company: data.profile.company || ''
+            username: data.profile?.username || '',
+            full_name: data.profile?.full_name || '',
+            avatar_url: data.profile?.avatar_url || '',
+            position: data.profile?.position || '',
+            company: data.profile?.company || ''
           } : null
         };
 
