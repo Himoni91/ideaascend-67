@@ -22,7 +22,7 @@ export type Pitch = {
   problem_statement: string;
   solution: string;
   target_market: string;
-  target_audience?: string; // Added this property
+  target_audience?: string;
   business_model: string;
   funding_stage?: string;
   funding_amount?: number;
@@ -49,7 +49,7 @@ export type Pitch = {
     avatar_url?: string;
     is_verified?: boolean;
   };
-  user_vote?: 'up' | 'down' | null; // Added this property
+  user_vote?: 'up' | 'down' | null;
 };
 
 export type PitchComment = {
@@ -58,7 +58,7 @@ export type PitchComment = {
   user_id: string;
   content: string;
   created_at: string;
-  is_mentor_comment?: boolean; // Added this property
+  is_mentor_comment?: boolean;
   author: {
     id: string;
     username: string;
@@ -107,4 +107,27 @@ export type PitchFormData = {
   tags: string[];
   media_file?: File;
   is_premium: boolean;
+};
+
+// This type represents the actual shape of data coming from the database
+export type PitchRawData = {
+  id: string;
+  title: string;
+  description: string;
+  target_audience?: string;
+  solution?: string;
+  category: string;
+  tags: string[];
+  is_premium: boolean;
+  user_id: string;
+  created_at: string;
+  votes_count: number;
+  comments_count: number;
+  mentor_reviews_count: number;
+  trending_score: number;
+  media_url?: string;
+  media_type?: string;
+  follower_count: number;
+  author?: any;
+  updated_at?: string;
 };

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Pitch, PitchFormData, PitchVote, PitchComment, MentorReview } from "@/types/pitch";
+import { Pitch, PitchFormData, PitchVote, PitchComment, MentorReview, PitchRawData } from "@/types/pitch";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ProfileType } from "@/types/profile";
@@ -45,6 +45,40 @@ const formatProfileData = (profileData: any): ProfileType => {
     badges,
     stats
   } as ProfileType;
+};
+
+// Helper function to convert database records to Pitch type
+const formatPitchData = (data: PitchRawData, userVote?: 'up' | 'down' | null): Pitch => {
+  return {
+    id: data.id,
+    title: data.title,
+    description: data.description,
+    problem_statement: data.description,
+    solution: data.solution || '',
+    target_audience: data.target_audience || '',
+    target_market: data.target_audience || '', // Map target_audience as target_market
+    business_model: data.category || '', // Use category as business_model if needed
+    status: 'open' as const, // Default to open status
+    tags: data.tags || [],
+    is_premium: !!data.is_premium,
+    user_id: data.user_id,
+    created_at: data.created_at,
+    updated_at: data.updated_at || data.created_at,
+    votes_count: data.votes_count || 0,
+    views_count: data.trending_score || 0, // Use trending_score as views_count
+    comments_count: data.comments_count || 0,
+    mentor_reviews_count: data.mentor_reviews_count || 0,
+    trending_score: data.trending_score || 0,
+    category: data.category,
+    media_url: data.media_url,
+    media_type: data.media_type as 'image' | 'video' | 'document',
+    follower_count: data.follower_count || 0,
+    author: data.author ? formatProfileData(data.author) : {
+      id: data.user_id,
+      username: 'unknown',
+    },
+    user_vote: userVote || null,
+  };
 };
 
 export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'votes' = 'newest', limit: number = 10) {
@@ -95,17 +129,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
       }
 
       const enhancedPitches = data?.map(pitch => {
-        const formattedAuthor = pitch.author ? formatProfileData(pitch.author) : undefined;
-        
-        return {
-          ...pitch,
-          problem_statement: pitch.description, // Map description to problem_statement
-          target_audience: pitch.target_audience || '',
-          solution: pitch.solution || '',
-          author: formattedAuthor,
-          user_vote: userVotes[pitch.id] || null,
-          updated_at: pitch.updated_at || pitch.created_at, // Ensure updated_at is always set
-        } as Pitch;
+        return formatPitchData(pitch, userVotes[pitch.id]);
       }) || [];
 
       // Get total count for pagination
@@ -234,17 +258,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
       if (error) throw error;
       
       // Format the response and map fields correctly
-      const formattedPitch = {
-        ...data,
-        problem_statement: data.description, // Map description to problem_statement
-        target_audience: data.target_audience || '',
-        solution: data.solution || '',
-        author: data.author ? formatProfileData(data.author) : undefined,
-        user_vote: null,
-        updated_at: data.updated_at || data.created_at, // Ensure updated_at is always set
-      } as Pitch;
-      
-      return formattedPitch;
+      return formatPitchData(data, null);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pitches"] });
@@ -393,18 +407,8 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
           console.error("Failed to record view:", e);
         }
         
-        // Map fields correctly
-        const formattedPitch = {
-          ...data,
-          problem_statement: data.description, // Map description to problem_statement
-          target_audience: data.target_audience || '', 
-          solution: data.solution || '', 
-          author: data.author ? formatProfileData(data.author) : undefined,
-          user_vote: userVote,
-          updated_at: data.updated_at || data.created_at, // Ensure updated_at is always set
-        } as Pitch;
-        
-        return formattedPitch;
+        // Map fields correctly using the format helper
+        return formatPitchData(data, userVote);
       },
       staleTime: 1000 * 60,
       gcTime: 1000 * 60 * 5,
@@ -589,14 +593,7 @@ export function usePitches(category?: string, sortBy: 'trending' | 'newest' | 'v
         
         if (error) throw error;
         
-        return data.map(pitch => ({
-          ...pitch,
-          problem_statement: pitch.description,
-          target_audience: pitch.target_audience || '',
-          solution: pitch.solution || '',
-          author: pitch.author ? formatProfileData(pitch.author) : undefined,
-          updated_at: pitch.updated_at || pitch.created_at // Ensure updated_at is always set
-        })) as Pitch[];
+        return data.map(pitch => formatPitchData(pitch));
       },
       staleTime: 1000 * 60 * 5,
       gcTime: 1000 * 60 * 10,
