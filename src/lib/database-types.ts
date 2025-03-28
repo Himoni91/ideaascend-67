@@ -49,6 +49,9 @@ export interface MentorSessionRow {
   created_at: string;
   price?: number;
   metadata?: Json;
+  // These are added by joins but not in the actual database row
+  mentor?: any;
+  mentee?: any;
 }
 
 // Helper functions for type casting

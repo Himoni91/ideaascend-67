@@ -72,7 +72,13 @@ export const formatAvailabilitySlotData = (data: MentorAvailabilitySlotRow): Men
 export const formatSessionData = (data: MentorSessionRow): MentorSession => {
   if (!data) return {} as MentorSession;
   
-  return {
+  // Fix the metadata type issue
+  const metadata = typeof data.metadata === 'string' 
+    ? (data.metadata ? JSON.parse(data.metadata) : {}) 
+    : (data.metadata || {});
+  
+  // Create basic session object without mentor/mentee
+  const session: MentorSession = {
     id: data.id,
     mentor_id: data.mentor_id,
     mentee_id: data.mentee_id,
@@ -92,10 +98,19 @@ export const formatSessionData = (data: MentorSessionRow): MentorSession => {
     cancelled_by: data.cancelled_by,
     session_type: data.session_type as any,
     created_at: data.created_at,
-    metadata: data.metadata,
-    mentor: data.mentor ? formatProfileData(data.mentor) : undefined,
-    mentee: data.mentee ? formatProfileData(data.mentee) : undefined
+    metadata: metadata
   };
+  
+  // Add mentor/mentee data if available as custom properties
+  if ('mentor' in data && data.mentor) {
+    session.mentor = formatProfileData(data.mentor);
+  }
+  
+  if ('mentee' in data && data.mentee) {
+    session.mentee = formatProfileData(data.mentee);
+  }
+  
+  return session;
 };
 
 export const formatSessionTypeData = (data: MentorSessionTypeRow): MentorSessionTypeInfo => {

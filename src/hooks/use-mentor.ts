@@ -30,35 +30,27 @@ import {
   MentorSessionRow
 } from "@/lib/database-types";
 
-// Use raw SQL function to access custom tables
-const fetchFromCustomTable = async (tableName: string, queryFn: (query: any) => any) => {
+// This is the base URL for the Supabase API
+const SUPABASE_URL = "https://scicbwtczqunflsqnfzu.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjaWNid3RjenF1bmZsc3FuZnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5OTA1MjQsImV4cCI6MjA1ODU2NjUyNH0.vUFSDA1QOxSRUZIFXeZuQSfprASoVmiFSMQTTihsmbI";
+
+// Use direct fetch for tables not in the generated types
+const fetchFromCustomTable = async (tableName: string, queryParams: string = '') => {
   try {
-    // Use RPC for custom tables that aren't in the generated types
-    const { data, error } = await supabase.rpc('execute_sql', {
-      sql_query: `SELECT * FROM ${tableName}`
-    });
-
-    if (error) {
-      console.error(`Error fetching from ${tableName}:`, error);
-      
-      // Fallback to direct query when RPC is not available (this is a typical development environment)
-      const response = await fetch(`${supabase.supabaseUrl}/rest/v1/${tableName}?select=*`, {
-        headers: {
-          'apikey': supabase.supabaseKey,
-          'Authorization': `Bearer ${supabase.supabaseKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch from ${tableName}: ${response.statusText}`);
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${tableName}${queryParams ? '?' + queryParams : ''}`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
       }
-      
-      const jsonData = await response.json();
-      return queryFn ? queryFn({ data: jsonData }) : { data: jsonData };
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch from ${tableName}: ${response.statusText}`);
     }
-
-    return queryFn ? queryFn({ data }) : { data };
+    
+    const data = await response.json();
+    return { data, error: null };
   } catch (err) {
     console.error(`Error in fetchFromCustomTable for ${tableName}:`, err);
     return { data: [], error: err };
@@ -68,11 +60,11 @@ const fetchFromCustomTable = async (tableName: string, queryFn: (query: any) => 
 // Insert into custom table
 const insertIntoCustomTable = async (tableName: string, values: any) => {
   try {
-    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/${tableName}`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${tableName}`, {
       method: 'POST',
       headers: {
-        'apikey': supabase.supabaseKey,
-        'Authorization': `Bearer ${supabase.supabaseKey}`,
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=representation'
       },
@@ -94,11 +86,11 @@ const insertIntoCustomTable = async (tableName: string, values: any) => {
 // Update custom table
 const updateCustomTable = async (tableName: string, values: any, id: string) => {
   try {
-    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/${tableName}?id=eq.${id}`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${tableName}?id=eq.${id}`, {
       method: 'PATCH',
       headers: {
-        'apikey': supabase.supabaseKey,
-        'Authorization': `Bearer ${supabase.supabaseKey}`,
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=representation'
       },
@@ -197,22 +189,13 @@ export function useMentor() {
       queryFn: async () => {
         if (!mentorId) throw new Error("Mentor ID is required");
         
-        // Use the REST API directly to work around type issues
-        const response = await fetch(
-          `${supabase.supabaseUrl}/rest/v1/mentor_availability_slots?mentor_id=eq.${mentorId}&start_time=gt.${new Date().toISOString()}&order=start_time.asc`,
-          {
-            headers: {
-              'apikey': supabase.supabaseKey,
-              'Authorization': `Bearer ${supabase.supabaseKey}`
-            }
-          }
+        // Use direct fetch instead
+        const { data, error } = await fetchFromCustomTable(
+          'mentor_availability_slots',
+          `mentor_id=eq.${mentorId}&start_time=gt.${new Date().toISOString()}&order=start_time.asc`
         );
         
-        if (!response.ok) {
-          throw new Error(`Failed to fetch availability slots: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
+        if (error) throw error;
         
         return (data || []).map((slot: any) => formatAvailabilitySlotData(asMentorAvailabilitySlot(slot)));
       },
@@ -384,7 +367,7 @@ export function useMentor() {
       is_booked: false
     };
     
-    // Use the direct REST call for better type safety
+    // Use direct fetch for better type safety
     const { data, error } = await insertIntoCustomTable("mentor_availability_slots", newSlot);
     
     if (error) throw error;
@@ -412,24 +395,13 @@ export function useMentor() {
     if (!user) throw new Error("User must be logged in");
     
     // Get the slot details
-    const response = await fetch(
-      `${supabase.supabaseUrl}/rest/v1/mentor_availability_slots?id=eq.${slotId}`,
-      {
-        headers: {
-          'apikey': supabase.supabaseKey,
-          'Authorization': `Bearer ${supabase.supabaseKey}`
-        }
-      }
+    const { data: slotData, error: slotError } = await fetchFromCustomTable(
+      'mentor_availability_slots',
+      `id=eq.${slotId}`
     );
     
-    if (!response.ok) {
-      throw new Error(`Failed to fetch slot: ${response.statusText}`);
-    }
-    
-    const slotData = await response.json();
-    
-    if (!slotData || slotData.length === 0) {
-      throw new Error("Slot not found");
+    if (slotError || !slotData || slotData.length === 0) {
+      throw new Error(slotError ? slotError.message : "Slot not found");
     }
     
     // Format slot data correctly
@@ -544,17 +516,12 @@ export function useMentor() {
     
     // If cancelled, free up the slot
     if (status === 'cancelled') {
-      const { data: slotData } = await fetch(
-        `${supabase.supabaseUrl}/rest/v1/mentor_availability_slots?session_id=eq.${sessionId}`,
-        {
-          headers: {
-            'apikey': supabase.supabaseKey,
-            'Authorization': `Bearer ${supabase.supabaseKey}`
-          }
-        }
-      ).then(res => res.json());
+      const { data: slotData, error: slotError } = await fetchFromCustomTable(
+        'mentor_availability_slots',
+        `session_id=eq.${sessionId}`
+      );
       
-      if (slotData && slotData.length > 0) {
+      if (!slotError && slotData && slotData.length > 0) {
         await updateCustomTable("mentor_availability_slots", 
           { is_booked: false, session_id: null }, 
           slotData[0].id
@@ -725,18 +692,11 @@ export function useMentor() {
     
     // Then add session types
     for (const sessionType of sessionTypes) {
-      // Use direct REST API call for better type safety
-      const checkResponse = await fetch(
-        `${supabase.supabaseUrl}/rest/v1/mentor_session_types?mentor_id=eq.${user.id}&name=eq.${encodeURIComponent(sessionType.name)}`,
-        {
-          headers: {
-            'apikey': supabase.supabaseKey,
-            'Authorization': `Bearer ${supabase.supabaseKey}`
-          }
-        }
+      // Check if the session type already exists
+      const { data: existingTypes, error: checkError } = await fetchFromCustomTable(
+        'mentor_session_types',
+        `mentor_id=eq.${user.id}&name=eq.${encodeURIComponent(sessionType.name)}`
       );
-      
-      const existingTypes = await checkResponse.json();
       
       if (existingTypes && existingTypes.length > 0) {
         // Update existing session type
@@ -782,7 +742,7 @@ export function useMentor() {
         // Get sessions data
         const { data: sessionsData, error: sessionsError } = await supabase
           .from("mentor_sessions")
-          .select("status, payment_amount, created_at, mentee_id, price")
+          .select("*")
           .eq("mentor_id", user.id);
           
         if (sessionsError) throw sessionsError;
@@ -807,16 +767,15 @@ export function useMentor() {
         const completedSessions = typedSessions.filter((s) => s.status === 'completed');
         const upcomingSessions = typedSessions.filter((s) => s.status === 'scheduled' || s.status === 'rescheduled');
         
-        // Use price as fallback since payment_amount might not exist
-        const totalEarnings = completedSessions.reduce((sum, session) => {
-          let amount = 0;
-          if (session.payment_amount !== undefined && session.payment_amount !== null) {
-            amount = session.payment_amount;
-          } else if (session.price !== undefined && session.price !== null) {
-            amount = session.price;
+        // Calculate total earnings
+        let totalEarnings = 0;
+        for (const session of completedSessions) {
+          if (typeof session.payment_amount === 'number') {
+            totalEarnings += session.payment_amount;
+          } else if (typeof session.price === 'number') {
+            totalEarnings += session.price;
           }
-          return sum + amount;
-        }, 0);
+        }
         
         // Count unique mentees
         const uniqueMentees = new Set(typedSessions.map(s => s.mentee_id)).size;
