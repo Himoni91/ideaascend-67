@@ -7,7 +7,7 @@ export type Pitch = {
   tags: string[];
   user_id: string;
   created_at: string;
-  updated_at: string; // Added this property
+  updated_at: string; 
   votes_count: number;
   comments_count: number;
   mentor_reviews_count: number;
@@ -29,6 +29,39 @@ export type Pitch = {
     is_verified: boolean;
   };
 };
+
+export type PitchFormData = {
+  title: string;
+  problem_statement: string;
+  target_audience: string;
+  solution: string;
+  category: string;
+  tags: string[];
+  media_file?: File;
+  is_premium?: boolean;
+};
+
+export type PitchVote = {
+  id: string;
+  pitch_id: string;
+  user_id: string;
+  vote_type: 'up' | 'down';
+  created_at: string;
+};
+
+export type PitchCategory = 
+  | 'AI'
+  | 'Fintech'
+  | 'Health'
+  | 'Education'
+  | 'E-commerce'
+  | 'SaaS'
+  | 'Mobile App'
+  | 'Social Media'
+  | 'Blockchain'
+  | 'Gaming'
+  | 'Environment'
+  | 'Other';
 
 export type PitchComment = {
   id: string;

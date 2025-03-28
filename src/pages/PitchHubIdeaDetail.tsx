@@ -444,7 +444,7 @@ export default function PitchHubIdeaDetail() {
               />
             </TabsContent>
             
-            <TabsContent value="reviews" className="pt-6">
+            <TabsContent value="reviews" className="mt-4">
               <MentorReviews
                 reviews={reviews || []}
                 isLoading={isReviewsLoading}
