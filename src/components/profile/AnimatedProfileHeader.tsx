@@ -15,7 +15,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
-
 interface AnimatedProfileHeaderProps {
   profile: ProfileType;
   isCurrentUser: boolean;
@@ -49,7 +48,6 @@ export default function AnimatedProfileHeader({
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState("");
   const isMobile = useIsMobile();
-  
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -57,7 +55,6 @@ export default function AnimatedProfileHeader({
       await uploadProfileImage(file);
     }
   };
-  
   const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -65,14 +62,12 @@ export default function AnimatedProfileHeader({
       await uploadProfileBanner(file);
     }
   };
-  
   const handleAvatarClick = () => {
     if (profile.avatar_url) {
       setPreviewImage(profile.avatar_url);
       setImagePreviewOpen(true);
     }
   };
-  
   const containerVariants = {
     hidden: {
       opacity: 0
@@ -85,7 +80,6 @@ export default function AnimatedProfileHeader({
       }
     }
   };
-  
   const itemVariants = {
     hidden: {
       opacity: 0,
@@ -99,7 +93,6 @@ export default function AnimatedProfileHeader({
       }
     }
   };
-  
   const stats = [{
     label: "Followers",
     value: followersCount || 0,
@@ -119,7 +112,7 @@ export default function AnimatedProfileHeader({
     label: "Level",
     value: profile.level || 1
   }];
-  
+
   // Create execution of the edge function to ensure the bucket exists
   useEffect(() => {
     const checkAndCreateBucket = async () => {
@@ -131,7 +124,6 @@ export default function AnimatedProfileHeader({
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
           }
         });
-        
         if (!response.ok) {
           console.error('Failed to check/create buckets');
         }
@@ -139,10 +131,8 @@ export default function AnimatedProfileHeader({
         console.error('Error calling bucket creation function:', error);
       }
     };
-    
     checkAndCreateBucket();
   }, []);
-  
   return <>
       <motion.div initial="hidden" animate="visible" variants={containerVariants} className="rounded-xl overflow-hidden bg-card border border-border relative">
         {/* Banner */}
@@ -176,7 +166,7 @@ export default function AnimatedProfileHeader({
         <div className="p-4 md:p-6 pt-16 md:pt-20">
           {/* Avatar - Position it like mobile view consistently */}
           <div className={`absolute ${isMobile ? '-top-12 left-4' : '-top-16 left-1/2 transform -translate-x-1/2'} z-10`}>
-            <div className="relative group">
+            <div className="relative group py-0 my-[183px] mx-0">
               <motion.div initial={{
               scale: 0.8,
               opacity: 0
