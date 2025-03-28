@@ -1,4 +1,3 @@
-
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
@@ -30,6 +29,11 @@ import NotFound from "@/pages/NotFound";
 import AuthLayout from "@/components/layout/AuthLayout";
 import PitchHub from "./pages/PitchHub";
 import PitchHubIdeaDetail from "./pages/PitchHubIdeaDetail";
+
+// Import mentor pages
+import MentorApplicationPage from "@/pages/MentorApplicationPage";
+import MentorSessionsPage from "@/pages/MentorSessionsPage";
+import MentorAnalyticsPage from "@/pages/MentorAnalyticsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +70,26 @@ export default function App() {
               <Route path="/mentor-space" element={
                 <RouteGuard>
                   <MentorSpace />
+                </RouteGuard>
+              } />
+              <Route path="/mentor-space/apply" element={
+                <RouteGuard>
+                  <MentorApplicationPage />
+                </RouteGuard>
+              } />
+              <Route path="/mentor-space/sessions" element={
+                <RouteGuard>
+                  <MentorSessionsPage />
+                </RouteGuard>
+              } />
+              <Route path="/mentor-space/analytics" element={
+                <RouteGuard>
+                  <MentorAnalyticsPage />
+                </RouteGuard>
+              } />
+              <Route path="/mentor-space/:id" element={
+                <RouteGuard>
+                  <MentorProfile />
                 </RouteGuard>
               } />
               <Route path="/ascend" element={
@@ -119,13 +143,6 @@ export default function App() {
               <Route path="/achievements" element={
                 <RouteGuard>
                   <Achievements />
-                </RouteGuard>
-              } />
-              
-              {/* Mentor Routes */}
-              <Route path="/mentor/:username" element={
-                <RouteGuard>
-                  <MentorProfile />
                 </RouteGuard>
               } />
               
