@@ -10,12 +10,57 @@ import { useFollow } from "./use-follow";
 export const useProfile = (profileId?: string) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const userId = profileId || user?.id;
+  const [isUsername, setIsUsername] = useState(false);
+  const [lookupUserId, setLookupUserId] = useState<string | undefined>(profileId);
+
+  useEffect(() => {
+    if (profileId) {
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = uuidPattern.test(profileId);
+      
+      setIsUsername(!isUuid);
+      
+      if (!isUuid) {
+        const fetchUserIdByUsername = async () => {
+          try {
+            const { data, error } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("username", profileId)
+              .single();
+              
+            if (error) {
+              console.error("Error fetching user ID by username:", error);
+              setLookupUserId(undefined);
+              return;
+            }
+            
+            if (data) {
+              setLookupUserId(data.id);
+            } else {
+              setLookupUserId(undefined);
+            }
+          } catch (err) {
+            console.error("Error in username lookup:", err);
+            setLookupUserId(undefined);
+          }
+        };
+        
+        fetchUserIdByUsername();
+      } else {
+        setLookupUserId(profileId);
+      }
+    } else {
+      setLookupUserId(user?.id);
+      setIsUsername(false);
+    }
+  }, [profileId, user?.id]);
+
+  const userId = lookupUserId || user?.id;
   const isCurrentUser = userId === user?.id;
   const [isUpdating, setIsUpdating] = useState(false);
   const { followUser, unfollowUser, isFollowing, isLoading: isFollowLoading } = useFollow();
 
-  // Helper function to parse and convert JSON to strongly typed formats
   const formatProfileData = (data: any): ProfileType => {
     const defaultBadges = [
       { name: "New Member", icon: "👋", description: "Welcome to Idolyst", earned: true }
@@ -66,7 +111,6 @@ export const useProfile = (profileId?: string) => {
     } as ProfileType;
   };
 
-  // Record profile view when viewing someone else's profile
   useEffect(() => {
     const recordProfileView = async () => {
       if (profileId && user?.id && profileId !== user.id) {
@@ -88,7 +132,6 @@ export const useProfile = (profileId?: string) => {
     }
   }, [profileId, user?.id]);
 
-  // Fetch profile data
   const { 
     data: profile, 
     isLoading, 
@@ -111,7 +154,6 @@ export const useProfile = (profileId?: string) => {
     enabled: !!userId,
   });
 
-  // Fetch followers and following
   const fetchConnections = async () => {
     if (!userId || !profile) return { followers: [], following: [] };
     
@@ -160,7 +202,6 @@ export const useProfile = (profileId?: string) => {
     }
   };
 
-  // Update profile
   const updateProfile = useMutation({
     mutationFn: async (updatedProfile: Partial<ProfileType>) => {
       if (!userId) throw new Error("User ID is required");
@@ -187,7 +228,6 @@ export const useProfile = (profileId?: string) => {
     },
   });
 
-  // Set up real-time subscription for profile changes
   useEffect(() => {
     if (!userId) return;
 
@@ -220,7 +260,6 @@ export const useProfile = (profileId?: string) => {
     };
   }, [userId, queryClient]);
 
-  // Fetch connections when profile is loaded
   useEffect(() => {
     if (profile) {
       fetchConnections().then((connections) => {
@@ -238,7 +277,6 @@ export const useProfile = (profileId?: string) => {
     }
   }, [profile?.id]);
 
-  // Upload avatar
   const uploadAvatar = async (file: File): Promise<string | null> => {
     if (!user) {
       toast.error("You must be logged in to upload an avatar");
@@ -271,7 +309,6 @@ export const useProfile = (profileId?: string) => {
     }
   };
   
-  // Get followers count
   const { data: followersCount = 0 } = useQuery({
     queryKey: ["followers-count", profileId || user?.id],
     queryFn: async () => {
@@ -286,7 +323,6 @@ export const useProfile = (profileId?: string) => {
     enabled: !!(profileId || user?.id),
   });
   
-  // Get following count
   const { data: followingCount = 0 } = useQuery({
     queryKey: ["following-count", profileId || user?.id],
     queryFn: async () => {
@@ -301,7 +337,6 @@ export const useProfile = (profileId?: string) => {
     enabled: !!(profileId || user?.id),
   });
   
-  // Get profile views count
   const { data: profileViewsCount = 0 } = useQuery({
     queryKey: ["profile-views-count", profileId || user?.id],
     queryFn: async () => {
@@ -316,13 +351,12 @@ export const useProfile = (profileId?: string) => {
     enabled: !!(profileId || user?.id),
   });
   
-  // Check if the current user is the profile owner
-  const isOwnProfile = user?.id === profileId || !profileId;
+  const isOwnProfile = user?.id === userId || !profileId;
 
   return {
     profile,
-    isLoading: isLoading || isUpdating,
-    error,
+    isLoading: isLoading || isUpdating || (!lookupUserId && !!profileId),
+    error: !lookupUserId && !!profileId && isUsername ? new Error("Profile not found") : error,
     updateProfile: updateProfile.mutate,
     uploadAvatar,
     isUpdating,

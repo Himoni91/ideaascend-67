@@ -1,89 +1,89 @@
 
-import { ProfileType } from "./profile";
-
-export type PitchCategory = 
-  | 'AI' 
-  | 'Fintech' 
-  | 'Health' 
-  | 'Education' 
-  | 'E-commerce' 
-  | 'SaaS' 
-  | 'Mobile App' 
-  | 'Social Media' 
-  | 'Blockchain' 
-  | 'Gaming' 
-  | 'Environment' 
-  | 'Other';
-
-export interface Pitch {
+export type Pitch = {
   id: string;
-  user_id: string;
   title: string;
-  problem_statement: string; // Maps to 'description' in the database
-  target_audience: string;
-  solution: string;
-  category: PitchCategory | string;
+  description: string;
+  category: string;
   tags: string[];
-  media_url?: string | null;
-  media_type?: string | null;
+  user_id: string;
+  created_at: string;
+  updated_at: string; // Added this property
   votes_count: number;
   comments_count: number;
   mentor_reviews_count: number;
   trending_score: number;
   is_premium: boolean;
-  created_at: string;
-  updated_at: string; // Changed from optional to required
-  author?: ProfileType;
+  media_url: string | null;
+  media_type: string | null;
+  solution: string;
+  target_audience: string;
+  problem_statement: string;
+  follower_count: number;
   user_vote?: 'up' | 'down' | null;
-  
-  // For database compatibility
-  description?: string; // This maps to problem_statement in our UI
-  follower_count?: number;
-}
+  author?: {
+    id: string;
+    username: string;
+    full_name: string | null;
+    avatar_url: string | null;
+    is_mentor: boolean;
+    is_verified: boolean;
+  };
+};
 
-export interface PitchComment {
+export type PitchComment = {
   id: string;
   pitch_id: string;
   user_id: string;
   content: string;
-  is_mentor_comment: boolean;
   created_at: string;
-  author?: ProfileType;
-}
+  is_mentor_comment: boolean;
+  author?: {
+    id: string;
+    username: string;
+    full_name: string | null;
+    avatar_url: string | null;
+    is_mentor: boolean;
+    is_verified: boolean;
+  };
+};
 
-export interface MentorReview {
+export type MentorReview = {
   id: string;
   pitch_id: string;
   mentor_id: string;
   content: string;
   rating: number;
   created_at: string;
-  mentor?: ProfileType;
-}
+  mentor?: {
+    id: string;
+    username: string;
+    full_name: string | null;
+    avatar_url: string | null;
+    is_mentor: boolean;
+    is_verified: boolean;
+  };
+};
 
-export interface PitchVote {
+export type PitchAnalytics = {
   id: string;
   pitch_id: string;
-  user_id: string;
-  vote_type: 'up' | 'down';
-  created_at: string;
-}
-
-export interface PitchFormData {
-  title: string;
-  problem_statement: string;
-  target_audience: string;
-  solution: string;
-  category: PitchCategory | string;
-  tags: string[];
-  media_file?: File | null;
-  is_premium?: boolean;
-}
-
-export interface PitchAnalytics {
   views: number;
-  votes: number;
-  comments: number;
-  reviews: number;
+  unique_views: number;
+  engagement_time_avg: number;
   trending_score: number;
-}
+  device_breakdown: Record<string, number>;
+  referring_sites: Record<string, number>;
+  conversion_rate: number;
+  created_at: string;
+  updated_at: string;
+};
+
+// Filter for pitch queries
+export type PitchFilter = {
+  category?: string;
+  tag?: string;
+  sort?: 'newest' | 'trending' | 'top_rated';
+  is_premium?: boolean;
+  search?: string;
+  user_id?: string;
+};

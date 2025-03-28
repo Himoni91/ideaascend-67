@@ -4,7 +4,6 @@ import { ProfileType } from "@/types/profile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProfilePosts from "./ProfilePosts";
 import ProfileIdeas from "./ProfileIdeas";
-import ProfileSessions from "./ProfileSessions";
 import ProfileBadges from "./ProfileBadges";
 
 interface ProfileContentProps {
@@ -12,12 +11,12 @@ interface ProfileContentProps {
 }
 
 export default function ProfileContent({ profile }: ProfileContentProps) {
-  const [activeTab, setActiveTab] = useState("posts");
+  const [activeTab, setActiveTab] = useState<string>("posts");
 
   return (
     <div className="animate-fade-in">
       <Tabs defaultValue="posts" onValueChange={setActiveTab}>
-        <TabsList className="flex border-b border-gray-200 dark:border-gray-800 mb-6 w-full bg-transparent">
+        <TabsList className="flex border-b border-gray-200 dark:border-gray-800 mb-6 w-full bg-transparent overflow-x-auto no-scrollbar">
           <TabsTrigger 
             value="posts"
             className={`px-4 py-3 font-medium text-sm relative ${
@@ -45,19 +44,6 @@ export default function ProfileContent({ profile }: ProfileContentProps) {
             )}
           </TabsTrigger>
           <TabsTrigger 
-            value="sessions"
-            className={`px-4 py-3 font-medium text-sm relative ${
-              activeTab === "sessions"
-                ? "text-idolyst-blue"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-            }`}
-          >
-            Mentor Sessions
-            {activeTab === "sessions" && (
-              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-idolyst-blue" />
-            )}
-          </TabsTrigger>
-          <TabsTrigger 
             value="badges"
             className={`px-4 py-3 font-medium text-sm relative ${
               activeTab === "badges"
@@ -78,10 +64,6 @@ export default function ProfileContent({ profile }: ProfileContentProps) {
         
         <TabsContent value="ideas" className="space-y-6">
           <ProfileIdeas profile={profile} />
-        </TabsContent>
-        
-        <TabsContent value="sessions" className="space-y-6">
-          <ProfileSessions profile={profile} />
         </TabsContent>
         
         <TabsContent value="badges" className="space-y-6">

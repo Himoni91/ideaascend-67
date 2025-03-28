@@ -1,3 +1,4 @@
+
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
@@ -28,7 +29,7 @@ import Help from "@/pages/Help";
 import NotFound from "@/pages/NotFound";
 import AuthLayout from "@/components/layout/AuthLayout";
 import PitchHub from "./pages/PitchHub";
-import PitchDetail from "./pages/PitchDetail";
+import PitchHubIdeaDetail from "./pages/PitchHubIdeaDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,7 +80,7 @@ export default function App() {
               } />
               <Route path="/pitch-hub/:id" element={
                 <RouteGuard>
-                  <PitchDetail />
+                  <PitchHubIdeaDetail />
                 </RouteGuard>
               } />
               
@@ -144,9 +145,6 @@ export default function App() {
             </Routes>
 
             <Toaster position="top-right" />
-            <PageTransition>
-              <div></div> {/* Empty div ensures children prop is provided */}
-            </PageTransition>
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
