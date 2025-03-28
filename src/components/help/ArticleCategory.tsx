@@ -24,8 +24,12 @@ export function ArticleCategory({ categorySlug }: ArticleCategoryProps) {
 
   // Get the icon dynamically from lucide-react
   let IconComponent = HelpCircle;
-  if (category?.icon && typeof category.icon === 'string' && category.icon in LucideIcons) {
-    IconComponent = (LucideIcons as any)[category.icon] || HelpCircle;
+  if (category?.icon && typeof category.icon === 'string') {
+    // Cast as any to safely access dynamic icon
+    const LucideIcon = (LucideIcons as any)[category.icon];
+    if (LucideIcon) {
+      IconComponent = LucideIcon;
+    }
   }
 
   if (isCategoriesLoading) {
