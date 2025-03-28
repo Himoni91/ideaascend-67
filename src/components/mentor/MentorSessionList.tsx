@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Calendar, Clock, Video, MessageSquare, FileText, X, Loader2 } from "lucide-react";
 import { format, parseISO, isPast, isToday } from "date-fns";
@@ -19,7 +18,7 @@ interface MentorSessionListProps {
   isLoading: boolean;
   onCancelSession?: (session: MentorSession) => Promise<void>;
   onJoinSession?: (session: MentorSession) => void;
-  onAddMeetingLink?: (session: MentorSession) => void; // Update the type definition
+  onAddMeetingLink?: (session: MentorSession) => void; 
   onCompleteSession?: (session: MentorSession) => Promise<void>;
   onRescheduleSession?: (session: MentorSession) => void;
   asMentor?: boolean;
@@ -73,28 +72,9 @@ export default function MentorSessionList({
     }
   };
   
-  const handleAddMeetingLink = async (session: MentorSession) => {
-    if (!onAddMeetingLink || !meetingLink) return;
-    
-    try {
-      setProcessingSessionId(session.id);
-      await onAddMeetingLink(session, meetingLink);
-      toast({
-        title: "Meeting link added",
-        description: "The meeting link has been successfully added."
-      });
-      setShowMeetingLinkInput(null);
-      setMeetingLink("");
-    } catch (error) {
-      console.error("Error adding meeting link:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add the meeting link. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setProcessingSessionId(null);
-    }
+  const handleAddMeetingLink = (session: MentorSession) => {
+    if (!onAddMeetingLink) return;
+    onAddMeetingLink(session);
   };
   
   const handleCompleteSession = async (session: MentorSession) => {

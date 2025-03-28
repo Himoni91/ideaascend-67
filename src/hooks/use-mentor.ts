@@ -15,6 +15,14 @@ import {
 import { ProfileType } from "@/types/profile";
 import { formatProfileData } from "@/lib/data-utils";
 
+export interface UpdateSessionParams {
+  sessionId: string;
+  status: string;
+  cancellationReason?: string;
+  notes?: string;
+  meetingLink?: string;
+}
+
 export function useMentor() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -426,19 +434,13 @@ export function useMentor() {
   };
 
   // Update session status
-  const updateSessionStatus = async ({ 
-    sessionId, 
-    status, 
-    notes, 
-    cancellationReason, 
-    meetingLink 
-  }: { 
-    sessionId: string; 
-    status: string; 
-    notes?: string;
-    cancellationReason?: string;
-    meetingLink?: string;
-  }) => {
+  const updateSessionStatus = async ({
+    sessionId,
+    status,
+    cancellationReason,
+    notes,
+    meetingLink
+  }: UpdateSessionParams) => {
     if (!user) throw new Error("User must be logged in");
     
     // Get the session first
