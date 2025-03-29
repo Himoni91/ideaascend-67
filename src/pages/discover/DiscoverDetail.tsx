@@ -17,7 +17,6 @@ import {
   User, 
   Eye
 } from "lucide-react";
-import { useDiscover } from "@/hooks/use-discover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AppLayout from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useDiscover } from "@/hooks/use-discover";
 
 export default function DiscoverDetail() {
   const { id } = useParams<{ id: string }>();

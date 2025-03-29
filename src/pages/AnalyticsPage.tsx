@@ -1,18 +1,27 @@
-import React, { useEffect } from "react";
-import AppLayout from "@/components/layout/AppLayout";
-import { useAnalytics } from "@/hooks/use-analytics";
+import React, { useState } from "react";
+import { DateRange } from "react-day-picker";
+import { subDays } from "date-fns";
+import { motion } from "framer-motion";
+import { CalendarDateRangePicker } from "@/components/ui/date-range-picker";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AppLayout from "@/components/layout/AppLayout";
+import { useAnalytics } from "@/hooks/use-analytics";
 import { Button } from "@/components/ui/button";
 import { BarChart, LineChart, PieChart } from "@/components/ui/charts";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Helmet } from "react-helmet-async";
-import { CalendarDateRangePicker } from "@/components/ui/date-range-picker";
 import { Download, BarChart2, ArrowUpRight, Layers, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 
-const AnalyticsPage = () => {
+const AnalyticsPage: React.FC = () => {
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  });
+  const [activeTab, setActiveTab] = useState("overview");
+
   const { 
     timeRange, 
     setTimeRange,
@@ -20,11 +29,9 @@ const AnalyticsPage = () => {
     exportAnalytics
   } = useAnalytics();
   
-  // Use react-query to fetch analytics data
   const { data, isLoading: loading, refetch } = useQuery({
     queryKey: ['analytics', timeRange],
     queryFn: () => {
-      // Dummy function for analytics data - replace with actual implementation
       return Promise.resolve({
         profileViews: 540,
         profileViewsChange: 12,
@@ -75,10 +82,7 @@ const AnalyticsPage = () => {
   });
   
   useEffect(() => {
-    // Track page view
     trackEvent("page_view", "analytics");
-    
-    // Fetch analytics data when component mounts
     refetch();
   }, [trackEvent, timeRange, refetch]);
 
@@ -89,180 +93,169 @@ const AnalyticsPage = () => {
       </Helmet>
       
       <PageTransition>
-        <div className="container mx-auto py-8 px-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-            <div>
-              <h1 className="text-3xl font-bold mb-1">Analytics Dashboard</h1>
-              <p className="text-muted-foreground">
-                Track your engagement, growth, and content performance
-              </p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="container max-w-7xl mx-auto px-4 py-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+              <div>
+                <h1 className="text-3xl font-bold">Analytics</h1>
+                <p className="text-muted-foreground">Track your performance and growth</p>
+              </div>
+              
+              <CalendarDateRangePicker
+                date={dateRange}
+                onDateChange={setDateRange}
+              />
             </div>
             
-            <div className="flex gap-2 self-end sm:self-auto">
-              <CalendarDateRangePicker />
+            <Tabs defaultValue="overview" className="space-y-8">
+              <TabsList className="grid grid-cols-4 w-full max-w-md">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="engagement">Engagement</TabsTrigger>
+                <TabsTrigger value="growth">Growth</TabsTrigger>
+                <TabsTrigger value="content">Content</TabsTrigger>
+              </TabsList>
               
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => exportAnalytics()}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Export
-              </Button>
-            </div>
+              <TabsContent value="overview" className="space-y-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatsCard
+                    title="Profile Views"
+                    value={loading ? undefined : data?.profileViews || 0}
+                    change={loading ? undefined : data?.profileViewsChange || 0}
+                    icon={<Users className="h-4 w-4 text-muted-foreground" />}
+                  />
+                  
+                  <StatsCard
+                    title="Followers"
+                    value={loading ? undefined : data?.followers || 0}
+                    change={loading ? undefined : data?.followersChange || 0}
+                    icon={<Users className="h-4 w-4 text-muted-foreground" />}
+                  />
+                  
+                  <StatsCard
+                    title="Pitch Views"
+                    value={loading ? undefined : data?.pitchViews || 0}
+                    change={loading ? undefined : data?.pitchViewsChange || 0}
+                    icon={<Layers className="h-4 w-4 text-muted-foreground" />}
+                  />
+                  
+                  <StatsCard
+                    title="Engagement Rate"
+                    value={loading ? undefined : `${(data?.engagementRate || 0).toFixed(1)}%`}
+                    change={loading ? undefined : data?.engagementRateChange || 0}
+                    icon={<BarChart2 className="h-4 w-4 text-muted-foreground" />}
+                  />
+                </div>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Growth Overview</CardTitle>
+                    <CardDescription>
+                      Profile views and followers over time
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {loading ? (
+                      <Skeleton className="w-full h-[300px] rounded-lg" />
+                    ) : (
+                      <LineChart data={data?.growthData || []} />
+                    )}
+                  </CardContent>
+                </Card>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Engagement Source</CardTitle>
+                      <CardDescription>
+                        Where your engagement comes from
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {loading ? (
+                        <Skeleton className="w-full h-[300px] rounded-lg" />
+                      ) : (
+                        <PieChart data={data?.engagementSourceData || []} />
+                      )}
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Content Performance</CardTitle>
+                      <CardDescription>
+                        Views across different content types
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {loading ? (
+                        <Skeleton className="w-full h-[300px] rounded-lg" />
+                      ) : (
+                        <BarChart data={data?.contentPerformanceData || []} />
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="engagement">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Engagement Metrics</CardTitle>
+                    <CardDescription>Detailed engagement analytics</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {loading ? (
+                      <Skeleton className="w-full h-[400px] rounded-lg" />
+                    ) : (
+                      <LineChart data={data?.detailedEngagementData || []} />
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="growth">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Audience Growth</CardTitle>
+                    <CardDescription>Follower and view growth over time</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {loading ? (
+                      <Skeleton className="w-full h-[400px] rounded-lg" />
+                    ) : (
+                      <LineChart data={data?.audienceGrowthData || []} />
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="content">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Content Analytics</CardTitle>
+                    <CardDescription>Performance metrics for your content</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {loading ? (
+                      <Skeleton className="w-full h-[400px] rounded-lg" />
+                    ) : (
+                      <BarChart data={data?.contentAnalyticsData || []} />
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
-          
-          <Tabs defaultValue="overview" className="space-y-8">
-            <TabsList className="grid grid-cols-4 w-full max-w-md">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="engagement">Engagement</TabsTrigger>
-              <TabsTrigger value="growth">Growth</TabsTrigger>
-              <TabsTrigger value="content">Content</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="overview" className="space-y-8">
-              {/* Overview Stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatsCard
-                  title="Profile Views"
-                  value={loading ? undefined : data?.profileViews || 0}
-                  change={loading ? undefined : data?.profileViewsChange || 0}
-                  icon={<Users className="h-4 w-4 text-muted-foreground" />}
-                />
-                
-                <StatsCard
-                  title="Followers"
-                  value={loading ? undefined : data?.followers || 0}
-                  change={loading ? undefined : data?.followersChange || 0}
-                  icon={<Users className="h-4 w-4 text-muted-foreground" />}
-                />
-                
-                <StatsCard
-                  title="Pitch Views"
-                  value={loading ? undefined : data?.pitchViews || 0}
-                  change={loading ? undefined : data?.pitchViewsChange || 0}
-                  icon={<Layers className="h-4 w-4 text-muted-foreground" />}
-                />
-                
-                <StatsCard
-                  title="Engagement Rate"
-                  value={loading ? undefined : `${(data?.engagementRate || 0).toFixed(1)}%`}
-                  change={loading ? undefined : data?.engagementRateChange || 0}
-                  icon={<BarChart2 className="h-4 w-4 text-muted-foreground" />}
-                />
-              </div>
-              
-              {/* Growth Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Growth Overview</CardTitle>
-                  <CardDescription>
-                    Profile views and followers over time
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <Skeleton className="w-full h-[300px] rounded-lg" />
-                  ) : (
-                    <LineChart data={data?.growthData || []} />
-                  )}
-                </CardContent>
-              </Card>
-              
-              {/* Engagement Distribution */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Engagement Source</CardTitle>
-                    <CardDescription>
-                      Where your engagement comes from
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loading ? (
-                      <Skeleton className="w-full h-[300px] rounded-lg" />
-                    ) : (
-                      <PieChart data={data?.engagementSourceData || []} />
-                    )}
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Content Performance</CardTitle>
-                    <CardDescription>
-                      Views across different content types
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loading ? (
-                      <Skeleton className="w-full h-[300px] rounded-lg" />
-                    ) : (
-                      <BarChart data={data?.contentPerformanceData || []} />
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="engagement">
-              {/* Engagement specific content */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Engagement Metrics</CardTitle>
-                  <CardDescription>Detailed engagement analytics</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <Skeleton className="w-full h-[400px] rounded-lg" />
-                  ) : (
-                    <LineChart data={data?.detailedEngagementData || []} />
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="growth">
-              {/* Growth specific content */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Audience Growth</CardTitle>
-                  <CardDescription>Follower and view growth over time</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <Skeleton className="w-full h-[400px] rounded-lg" />
-                  ) : (
-                    <LineChart data={data?.audienceGrowthData || []} />
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="content">
-              {/* Content specific analytics */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Content Analytics</CardTitle>
-                  <CardDescription>Performance metrics for your content</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <Skeleton className="w-full h-[400px] rounded-lg" />
-                  ) : (
-                    <BarChart data={data?.contentAnalyticsData || []} />
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+        </motion.div>
       </PageTransition>
     </AppLayout>
   );
 };
 
-// Stats Card Component
 const StatsCard = ({ 
   title, 
   value, 

@@ -1,65 +1,40 @@
 
-import { ReactNode, useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Loader2 } from "lucide-react";
-import { motion } from "framer-motion";
+import { ReactNode } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
-type RouteGuardProps = {
+interface RouteGuardProps {
   children: ReactNode;
-};
+  requireAuth?: boolean;
+  requireGuest?: boolean;
+}
 
-export function RouteGuard({ children }: RouteGuardProps) {
+export function RouteGuard({ 
+  children, 
+  requireAuth = false, 
+  requireGuest = false 
+}: RouteGuardProps) {
   const { user, isLoading } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [showLoader, setShowLoader] = useState(true);
 
-  useEffect(() => {
-    // Add a slight delay before showing the loader to prevent flashes
-    // for quick auth checks
-    const timer = setTimeout(() => {
-      if (isLoading) {
-        setShowLoader(true);
-      }
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      // Hide the loader as soon as loading is done
-      setShowLoader(false);
-      
-      if (!user) {
-        // User is not logged in but the route requires auth
-        // Store the current location so we can redirect back after login
-        navigate("/auth/sign-in", { state: { from: location.pathname } });
-      } else {
-        // User is authenticated and the route requires auth
-        setIsAuthorized(true);
-      }
-    }
-  }, [user, isLoading, navigate, location]);
-
-  if (showLoader) {
+  if (isLoading) {
+    // Show a loading spinner while checking auth state
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
-          className="text-center"
-        >
-          <Loader2 className="size-12 animate-spin text-primary mx-auto" />
-          <p className="mt-4 text-muted-foreground">Loading your experience...</p>
-        </motion.div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full"></div>
       </div>
     );
   }
 
-  // Only render children if conditions are met
-  return isAuthorized ? <>{children}</> : null;
+  if (requireAuth && !user) {
+    // Redirect to login if authentication is required but user is not logged in
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (requireGuest && user) {
+    // Redirect to home if guest access is required but user is logged in
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
 }

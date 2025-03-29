@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Filter, Search, X } from "lucide-react";
@@ -24,7 +23,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useDiscover, DiscoverFilter as FilterType, DiscoverCategory } from "@/hooks/use-discover";
+import { DiscoverFilter as FilterType, DiscoverCategory } from "@/hooks/use-discover";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface DiscoverFilterProps {
@@ -53,7 +52,6 @@ export function DiscoverFilter({
   
   const isMobile = useMediaQuery("(max-width: 768px)");
   
-  // Update filters when search term changes (with debounce)
   useEffect(() => {
     const timerId = setTimeout(() => {
       onFiltersChange({
@@ -65,7 +63,6 @@ export function DiscoverFilter({
     return () => clearTimeout(timerId);
   }, [searchTerm, filters, onFiltersChange]);
   
-  // Apply all filters
   const applyFilters = () => {
     onFiltersChange({
       ...filters,
@@ -77,7 +74,6 @@ export function DiscoverFilter({
     setIsFilterOpen(false);
   };
   
-  // Reset all filters
   const resetFilters = () => {
     setSelectedTags([]);
     setSelectedCategories([]);
@@ -97,16 +93,14 @@ export function DiscoverFilter({
     setIsFilterOpen(false);
   };
   
-  // Toggle category selection
   const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {
       setSelectedCategories(selectedCategories.filter(c => c !== category));
     } else {
-      setSelectedCategories([category]); // Only select one category at a time
+      setSelectedCategories([category]);
     }
   };
   
-  // Toggle tag selection
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
       setSelectedTags(selectedTags.filter(t => t !== tag));
@@ -115,14 +109,12 @@ export function DiscoverFilter({
     }
   };
   
-  // Handle content type change
   const handleContentTypeChange = (type: string) => {
     if (onContentTypeChange) {
       onContentTypeChange(type);
     }
   };
   
-  // Get all available tags from categories
   const allTags = Array.from(
     new Set(
       categories.flatMap(category => 
@@ -131,14 +123,12 @@ export function DiscoverFilter({
     )
   ).filter(tag => tag.length > 0);
   
-  // Determine if any filters are active
   const hasActiveFilters = 
     selectedTags.length > 0 || 
     selectedCategories.length > 0 || 
     isFeatured || 
     sortBy !== "latest";
   
-  // Type-safe handler for select component
   const handleSortByChange = (value: string) => {
     if (value === "latest" || value === "trending" || value === "popular") {
       setSortBy(value);

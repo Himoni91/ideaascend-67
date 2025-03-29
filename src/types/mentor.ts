@@ -1,40 +1,5 @@
 
-import { ProfileType } from "./profile";
-
-export type MentorSessionType = 'quick' | 'standard' | 'deep-dive' | 'custom';
-export type MentorSessionStatus = 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'rescheduled';
-export type MentorPaymentStatus = 'pending' | 'completed' | 'refunded' | 'failed';
-export type MentorPaymentProvider = 'razorpay' | 'paypal' | 'stripe' | 'credits' | 'free';
-export type MentorApplicationStatus = 'pending' | 'approved' | 'rejected' | 'more_info';
-
-export type MentorSpecialty = 
-  | 'Startup Strategy'
-  | 'Product Development'
-  | 'Fundraising'
-  | 'Marketing'
-  | 'User Acquisition'
-  | 'Technical Architecture'
-  | 'UX Design'
-  | 'Business Model'
-  | 'Team Building'
-  | 'Pitch Deck'
-  | 'Financial Modeling'
-  | 'Growth Hacking'
-  | 'Sales'
-  | 'Customer Development'
-  | 'Other';
-
-export interface MentorSessionTypeInfo {
-  id: string;
-  name: string;
-  description: string;
-  duration: number; // in minutes
-  price: number;
-  currency?: string;
-  is_free?: boolean;
-  is_featured?: boolean;
-  color?: string;
-}
+export type MentorSessionStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'upcoming' | 'past';
 
 export interface MentorAvailabilitySlot {
   id: string;
@@ -47,101 +12,91 @@ export interface MentorAvailabilitySlot {
   recurring_rule?: string;
 }
 
+export interface MentorSessionTypeInfo {
+  id: string;
+  name: string;
+  description: string;
+  duration: number;
+  price: number;
+  is_free: boolean;
+  color?: string;
+  is_featured?: boolean;
+  currency?: string;
+  mentor_id: string;
+}
+
 export interface MentorSession {
   id: string;
   mentor_id: string;
   mentee_id: string;
-  title: string;
-  description?: string;
   start_time: string;
   end_time: string;
+  title: string;
+  description?: string;
+  session_type: string;
   status: MentorSessionStatus;
-  payment_status: MentorPaymentStatus;
-  payment_provider?: MentorPaymentProvider;
+  session_url?: string;
+  price?: number;
+  payment_status?: string;
   payment_id?: string;
   payment_amount?: number;
   payment_currency?: string;
-  session_url?: string;
-  session_notes?: string;
-  cancellation_reason?: string;
+  payment_provider?: string;
   cancelled_by?: string;
-  session_type: string;
+  cancellation_reason?: string;
+  session_notes?: string;
   created_at: string;
-  metadata?: Record<string, any>;
-  mentor?: ProfileType;
-  mentee?: ProfileType;
+  mentor_name?: string;
+  mentee_name?: string;
+  mentor_avatar_url?: string;
+  mentee_avatar_url?: string;
+  location?: string;
+  is_mentor?: boolean;
+  metadata?: {
+    [key: string]: any;
+  };
 }
 
-export interface MentorReviewExtended {
+export interface MentorProfile {
   id: string;
-  session_id: string;
-  reviewer_id: string;
-  mentor_id: string;
-  rating: number;
-  content: string;
-  created_at: string;
-  reviewer?: ProfileType;
-}
-
-export interface MentorPortfolioItem {
-  title: string;
-  description: string;
-  url?: string;
-  image_url?: string;
-  date: string;
-}
-
-export interface MentorCertification {
-  name: string;
-  issuer: string;
-  date: string;
-  url?: string;
-  image_url?: string;
-}
-
-export interface MentorApplication {
-  id: string;
-  user_id: string;
-  bio: string;
-  experience: string;
-  expertise: string[];
-  hourly_rate?: number;
-  status: MentorApplicationStatus;
-  created_at: string;
-  updated_at: string;
-  approved_at?: string;
-  reviewed_by?: string;
-  feedback?: string;
-  certifications?: MentorCertification[];
-  portfolio_links?: MentorPortfolioItem[];
-}
-
-export interface MentorFilter {
-  specialties?: string[];
-  price_range?: [number, number];
-  rating?: number;
-  availability?: string; // day of week or date
-  search?: string;
-}
-
-export interface MentorAnalytics {
-  total_sessions: number;
-  completed_sessions: number;
-  average_rating: number;
-  total_earnings: number;
-  session_duration_total?: number; // minutes
-  upcoming_sessions: number;
-  repeat_mentees: number;
-  reviews_count: number;
-  unique_mentees?: number;
-}
-
-export interface MentorProfile extends ProfileType {
+  full_name?: string;
+  avatar_url?: string;
+  username?: string;
+  bio?: string;
   mentor_bio?: string;
-  mentor_hourly_rate?: number;
+  position?: string;
+  company?: string;
+  expertise?: string[];
+  is_verified?: boolean;
+  is_mentor: boolean;
+  stats?: {
+    mentorRating?: number;
+    mentorReviews?: number;
+    sessionCount?: number;
+    completionRate?: number;
+  };
+  professional_headline?: string;
+  work_experience?: Array<{
+    title: string;
+    company: string;
+    startDate: string;
+    endDate?: string;
+    description?: string;
+  }>;
+  education?: Array<{
+    degree: string;
+    institution: string;
+    startYear: string;
+    endYear?: string;
+    description?: string;
+  }>;
   mentor_session_types?: MentorSessionTypeInfo[];
 }
 
-export const asMentorProfile = (profile: ProfileType): MentorProfile => {
-  return profile as MentorProfile;
-};
+export interface MentorFilter {
+  expertise?: string[];
+  priceRange?: [number, number];
+  rating?: number;
+  availability?: string[];
+  searchTerm?: string;
+}

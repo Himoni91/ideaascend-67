@@ -1,20 +1,11 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   Calendar,
-  CalendarDateRangePicker, 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle,
-  DialogFooter,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui";
+  CalendarDateRangePicker
+} from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMentor } from "@/hooks/use-mentor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,9 +27,9 @@ const MentorProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { 
-    getMentorProfile, 
-    getMentorSessionTypes, 
-    getMentorAvailability,
+    useMentorProfile, 
+    useMentorSessionTypes, 
+    useMentorAvailability,
     bookMentorSession
   } = useMentor();
 
@@ -55,13 +46,13 @@ const MentorProfilePage: React.FC = () => {
 
   // Queries
   const { data: mentor, isLoading: isMentorLoading, error: mentorError } = 
-    getMentorProfile(id);
+    useMentorProfile(id);
   
   const { data: sessionTypes, isLoading: isSessionTypesLoading } = 
-    getMentorSessionTypes(id);
+    useMentorSessionTypes(id);
   
   const { data: availabilitySlots, isLoading: isAvailabilityLoading } = 
-    getMentorAvailability(id, dateRange?.from, dateRange?.to);
+    useMentorAvailability(id, dateRange?.from, dateRange?.to);
 
   const handleBookingSubmit = async () => {
     if (!user || !mentor || !selectedSessionType || !selectedSlot) {
@@ -81,19 +72,19 @@ const MentorProfilePage: React.FC = () => {
 
       await bookMentorSession({
         mentorId: mentor.id,
-        menteeId: user.id,
-        startTime: selectedSlot.start_time,
-        endTime: selectedSlot.end_time,
-        sessionTypeId: selectedType.id,
-        note: bookingNote
+        slotId: selectedSlot.id,
+        sessionData: {
+          title: `Session with ${mentor.full_name}`,
+          session_type: selectedType.name,
+          description: bookingNote
+        }
       });
 
       toast.success("Booking successful!");
       setIsBookingOpen(false);
       
-      // Refetch data
       // Refresh availability
-      getMentorAvailability(id, dateRange?.from, dateRange?.to);
+      useMentorAvailability(id, dateRange?.from, dateRange?.to);
       
     } catch (error) {
       console.error("Booking error:", error);

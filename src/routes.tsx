@@ -1,142 +1,128 @@
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { RouteGuard } from '@/guards/RouteGuard';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import ProfilePage from './pages/ProfilePage';
+import EditProfilePage from './pages/EditProfilePage';
+import MentorSpace from './pages/MentorSpace';
+import MentorProfilePage from './pages/MentorProfilePage';
+import MentorSessionsPage from './pages/MentorSessionsPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import Discover from './pages/Discover';
+import DiscoverDetail from './pages/discover/DiscoverDetail';
+import ChallengesPage from './pages/ChallengesPage';
+import PricingPage from './pages/PricingPage';
+import SettingsPage from './pages/SettingsPage';
+import NotificationsPage from './pages/NotificationsPage';
+import MessagesPage from './pages/MessagesPage';
+import PostEditor from './pages/PostEditor';
+import PostDetail from './pages/PostDetail';
 
-import { createBrowserRouter, Navigate } from "react-router-dom";
-import { lazy, Suspense } from "react";
-import RouteGuard from "@/guards/RouteGuard";
-import AppLayout from "@/components/layout/AppLayout";
+const AppRoutes: React.FC = () => {
+  const { user, isLoading } = useAuth();
 
-// Lazy load each page for better performance
-const Home = lazy(() => import("@/pages/Index"));
-const SignIn = lazy(() => import("@/pages/auth/SignIn"));
-const SignUp = lazy(() => import("@/pages/auth/SignUp"));
-const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
-const UpdatePassword = lazy(() => import("@/pages/auth/UpdatePassword"));
-const Callback = lazy(() => import("@/pages/auth/Callback"));
-const PitchHub = lazy(() => import("@/pages/PitchHub"));
-const PitchDetail = lazy(() => import("@/pages/PitchDetail"));
-const Ascend = lazy(() => import("@/pages/Ascend"));
-const MentorSpacePage = lazy(() => import("@/pages/MentorSpacePage"));
-const MentorProfilePage = lazy(() => import("@/pages/MentorProfilePage"));
-const MentorSessionsPage = lazy(() => import("@/pages/MentorSessionsPage"));
-const PostDetail = lazy(() => import("@/pages/post/[id]"));
-const NotFound = lazy(() => import("@/pages/NotFound"));
-const Discover = lazy(() => import("@/pages/Discover"));
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
-// Routes configuration
-export const router = createBrowserRouter([
-  // Public routes
-  {
-    path: "/sign-in",
-    element: <SignIn />,
-  },
-  {
-    path: "/sign-up",
-    element: <SignUp />,
-  },
-  {
-    path: "/forgot-password",
-    element: <ForgotPassword />,
-  },
-  {
-    path: "/auth/callback",
-    element: <Callback />,
-  },
-  {
-    path: "/update-password",
-    element: <UpdatePassword />,
-  },
-  {
-    path: "/post/:id",
-    element: (
-      <Suspense fallback={<div>Loading...</div>}>
-        <PostDetail />
-      </Suspense>
-    ),
-  },
-  
-  // Protected routes
-  {
-    path: "/",
-    element: (
-      <RouteGuard>
-        <Suspense fallback={<div>Loading...</div>}>
-          <Home />
-        </Suspense>
-      </RouteGuard>
-    ),
-  },
-  {
-    path: "/pitch-hub",
-    element: (
-      <RouteGuard>
-        <Suspense fallback={<div>Loading...</div>}>
-          <PitchHub />
-        </Suspense>
-      </RouteGuard>
-    ),
-  },
-  {
-    path: "/pitch-hub/:id",
-    element: (
-      <RouteGuard>
-        <Suspense fallback={<div>Loading...</div>}>
-          <PitchDetail />
-        </Suspense>
-      </RouteGuard>
-    ),
-  },
-  {
-    path: "/ascend",
-    element: (
-      <RouteGuard>
-        <Suspense fallback={<div>Loading...</div>}>
-          <Ascend />
-        </Suspense>
-      </RouteGuard>
-    ),
-  },
-  {
-    path: "/mentor-space",
-    element: (
-      <RouteGuard>
-        <Suspense fallback={<div>Loading...</div>}>
-          <MentorSpacePage />
-        </Suspense>
-      </RouteGuard>
-    ),
-  },
-  {
-    path: "/mentor-space/sessions",
-    element: (
-      <RouteGuard>
-        <Suspense fallback={<div>Loading...</div>}>
-          <MentorSessionsPage />
-        </Suspense>
-      </RouteGuard>
-    ),
-  },
-  {
-    path: "/mentor/:username",
-    element: (
-      <RouteGuard>
-        <Suspense fallback={<div>Loading...</div>}>
+  return (
+    <Routes>
+      <Route path="/login" element={
+        <RouteGuard requireGuest>
+          <LoginPage />
+        </RouteGuard>
+      } />
+      <Route path="/signup" element={
+        <RouteGuard requireGuest>
+          <SignupPage />
+        </RouteGuard>
+      } />
+      <Route path="/" element={
+        <RouteGuard requireAuth>
+          <HomePage />
+        </RouteGuard>
+      } />
+      <Route path="/profile/:username" element={
+        <RouteGuard requireAuth>
+          <ProfilePage />
+        </RouteGuard>
+      } />
+      <Route path="/edit-profile" element={
+        <RouteGuard requireAuth>
+          <EditProfilePage />
+        </RouteGuard>
+      } />
+      <Route path="/mentor-space" element={
+        <RouteGuard requireAuth>
+          <MentorSpace />
+        </RouteGuard>
+      } />
+      <Route path="/mentor-profile/:id" element={
+        <RouteGuard requireAuth>
           <MentorProfilePage />
-        </Suspense>
-      </RouteGuard>
-    ),
-  },
-  {
-    path: "/discover",
-    element: (
-      <RouteGuard>
-        <Suspense fallback={<div>Loading...</div>}>
+        </RouteGuard>
+      } />
+      <Route path="/mentor-sessions" element={
+        <RouteGuard requireAuth>
+          <MentorSessionsPage />
+        </RouteGuard>
+      } />
+      <Route path="/analytics" element={
+        <RouteGuard requireAuth>
+          <AnalyticsPage />
+        </RouteGuard>
+      } />
+      <Route path="/discover" element={
+        <RouteGuard requireAuth>
           <Discover />
-        </Suspense>
-      </RouteGuard>
-    ),
-  },
-  // Catch-all route
-  {
-    path: "*",
-    element: <NotFound />,
-  },
-]);
+        </RouteGuard>
+      } />
+      <Route path="/discover/:id" element={
+        <RouteGuard requireAuth>
+          <DiscoverDetail />
+        </RouteGuard>
+      } />
+      <Route path="/challenges" element={
+        <RouteGuard requireAuth>
+          <ChallengesPage />
+        </RouteGuard>
+      } />
+      <Route path="/pricing" element={
+        <RouteGuard requireAuth>
+          <PricingPage />
+        </RouteGuard>
+      } />
+      <Route path="/settings" element={
+        <RouteGuard requireAuth>
+          <SettingsPage />
+        </RouteGuard>
+      } />
+      <Route path="/notifications" element={
+        <RouteGuard requireAuth>
+          <NotificationsPage />
+        </RouteGuard>
+      } />
+      <Route path="/messages" element={
+        <RouteGuard requireAuth>
+          <MessagesPage />
+        </RouteGuard>
+      } />
+       <Route path="/post/new" element={
+        <RouteGuard requireAuth>
+          <PostEditor />
+        </RouteGuard>
+      } />
+      <Route path="/post/:id" element={
+        <RouteGuard requireAuth>
+          <PostDetail />
+        </RouteGuard>
+      } />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+};
+
+export default AppRoutes;

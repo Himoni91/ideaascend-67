@@ -1,7 +1,6 @@
 
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { useDiscover, DiscoverContent } from "@/hooks/use-discover";
 import { DiscoverFilter } from "@/components/discover/DiscoverFilter";
 import { DiscoverCard } from "@/components/discover/DiscoverCard";
 import { PeopleCard } from "@/components/discover/PeopleCard";
@@ -16,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDiscover, DiscoverContent } from "@/hooks/use-discover";
 
 export default function Discover() {
   const {
