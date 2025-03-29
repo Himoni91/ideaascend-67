@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -14,7 +15,8 @@ import {
   Briefcase,
   GraduationCap,
   CheckCircle,
-  Loader2
+  Loader2,
+  Star
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,6 +46,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -57,7 +60,8 @@ import AppLayout from "@/components/layout/AppLayout";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Helmet } from "react-helmet-async";
 import { ProfileType } from "@/types/profile";
-import { MentorProfile, MentorSessionTypeInfo } from "@/types/mentor";
+import { MentorProfile, MentorSessionTypeInfo, MentorAvailabilitySlot } from "@/types/mentor";
+import { DateRange } from "react-day-picker";
 
 const MentorProfilePage = () => {
   const { username } = useParams();
@@ -72,7 +76,10 @@ const MentorProfilePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showBookingDialog, setShowBookingDialog] = useState(false);
   const [selectedSessionType, setSelectedSessionType] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: new Date()
+  });
   const [isBooking, setIsBooking] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   
@@ -90,16 +97,22 @@ const MentorProfilePage = () => {
         if (!mentorProfile) throw new Error("Mentor profile not found");
         
         // Fetch mentor profile details
-        const mentorProfileData = await getMentorProfile.refetch({ mentorId: mentorProfile.id });
-        setMentorData(mentorProfileData.data as MentorProfile);
+        const mentorProfileData = await getMentorProfile(mentorProfile.id);
+        if (mentorProfileData.data) {
+          setMentorData(mentorProfileData.data as MentorProfile);
+        }
         
         // Fetch session types
-        const sessionTypesData = await getMentorSessionTypes.refetch({ mentorId: mentorProfile.id });
-        setSessionTypes(sessionTypesData.data || []);
+        const sessionTypesData = await getMentorSessionTypes(mentorProfile.id);
+        if (sessionTypesData.data) {
+          setSessionTypes(sessionTypesData.data || []);
+        }
         
         // Fetch availability
-        const availabilityData = await getMentorAvailability.refetch({ mentorId: mentorProfile.id });
-        setAvailability(availabilityData.data || []);
+        const availabilityData = await getMentorAvailability(mentorProfile.id);
+        if (availabilityData.data) {
+          setAvailability(availabilityData.data || []);
+        }
       } catch (error: any) {
         console.error("Error fetching mentor data:", error);
         // toast.error(`Failed to fetch mentor data: ${error.message}`);
@@ -112,7 +125,7 @@ const MentorProfilePage = () => {
   }, [username, getMentorProfile, getMentorSessionTypes, getMentorAvailability]);
   
   const handleBookSession = async () => {
-    if (!selectedSessionType || !selectedDate) {
+    if (!selectedSessionType || !selectedDateRange?.from) {
       setBookingError("Please select a session type and date");
       return;
     }
@@ -383,7 +396,6 @@ const MentorProfilePage = () => {
                 <div className="space-y-2">
                   <Label htmlFor="session-type">Session Type</Label>
                   <Select 
-                    id="session-type"
                     value={selectedSessionType || ""}
                     onValueChange={(value) => setSelectedSessionType(value)}
                   >
@@ -403,7 +415,8 @@ const MentorProfilePage = () => {
                 <div className="space-y-2">
                   <Label>Select Date</Label>
                   <CalendarDateRangePicker 
-                    onSelect={setSelectedDate}
+                    date={selectedDateRange}
+                    onChange={setSelectedDateRange}
                   />
                 </div>
                 

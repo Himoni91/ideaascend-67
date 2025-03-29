@@ -13,47 +13,69 @@ import { useAuth } from "@/contexts/AuthContext";
 import { MentorSession } from "@/types/mentor";
 import { PageTransition } from "@/components/ui/page-transition";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 const MentorSessionsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { 
-    getMentorSessions,
-    getMenteeSessions,
-    cancelMentorSession,
-    cancelMenteeSession,
-    addMeetingLink,
-    completeSession,
-    isMentor,
+    getMentorSessions: fetchMentorSessions,
+    getMenteeSessions: fetchMenteeSessions,
+    isMentor: checkIsMentor
   } = useMentorSpace();
   
   const [activeRole, setActiveRole] = useState<"mentor" | "mentee">("mentee");
   const [isLoading, setIsLoading] = useState(true);
   const [sessions, setSessions] = useState<MentorSession[]>([]);
+  const [isMentor, setIsMentor] = useState(false);
+  
+  // Check if user is a mentor
+  useEffect(() => {
+    const checkMentorStatus = async () => {
+      try {
+        const mentorStatus = await checkIsMentor();
+        setIsMentor(mentorStatus);
+      } catch (error) {
+        console.error("Error checking mentor status:", error);
+        setIsMentor(false);
+      }
+    };
+    
+    if (user) {
+      checkMentorStatus();
+    }
+  }, [user, checkIsMentor]);
+
+  // Use React Query to fetch sessions
+  const mentorSessionsQuery = useQuery({
+    queryKey: ['mentorSessions'],
+    queryFn: fetchMentorSessions,
+    enabled: !!user && activeRole === "mentor" && isMentor,
+  });
+
+  const menteeSessionsQuery = useQuery({
+    queryKey: ['menteeSessions'],
+    queryFn: fetchMenteeSessions,
+    enabled: !!user && activeRole === "mentee",
+  });
   
   useEffect(() => {
     if (!user) return;
     
-    const fetchSessions = async () => {
-      setIsLoading(true);
-      try {
-        if (activeRole === "mentor" && isMentor) {
-          const mentorSessions = await getMentorSessions();
-          setSessions(mentorSessions);
-        } else {
-          const menteeSessions = await getMenteeSessions();
-          setSessions(menteeSessions);
-        }
-      } catch (error) {
-        console.error("Error fetching sessions:", error);
-        toast.error("Failed to load sessions. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    setIsLoading(true);
     
-    fetchSessions();
-  }, [user, activeRole, isMentor]);
+    if (activeRole === "mentor" && isMentor) {
+      if (mentorSessionsQuery.isSuccess) {
+        setSessions(mentorSessionsQuery.data || []);
+      }
+      setIsLoading(mentorSessionsQuery.isLoading);
+    } else {
+      if (menteeSessionsQuery.isSuccess) {
+        setSessions(menteeSessionsQuery.data || []);
+      }
+      setIsLoading(menteeSessionsQuery.isLoading);
+    }
+  }, [user, activeRole, isMentor, mentorSessionsQuery.data, mentorSessionsQuery.isLoading, mentorSessionsQuery.isSuccess, menteeSessionsQuery.data, menteeSessionsQuery.isLoading, menteeSessionsQuery.isSuccess]);
   
   const handleCancelSession = async (session: MentorSession) => {
     try {
@@ -68,11 +90,9 @@ const MentorSessionsPage = () => {
       
       // Refresh sessions after cancellation
       if (activeRole === "mentor") {
-        const mentorSessions = await getMentorSessions();
-        setSessions(mentorSessions);
+        mentorSessionsQuery.refetch();
       } else {
-        const menteeSessions = await getMenteeSessions();
-        setSessions(menteeSessions);
+        menteeSessionsQuery.refetch();
       }
       
       toast.success("Session cancelled successfully");
@@ -90,8 +110,7 @@ const MentorSessionsPage = () => {
       await addMeetingLink(session.id, link);
       
       // Refresh sessions
-      const mentorSessions = await getMentorSessions();
-      setSessions(mentorSessions);
+      mentorSessionsQuery.refetch();
       
       toast.success("Meeting link added successfully");
     } catch (error) {
@@ -105,14 +124,34 @@ const MentorSessionsPage = () => {
       await completeSession(session.id);
       
       // Refresh sessions
-      const mentorSessions = await getMentorSessions();
-      setSessions(mentorSessions);
+      mentorSessionsQuery.refetch();
       
       toast.success("Session marked as completed");
     } catch (error) {
       console.error("Error completing session:", error);
       toast.error("Failed to complete session. Please try again.");
     }
+  };
+
+  // Function stubs for the missing functions
+  const cancelMentorSession = async (sessionId: string, reason: string) => {
+    console.log(`Cancelling mentor session ${sessionId} with reason: ${reason}`);
+    toast.info("This functionality is not fully implemented yet");
+  };
+
+  const cancelMenteeSession = async (sessionId: string, reason: string) => {
+    console.log(`Cancelling mentee session ${sessionId} with reason: ${reason}`);
+    toast.info("This functionality is not fully implemented yet");
+  };
+
+  const addMeetingLink = async (sessionId: string, link: string) => {
+    console.log(`Adding meeting link to session ${sessionId}: ${link}`);
+    toast.info("This functionality is not fully implemented yet");
+  };
+
+  const completeSession = async (sessionId: string) => {
+    console.log(`Marking session ${sessionId} as completed`);
+    toast.info("This functionality is not fully implemented yet");
   };
   
   return (
