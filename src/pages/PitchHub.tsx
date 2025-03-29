@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Rocket,
   Plus,
@@ -8,7 +8,10 @@ import {
   Clock,
   ArrowUp,
   Search,
-  X
+  X,
+  Filter,
+  RefreshCw,
+  Award
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,7 +23,8 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogDescription 
+  DialogDescription,
+  DialogFooter 
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +43,8 @@ import PitchCard from "@/components/pitch/PitchCard";
 import PitchLeaderboard from "@/components/pitch/PitchLeaderboard";
 import MultiStepPitchForm from "@/components/pitch/MultiStepPitchForm";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const PITCH_CATEGORIES: PitchCategory[] = [
   'AI',
@@ -63,6 +69,7 @@ export default function PitchHub() {
   const [sortBy, setSortBy] = useState<'newest' | 'trending' | 'votes'>('newest');
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const isMobile = useIsMobile();
   
   const { 
@@ -72,7 +79,8 @@ export default function PitchHub() {
     hasMore,
     createPitch,
     votePitch,
-    useTopPitches
+    useTopPitches,
+    refetch
   } = usePitches(
     selectedCategory === "All" ? undefined : selectedCategory,
     sortBy
@@ -92,6 +100,7 @@ export default function PitchHub() {
       onSuccess: () => {
         setIsSubmitDialogOpen(false);
         setIsSubmitting(false);
+        toast.success("Your startup idea has been submitted successfully!");
       },
       onError: () => {
         setIsSubmitting(false);
@@ -107,6 +116,12 @@ export default function PitchHub() {
     }
   };
   
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  };
+  
   const filteredPitches = searchQuery.trim() === ""
     ? pitches
     : pitches.filter(pitch => 
@@ -115,6 +130,33 @@ export default function PitchHub() {
         pitch.solution.toLowerCase().includes(searchQuery.toLowerCase()) ||
         pitch.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
       );
+  
+  // Set up realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('pitch-updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'pitches'
+      }, (payload) => {
+        console.log('Pitch updated:', payload);
+        refetch();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'pitch_votes'
+      }, (payload) => {
+        console.log('Pitch vote updated:', payload);
+        refetch();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
   
   return (
     <AppLayout>
@@ -203,6 +245,17 @@ export default function PitchHub() {
                   </TabsList>
                 </Tabs>
                 
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || isLoading}
+                  className="ml-auto sm:ml-0"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
+                
                 {searchQuery && (
                   <div className="w-full sm:w-auto flex items-center">
                     <Badge variant="outline" className="gap-1">
@@ -277,6 +330,8 @@ export default function PitchHub() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.3 }}
+                      layout
+                      layoutId={pitch.id}
                     >
                       <PitchCard 
                         pitch={pitch} 
@@ -312,11 +367,12 @@ export default function PitchHub() {
                 />
                 
                 <div className="mt-6 bg-muted/40 p-6 rounded-lg border">
-                  <h3 className="text-lg font-semibold mb-3">
+                  <h3 className="text-lg font-semibold mb-3 flex items-center">
+                    <Award className="h-5 w-5 mr-2 text-yellow-500" />
                     Have a Startup Idea?
                   </h3>
                   <p className="text-muted-foreground mb-4">
-                    Submit your idea to get feedback from mentors and the community.
+                    Submit your idea to get feedback from mentors and the community. Get valuable insights and connections.
                   </p>
                   <Button 
                     className="w-full"
@@ -325,6 +381,28 @@ export default function PitchHub() {
                     <Plus className="mr-2 h-4 w-4" />
                     Submit Your Idea
                   </Button>
+                </div>
+                
+                <div className="mt-6 bg-muted/40 p-6 rounded-lg border">
+                  <h3 className="text-lg font-semibold mb-3">How It Works</h3>
+                  <ul className="space-y-3">
+                    <li className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">1</div>
+                      <p className="text-sm">Submit your startup idea with key details</p>
+                    </li>
+                    <li className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">2</div>
+                      <p className="text-sm">Get votes and feedback from the community</p>
+                    </li>
+                    <li className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">3</div>
+                      <p className="text-sm">Receive expert reviews from mentors</p>
+                    </li>
+                    <li className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">4</div>
+                      <p className="text-sm">Connect with potential co-founders and investors</p>
+                    </li>
+                  </ul>
                 </div>
               </div>
             </div>
