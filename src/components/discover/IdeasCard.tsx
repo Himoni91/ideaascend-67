@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { ThumbsUp, ThumbsDown, MessageCircle } from "lucide-react";
-import { DiscoverContent } from "@/hooks/use-discover";
+import { DiscoverContent } from "@/types/discover";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

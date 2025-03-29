@@ -1,259 +1,218 @@
 
-import { useState, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { DiscoverContent, DiscoverCategory, DiscoverFilter } from "@/types/discover";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useState } from 'react';
+// Use 'export type' for re-exports
+export type { DiscoverContent } from '@/types/discover';
+export type { DiscoverCategory } from '@/types/discover';
+export type { DiscoverFilter } from '@/types/discover';
 
-export {
-  DiscoverContent,
-  DiscoverCategory,
-  DiscoverFilter
-};
+export const useDiscover = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
-export function useDiscover() {
-  const queryClient = useQueryClient();
-  const [filters, setFilters] = useState<DiscoverFilter>({
-    contentType: undefined,
-    searchTerm: "",
-    tags: undefined,
-    category: undefined,
-    sortBy: "latest",
-    featured: false
-  });
-
-  // Fetch content based on filters
-  const useDiscoverContent = (customFilters?: DiscoverFilter) => {
-    const activeFilters = customFilters || filters;
+  // Fetch all discover content
+  const fetchDiscoverContent = async () => {
+    setIsLoading(true);
+    setError(null);
     
-    return useQuery({
-      queryKey: ["discover-content", activeFilters],
-      queryFn: async () => {
-        let query = supabase
-          .from("discover_content")
-          .select(`
-            *,
-            profile: created_by (
-              id,
-              username,
-              full_name,
-              avatar_url,
-              is_verified,
-              position,
-              company
-            )
-          `);
+    try {
+      const { data, error } = await supabase
+        .from('discover_content')
+        .select(`
+          *,
+          profile:created_by(id, username, full_name, avatar_url, is_verified, position, company)
+        `)
+        .order('trending_score', { ascending: false });
         
-        // Apply filters
-        if (activeFilters.contentType) {
-          query = query.eq("content_type", activeFilters.contentType);
-        }
-        
-        if (activeFilters.searchTerm) {
-          query = query.or(`title.ilike.%${activeFilters.searchTerm}%,description.ilike.%${activeFilters.searchTerm}%`);
-        }
-        
-        if (activeFilters.tags && activeFilters.tags.length > 0) {
-          query = query.contains('tags', activeFilters.tags);
-        }
-        
-        if (activeFilters.category) {
-          query = query.eq('category', activeFilters.category);
-        }
-        
-        if (activeFilters.featured) {
-          query = query.eq('is_featured', true);
-        }
-        
-        // Apply sorting
-        switch(activeFilters.sortBy) {
-          case "trending":
-            query = query.order('trending_score', { ascending: false });
-            break;
-          case "popular":
-            query = query.order('view_count', { ascending: false });
-            break;
-          case "latest":
-          default:
-            query = query.order('created_at', { ascending: false });
-            break;
-        }
-        
-        const { data, error } = await query.limit(50);
-        
-        if (error) throw error;
-        
-        return data || [];
-      },
-      staleTime: 1000 * 60, // 1 minute
-    });
-  };
-
-  // Fetch content by ID
-  const useDiscoverContentById = (id?: string) => {
-    return useQuery({
-      queryKey: ["discover-content", id],
-      queryFn: async () => {
-        if (!id) throw new Error("Content ID is required");
-        
-        const { data, error } = await supabase
-          .from("discover_content")
-          .select(`
-            *,
-            profile: created_by (
-              id,
-              username,
-              full_name,
-              avatar_url,
-              is_verified,
-              position,
-              company
-            )
-          `)
-          .eq("id", id)
-          .single();
-        
-        if (error) throw error;
-        
-        return data as DiscoverContent;
-      },
-      staleTime: 1000 * 60, // 1 minute
-      enabled: !!id
-    });
-  };
-
-  // Fetch categories
-  const useDiscoverCategories = () => {
-    return useQuery({
-      queryKey: ["discover-categories"],
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from("discover_categories")
-          .select("*")
-          .order("name");
-        
-        if (error) throw error;
-        
-        return data as DiscoverCategory[];
-      },
-      staleTime: 1000 * 60 * 5, // 5 minutes
-    });
-  };
-
-  // Toggle like on content
-  const toggleLike = useMutation({
-    mutationFn: async ({ contentId, isLiked }: { contentId: string, isLiked: boolean }) => {
-      if (isLiked) {
-        const { error } = await supabase
-          .from("discover_interactions")
-          .delete()
-          .eq("content_id", contentId)
-          .eq("interaction_type", "like");
-        
-        if (error) throw error;
-        
-        return { contentId, action: "unliked" };
-      } else {
-        const { error } = await supabase
-          .from("discover_interactions")
-          .insert({
-            content_id: contentId,
-            interaction_type: "like"
-          });
-        
-        if (error) throw error;
-        
-        return { contentId, action: "liked" };
-      }
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["discover-content"] });
-      toast.success(`Content ${data.action}`);
-    },
-    onError: (error) => {
-      console.error("Error toggling like:", error);
-      toast.error("Failed to update like status");
+      if (error) throw new Error(error.message);
+      
+      // Transform data to match DiscoverContent interface
+      return data.map(item => ({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        content_type: item.content_type,
+        image_url: item.image_url,
+        tags: item.tags,
+        view_count: item.view_count,
+        created_at: item.created_at,
+        trending_score: item.trending_score,
+        is_featured: item.is_featured,
+        created_by: item.created_by,
+        profile: item.profile && !('error' in item.profile) ? {
+          id: item.profile.id,
+          username: item.profile.username,
+          full_name: item.profile.full_name,
+          avatar_url: item.profile.avatar_url,
+          is_verified: item.profile.is_verified,
+          position: item.profile.position,
+          company: item.profile.company
+        } : {
+          id: item.created_by,
+          username: 'unknown',
+          full_name: 'Unknown User',
+          avatar_url: null,
+          is_verified: false,
+          position: null,
+          company: null
+        },
+        metadata: item.metadata
+      }));
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('An unknown error occurred');
+      setError(error);
+      return [];
+    } finally {
+      setIsLoading(false);
     }
-  });
-
-  // Toggle save content
-  const toggleSave = useMutation({
-    mutationFn: async ({ contentId, isSaved }: { contentId: string, isSaved: boolean }) => {
-      if (isSaved) {
-        const { error } = await supabase
-          .from("discover_interactions")
-          .delete()
-          .eq("content_id", contentId)
-          .eq("interaction_type", "save");
+  };
+  
+  // Fetch a single discover content item by ID
+  const fetchDiscoverContentById = async (id: string) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const { data, error } = await supabase
+        .from('discover_content')
+        .select(`
+          *,
+          profile:created_by(id, username, full_name, avatar_url, is_verified, position, company)
+        `)
+        .eq('id', id)
+        .single();
         
-        if (error) throw error;
-        
-        return { contentId, action: "unsaved" };
-      } else {
-        const { error } = await supabase
-          .from("discover_interactions")
-          .insert({
-            content_id: contentId,
-            interaction_type: "save"
-          });
-        
-        if (error) throw error;
-        
-        return { contentId, action: "saved" };
-      }
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["discover-content"] });
-      toast.success(`Content ${data.action}`);
-    },
-    onError: (error) => {
-      console.error("Error toggling save:", error);
-      toast.error("Failed to update saved status");
+      if (error) throw new Error(error.message);
+      
+      // Transform data to match DiscoverContent interface
+      return {
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        content_type: data.content_type,
+        image_url: data.image_url,
+        tags: data.tags,
+        view_count: data.view_count,
+        created_at: data.created_at,
+        trending_score: data.trending_score,
+        is_featured: data.is_featured,
+        created_by: data.created_by,
+        profile: data.profile && !('error' in data.profile) ? {
+          id: data.profile.id,
+          username: data.profile.username,
+          full_name: data.profile.full_name,
+          avatar_url: data.profile.avatar_url,
+          is_verified: data.profile.is_verified,
+          position: data.profile.position,
+          company: data.profile.company
+        } : {
+          id: data.created_by,
+          username: 'unknown',
+          full_name: 'Unknown User',
+          avatar_url: null,
+          is_verified: false,
+          position: null,
+          company: null
+        },
+        metadata: data.metadata
+      };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('An unknown error occurred');
+      setError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-  });
-
-  // Toggle follow user
-  const toggleFollow = useMutation({
-    mutationFn: async ({ createdBy, isFollowing }: { contentId: string, createdBy: string, isFollowing: boolean }) => {
-      if (isFollowing) {
-        const { error } = await supabase
-          .from("user_follows")
-          .delete()
-          .eq("following_id", createdBy);
+  };
+  
+  // Fetch discover content by type
+  const fetchDiscoverContentByType = async (contentType: string) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const { data, error } = await supabase
+        .from('discover_content')
+        .select(`
+          *,
+          profile:created_by(id, username, full_name, avatar_url, is_verified, position, company)
+        `)
+        .eq('content_type', contentType)
+        .order('trending_score', { ascending: false });
         
-        if (error) throw error;
-        
-        return { createdBy, action: "unfollowed" };
-      } else {
-        const { error } = await supabase
-          .from("user_follows")
-          .insert({
-            following_id: createdBy
-          });
-        
-        if (error) throw error;
-        
-        return { createdBy, action: "followed" };
-      }
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["discover-content"] });
-      toast.success(`User ${data.action}`);
-    },
-    onError: (error) => {
-      console.error("Error toggling follow:", error);
-      toast.error("Failed to update follow status");
+      if (error) throw new Error(error.message);
+      
+      // Transform data to match DiscoverContent interface
+      return data.map(item => ({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        content_type: item.content_type,
+        image_url: item.image_url,
+        tags: item.tags,
+        view_count: item.view_count,
+        created_at: item.created_at,
+        trending_score: item.trending_score,
+        is_featured: item.is_featured,
+        created_by: item.created_by,
+        profile: item.profile && !('error' in item.profile) ? {
+          id: item.profile.id,
+          username: item.profile.username,
+          full_name: item.profile.full_name,
+          avatar_url: item.profile.avatar_url,
+          is_verified: item.profile.is_verified,
+          position: item.profile.position,
+          company: item.profile.company
+        } : {
+          id: item.created_by,
+          username: 'unknown',
+          full_name: 'Unknown User',
+          avatar_url: null,
+          is_verified: false,
+          position: null,
+          company: null
+        },
+        metadata: item.metadata
+      }));
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('An unknown error occurred');
+      setError(error);
+      return [];
+    } finally {
+      setIsLoading(false);
     }
-  });
+  };
+  
+  // Check if a user is following a creator
+  const checkIsFollowing = async (creatorId: string, userId: string) => {
+    if (!userId || !creatorId) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_follows')
+        .select('*')
+        .eq('follower_id', userId)
+        .eq('following_id', creatorId)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') {
+        throw new Error(error.message);
+      }
+      
+      return !!data;
+    } catch (err) {
+      console.error('Error checking follow status:', err);
+      return false;
+    }
+  };
 
   return {
-    filters,
-    setFilters,
-    useDiscoverContent,
-    useDiscoverContentById,
-    useDiscoverCategories,
-    toggleLike,
-    toggleSave,
-    toggleFollow
+    fetchDiscoverContent,
+    fetchDiscoverContentById,
+    fetchDiscoverContentByType,
+    checkIsFollowing,
+    isLoading,
+    error
   };
-}
+};

@@ -1,7 +1,7 @@
 
 import { format, parseISO, isPast, isFuture } from "date-fns";
 import { motion } from "framer-motion";
-import { Calendar, Clock, Video, MessageSquare, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Calendar, Clock, Video, MessageSquare, CheckCircle, XCircle, Loader2, Star } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,10 @@ interface MentorSessionCardProps {
 export default function MentorSessionCard({ session, userRole, onUpdateStatus }: MentorSessionCardProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   
-  const otherParty: ProfileType | undefined = userRole === "mentor" ? session.mentee : session.mentor;
+  const otherParty: ProfileType | undefined = userRole === "mentor" 
+    ? session.mentee_id as unknown as ProfileType 
+    : session.mentor_id as unknown as ProfileType;
+    
   const startTime = parseISO(session.start_time);
   const endTime = parseISO(session.end_time);
   const isUpcoming = isFuture(startTime);
@@ -44,12 +47,18 @@ export default function MentorSessionCard({ session, userRole, onUpdateStatus }:
     switch (session.status) {
       case "scheduled":
         return { variant: "outline", label: "Scheduled" };
-      case "in-progress":
-        return { variant: "default", label: "In Progress" };
       case "completed":
         return { variant: "success", label: "Completed" };
       case "cancelled":
         return { variant: "destructive", label: "Cancelled" };
+      case "upcoming":
+        return { variant: "outline", label: "Upcoming" };
+      case "past":
+        return { variant: "outline", label: "Past" };
+      case "confirmed":
+        return { variant: "outline", label: "Confirmed" };
+      case "in-progress":
+        return { variant: "default", label: "In Progress" };
       case "rescheduled":
         return { variant: "warning", label: "Rescheduled" };
       default:
@@ -108,11 +117,17 @@ export default function MentorSessionCard({ session, userRole, onUpdateStatus }:
             <div className="flex flex-col sm:items-end justify-between">
               <div className="flex items-center mb-3">
                 <Avatar className="h-8 w-8 mr-2">
-                  <AvatarImage src={otherParty?.avatar_url || undefined} />
-                  <AvatarFallback>{otherParty?.full_name?.charAt(0) || otherParty?.username?.charAt(0) || "U"}</AvatarFallback>
+                  <AvatarImage src={userRole === "mentor" ? session.mentee_avatar_url : session.mentor_avatar_url} />
+                  <AvatarFallback>
+                    {userRole === "mentor" 
+                      ? session.mentee_name?.charAt(0) || "M" 
+                      : session.mentor_name?.charAt(0) || "M"}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm font-medium">{otherParty?.full_name || otherParty?.username}</p>
+                  <p className="text-sm font-medium">
+                    {userRole === "mentor" ? session.mentee_name : session.mentor_name}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {userRole === "mentor" ? "Mentee" : "Mentor"}
                   </p>
@@ -130,7 +145,7 @@ export default function MentorSessionCard({ session, userRole, onUpdateStatus }:
             </Button>
           ) : (
             <>
-              {isUpcoming && session.status === "scheduled" && (
+              {isUpcoming && (session.status === "scheduled" || session.status === "confirmed" || session.status === "upcoming") && (
                 <>
                   <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => handleUpdateStatus("in-progress")}>
                     <Video className="mr-2 h-4 w-4" />
@@ -173,5 +188,3 @@ export default function MentorSessionCard({ session, userRole, onUpdateStatus }:
     </motion.div>
   );
 }
-
-import { Star } from "lucide-react";

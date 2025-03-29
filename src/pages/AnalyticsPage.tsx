@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import { subDays } from "date-fns";
 import { motion } from "framer-motion";

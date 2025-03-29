@@ -34,6 +34,7 @@ export interface DiscoverContent {
   created_by: string;
   user_has_liked?: boolean;
   user_has_saved?: boolean;
+  likes_count?: number;
   profile?: {
     id: string;
     username: string;

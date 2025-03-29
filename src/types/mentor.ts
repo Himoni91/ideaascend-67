@@ -1,5 +1,5 @@
 
-export type MentorSessionStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'upcoming' | 'past';
+export type MentorSessionStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'upcoming' | 'past' | 'in-progress' | 'rescheduled';
 
 export interface MentorAvailabilitySlot {
   id: string;
@@ -55,6 +55,19 @@ export interface MentorSession {
   metadata?: {
     [key: string]: any;
   };
+  // Adding mentor and mentee fields for compatibility
+  mentor?: {
+    id: string;
+    full_name?: string;
+    avatar_url?: string;
+    username?: string;
+  };
+  mentee?: {
+    id: string;
+    full_name?: string;
+    avatar_url?: string;
+    username?: string;
+  };
 }
 
 export interface MentorProfile {
@@ -91,6 +104,7 @@ export interface MentorProfile {
     description?: string;
   }>;
   mentor_session_types?: MentorSessionTypeInfo[];
+  mentor_hourly_rate?: number;
 }
 
 export interface MentorFilter {
@@ -99,4 +113,66 @@ export interface MentorFilter {
   rating?: number;
   availability?: string[];
   searchTerm?: string;
+  // Adding fields referenced in hooks
+  specialties?: string[];
+  price_range?: [number, number];
+  search?: string;
+}
+
+// Add missing types
+export interface MentorApplication {
+  id: string;
+  user_id: string;
+  bio: string;
+  experience: string;
+  expertise: string[];
+  status: string;
+  hourly_rate?: number;
+  created_at: string;
+  updated_at?: string;
+  approved_at?: string;
+  reviewed_by?: string;
+}
+
+export interface MentorReviewExtended {
+  id: string;
+  session_id: string;
+  reviewer_id: string;
+  mentor_id: string;
+  rating: number;
+  content: string;
+  created_at: string;
+  reviewer?: {
+    id: string;
+    full_name?: string;
+    avatar_url?: string;
+    username?: string;
+  };
+}
+
+export interface MentorAnalytics {
+  total_sessions: number;
+  completed_sessions: number;
+  cancelled_sessions: number;
+  average_rating: number;
+  total_earnings: number;
+  earnings_by_month: Record<string, number>;
+  sessions_by_month: Record<string, number>;
+  popular_session_types: Array<{
+    name: string;
+    count: number;
+  }>;
+}
+
+export enum MentorSpecialty {
+  BUSINESS_STRATEGY = "Business Strategy",
+  MARKETING = "Marketing",
+  PRODUCT_DEVELOPMENT = "Product Development",
+  FUNDING = "Funding & Investment",
+  TECHNOLOGY = "Technology & Engineering",
+  DESIGN = "Design & UX",
+  LEADERSHIP = "Leadership & Management",
+  SALES = "Sales & Business Development",
+  FINANCE = "Finance & Accounting",
+  LEGAL = "Legal & Compliance"
 }

@@ -26,7 +26,7 @@ export default function MentorSessionsPage() {
     error: upcomingError
   } = useQuery({
     queryKey: ["mentor-sessions", "upcoming"],
-    queryFn: () => useMentorSessions("upcoming")
+    queryFn: () => useMentorSessions("upcoming"),
   });
   
   // Get past sessions (completed, cancelled)
@@ -36,19 +36,19 @@ export default function MentorSessionsPage() {
     error: pastError
   } = useQuery({
     queryKey: ["mentor-sessions", "past"],
-    queryFn: () => useMentorSessions("past")
+    queryFn: () => useMentorSessions("past"),
   });
   
   // Update state when data changes
   useEffect(() => {
     if (upcomingSessionsData) {
-      setUpcomingSessions(upcomingSessionsData);
+      setUpcomingSessions(upcomingSessionsData as MentorSession[]);
     }
   }, [upcomingSessionsData]);
   
   useEffect(() => {
     if (pastSessionsData) {
-      setPastSessions(pastSessionsData);
+      setPastSessions(pastSessionsData as MentorSession[]);
     }
   }, [pastSessionsData]);
   

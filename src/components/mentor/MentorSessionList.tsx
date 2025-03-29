@@ -44,7 +44,7 @@ export default function MentorSessionList({
   if (!user) return null;
   
   const upcomingSessions = sessions.filter(
-    session => session.status === "scheduled" || session.status === "rescheduled"
+    session => session.status === "scheduled" || session.status === "confirmed" || session.status === "upcoming"
   );
   
   const completedSessions = sessions.filter(session => session.status === "completed");
@@ -117,7 +117,17 @@ export default function MentorSessionList({
   };
   
   const getParticipant = (session: MentorSession) => {
-    return asMentor ? session.mentee : session.mentor;
+    return asMentor ? {
+      id: session.mentee_id,
+      full_name: session.mentee_name,
+      avatar_url: session.mentee_avatar_url,
+      username: session.mentee_name
+    } : {
+      id: session.mentor_id,
+      full_name: session.mentor_name, 
+      avatar_url: session.mentor_avatar_url,
+      username: session.mentor_name
+    };
   };
   
   const containerVariants = {
@@ -290,10 +300,8 @@ export default function MentorSessionList({
               </CardContent>
               <CardFooter className="pt-0">
                 <div className="flex flex-wrap gap-2 w-full">
-                  {/* Actions for upcoming sessions */}
-                  {(session.status === "scheduled" || session.status === "rescheduled") && (
+                  {(session.status === "scheduled" || session.status === "confirmed" || session.status === "upcoming") && (
                     <>
-                      {/* Mentor Actions */}
                       {asMentor && (
                         <>
                           {!session.session_url && (
@@ -328,7 +336,6 @@ export default function MentorSessionList({
                         </>
                       )}
                       
-                      {/* Common Actions */}
                       <Button
                         variant="outline"
                         size="sm"
@@ -360,7 +367,6 @@ export default function MentorSessionList({
                     </>
                   )}
                   
-                  {/* Actions for completed sessions */}
                   {session.status === "completed" && (
                     <Button
                       variant="outline"

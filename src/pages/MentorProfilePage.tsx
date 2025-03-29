@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { 
-  Calendar,
-  CalendarDateRangePicker
-} from "@/components/ui/calendar";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarDateRangePicker } from "@/components/ui/date-range-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMentor } from "@/hooks/use-mentor";
@@ -52,7 +50,11 @@ const MentorProfilePage: React.FC = () => {
     useMentorSessionTypes(id);
   
   const { data: availabilitySlots, isLoading: isAvailabilityLoading } = 
-    useMentorAvailability(id, dateRange?.from, dateRange?.to);
+    useMentorAvailability({
+      mentorId: id, 
+      startDate: dateRange?.from, 
+      endDate: dateRange?.to
+    });
 
   const handleBookingSubmit = async () => {
     if (!user || !mentor || !selectedSessionType || !selectedSlot) {
@@ -84,7 +86,11 @@ const MentorProfilePage: React.FC = () => {
       setIsBookingOpen(false);
       
       // Refresh availability
-      useMentorAvailability(id, dateRange?.from, dateRange?.to);
+      useMentorAvailability({
+        mentorId: id, 
+        startDate: dateRange?.from, 
+        endDate: dateRange?.to
+      });
       
     } catch (error) {
       console.error("Booking error:", error);

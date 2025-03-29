@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, Podcast, Film } from "lucide-react";
-import { DiscoverContent } from "@/hooks/use-discover";
+import { DiscoverContent } from "@/types/discover";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,7 +67,10 @@ export function ContentCard({ content }: ContentCardProps) {
   const getDuration = () => {
     if (content.metadata?.duration) {
       // Check if duration is in minutes or seconds
-      const duration = parseInt(content.metadata.duration);
+      const duration = typeof content.metadata.duration === 'string' 
+        ? parseInt(content.metadata.duration) 
+        : content.metadata.duration;
+      
       if (duration < 60) {
         return `${duration} min read`;
       } else if (duration < 3600) {

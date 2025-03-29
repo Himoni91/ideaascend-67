@@ -18,7 +18,7 @@ const MentorReviews: React.FC<MentorReviewsProps> = ({ mentorId }) => {
         .from('session_reviews')
         .select(`
           *,
-          reviewer:reviewer_id(id, full_name, avatar_url, username)
+          reviewer:profiles!reviewer_id(id, full_name, avatar_url, username)
         `)
         .eq('mentor_id', mentorId)
         .order('created_at', { ascending: false });
@@ -53,8 +53,13 @@ const MentorReviews: React.FC<MentorReviewsProps> = ({ mentorId }) => {
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={review.reviewer?.avatar_url} alt={review.reviewer?.full_name || "User"} />
-                <AvatarFallback>{review.reviewer?.full_name?.charAt(0) || "U"}</AvatarFallback>
+                <AvatarImage 
+                  src={review.reviewer?.avatar_url || undefined} 
+                  alt={review.reviewer?.full_name || "User"} 
+                />
+                <AvatarFallback>
+                  {review.reviewer?.full_name?.charAt(0) || "U"}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1">
                 <div className="flex justify-between items-center mb-1">
