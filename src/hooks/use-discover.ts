@@ -30,14 +30,14 @@ export function useDiscover() {
         throw error;
       }
 
-      // Transform and return the data
+      // Transform and return the data with safety checks for profile
       return data.map(item => ({
         id: item.id,
         title: item.title, 
         description: item.description,
         content_type: item.content_type,
         image_url: item.image_url,
-        tags: item.tags,
+        tags: item.tags || [],
         view_count: item.view_count,
         created_at: item.created_at,
         trending_score: item.trending_score,
@@ -45,13 +45,13 @@ export function useDiscover() {
         created_by: item.created_by,
         metadata: item.metadata || {},
         profile: {
-          id: item.profile?.id || '',
-          username: item.profile?.username || '',
-          full_name: item.profile?.full_name || '',
-          avatar_url: item.profile?.avatar_url || '',
-          is_verified: item.profile?.is_verified || false,
-          position: item.profile?.position || '',
-          company: item.profile?.company || ''
+          id: item.profile && typeof item.profile === 'object' ? item.profile.id || '' : '',
+          username: item.profile && typeof item.profile === 'object' ? item.profile.username || '' : '',
+          full_name: item.profile && typeof item.profile === 'object' ? item.profile.full_name || '' : '',
+          avatar_url: item.profile && typeof item.profile === 'object' ? item.profile.avatar_url || '' : '',
+          is_verified: item.profile && typeof item.profile === 'object' ? item.profile.is_verified || false : false,
+          position: item.profile && typeof item.profile === 'object' ? item.profile.position || '' : '',
+          company: item.profile && typeof item.profile === 'object' ? item.profile.company || '' : ''
         },
         likes_count: 0,
         user_has_liked: false,
@@ -117,7 +117,7 @@ export function useDiscover() {
         description: data.description,
         content_type: data.content_type,
         image_url: data.image_url,
-        tags: data.tags,
+        tags: data.tags || [],
         view_count: data.view_count,
         created_at: data.created_at,
         trending_score: data.trending_score,
@@ -125,13 +125,13 @@ export function useDiscover() {
         created_by: data.created_by,
         metadata: data.metadata || {},
         profile: {
-          id: data.profile?.id || '',
-          username: data.profile?.username || '',
-          full_name: data.profile?.full_name || '',
-          avatar_url: data.profile?.avatar_url || '',
-          is_verified: data.profile?.is_verified || false,
-          position: data.profile?.position || '',
-          company: data.profile?.company || ''
+          id: data.profile && typeof data.profile === 'object' ? data.profile.id || '' : '',
+          username: data.profile && typeof data.profile === 'object' ? data.profile.username || '' : '',
+          full_name: data.profile && typeof data.profile === 'object' ? data.profile.full_name || '' : '',
+          avatar_url: data.profile && typeof data.profile === 'object' ? data.profile.avatar_url || '' : '',
+          is_verified: data.profile && typeof data.profile === 'object' ? data.profile.is_verified || false : false,
+          position: data.profile && typeof data.profile === 'object' ? data.profile.position || '' : '',
+          company: data.profile && typeof data.profile === 'object' ? data.profile.company || '' : ''
         },
         likes_count: likesCount || 0,
         user_has_liked: userHasLiked,
@@ -170,6 +170,9 @@ export function useDiscover() {
             if (filters.tags && filters.tags.length > 0) {
               query = query.contains('tags', filters.tags);
             }
+            if (filters.featured) {
+              query = query.eq('is_featured', true);
+            }
           }
 
           let sortOrder = { column: 'created_at', ascending: false };
@@ -187,14 +190,14 @@ export function useDiscover() {
             throw error;
           }
 
-          // Transform and return the data
+          // Transform and return the data with safety checks
           return data.map(item => ({
             id: item.id,
             title: item.title,
             description: item.description,
             content_type: item.content_type,
             image_url: item.image_url,
-            tags: item.tags,
+            tags: item.tags || [],
             view_count: item.view_count,
             created_at: item.created_at,
             trending_score: item.trending_score,
@@ -202,13 +205,13 @@ export function useDiscover() {
             created_by: item.created_by,
             metadata: item.metadata || {},
             profile: {
-              id: item.profile?.id || '',
-              username: item.profile?.username || '',
-              full_name: item.profile?.full_name || '',
-              avatar_url: item.profile?.avatar_url || '',
-              is_verified: item.profile?.is_verified || false,
-              position: item.profile?.position || '',
-              company: item.profile?.company || ''
+              id: item.profile && typeof item.profile === 'object' ? item.profile.id || '' : '',
+              username: item.profile && typeof item.profile === 'object' ? item.profile.username || '' : '',
+              full_name: item.profile && typeof item.profile === 'object' ? item.profile.full_name || '' : '',
+              avatar_url: item.profile && typeof item.profile === 'object' ? item.profile.avatar_url || '' : '',
+              is_verified: item.profile && typeof item.profile === 'object' ? item.profile.is_verified || false : false,
+              position: item.profile && typeof item.profile === 'object' ? item.profile.position || '' : '',
+              company: item.profile && typeof item.profile === 'object' ? item.profile.company || '' : ''
             },
             likes_count: 0,
             user_has_liked: false,

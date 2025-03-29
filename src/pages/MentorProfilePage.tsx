@@ -1,22 +1,37 @@
+
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { DateRange } from 'react-day-picker';
-import { CalendarDateRangePicker } from '@/components/ui/calendar-date-range-picker';
+import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/components/ui/use-toast';
 import { useMentor } from '@/hooks/use-mentor';
-import { Calendar, Clock, DollarSign, Grid3X3, CheckCircle2, Zap, Star, MessageSquare, Tag, PanelRight, Clock8, Files } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, DollarSign, Grid3X3, CheckCircle2, Zap, Star, MessageSquare, Tag, PanelRight, Clock8, Files } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { MentorReviews } from '@/components/mentor';
+import MentorReviews from '@/components/mentor/MentorReviews';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { PageTransition } from '@/components/ui/page-transition';
+
+// Create a simple CalendarDateRangePicker component
+const CalendarDateRangePicker = ({ date, setDate }: { date: DateRange | undefined, setDate: (date: DateRange | undefined) => void }) => {
+  return (
+    <div className="grid gap-2">
+      <Calendar
+        mode="range"
+        selected={date}
+        onSelect={setDate}
+        className="rounded-md border"
+      />
+    </div>
+  )
+};
 
 const MentorProfilePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -45,7 +60,7 @@ const MentorProfilePage = () => {
   
   // Get mentor availability with the correct params object
   const { data: availabilitySlots, isLoading: isLoadingAvailability } = useMentorAvailability({
-    mentorId: id,
+    mentorId: id || '',
     startDate: dateRange?.from,
     endDate: dateRange?.to
   });
@@ -117,7 +132,7 @@ const MentorProfilePage = () => {
         sessionData: {
           title: bookingTitle || "Mentorship Session",
           description: bookingDescription,
-          sessionType: selectedSessionType,
+          session_type: selectedSessionType, // Changed to session_type from sessionType
         }
       });
       

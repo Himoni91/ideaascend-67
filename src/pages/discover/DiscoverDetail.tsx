@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useDiscover } from "@/hooks/use-discover";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function DiscoverDetail() {
   const { id } = useParams<{ id: string }>();
@@ -38,7 +38,7 @@ export default function DiscoverDetail() {
     toggleFollow
   } = useDiscover();
   
-  const { data: content, isLoading } = useQuery({
+  const { data: content, isLoading, error: contentError } = useQuery({
     queryKey: ['discover-content', id],
     queryFn: async () => {
       if (!id) return null;
@@ -58,18 +58,17 @@ export default function DiscoverDetail() {
   });
   
   useEffect(() => {
-    // Scroll to top on page load
     window.scrollTo(0, 0);
   }, [id]);
   
-  if (error) {
+  if (contentError) {
     return (
       <AppLayout>
         <div className="max-w-4xl mx-auto py-10 px-4">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Error Loading Content</h1>
             <p className="text-muted-foreground mb-6">
-              {error instanceof Error ? error.message : "An unknown error occurred."}
+              {contentError instanceof Error ? contentError.message : "An unknown error occurred."}
             </p>
             <Button onClick={() => navigate('/discover')}>
               Back to Discover
@@ -80,38 +79,33 @@ export default function DiscoverDetail() {
     );
   }
   
-  // Handle like/unlike
   const handleLike = async () => {
     if (!content) return;
     
     toggleLike.mutate({
       contentId: content.id,
-      isLiked: !!content.user_has_liked
+      userId: content.user_id || ''
     });
   };
   
-  // Handle save/unsave
   const handleSave = async () => {
     if (!content) return;
     
     toggleSave.mutate({
       contentId: content.id,
-      isSaved: !!content.user_has_saved
+      userId: content.user_id || ''
     });
   };
   
-  // Handle follow/unfollow
   const handleFollow = async (creatorId: string) => {
     if (!content) return;
     
     toggleFollow.mutate({
-      contentId: content.id,
-      createdBy: creatorId,
-      isFollowing: false // This should be dynamic based on user's follow status
+      creatorId,
+      userId: content.user_id || ''
     });
   };
   
-  // Handle share
   const handleShare = () => {
     const shareUrl = window.location.href;
     
@@ -130,7 +124,6 @@ export default function DiscoverDetail() {
     }
   };
   
-  // Format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
@@ -140,7 +133,6 @@ export default function DiscoverDetail() {
     }).format(date);
   };
   
-  // Content type specific UI components
   const renderContentTypeSpecificDetails = () => {
     if (!content) return null;
     
@@ -156,7 +148,7 @@ export default function DiscoverDetail() {
                   <p className="font-medium">Date</p>
                   <p className="text-muted-foreground">
                     {content.metadata?.event_date ? 
-                      formatDate(content.metadata.event_date) : 
+                      formatDate(content.metadata.event_date as string) : 
                       formatDate(content.created_at)}
                   </p>
                 </div>
@@ -167,7 +159,7 @@ export default function DiscoverDetail() {
                   <Clock className="h-5 w-5 mr-3 text-primary" />
                   <div>
                     <p className="font-medium">Time</p>
-                    <p className="text-muted-foreground">{content.metadata.time}</p>
+                    <p className="text-muted-foreground">{content.metadata.time as string}</p>
                   </div>
                 </div>
               )}
@@ -204,11 +196,10 @@ export default function DiscoverDetail() {
         );
       
       case 'content':
-        // Determine content subtype and icon
         const getContentSubtype = () => {
           const subtype = content.metadata?.content_subtype || 'article';
           
-          switch (subtype.toLowerCase()) {
+          switch (String(subtype).toLowerCase()) {
             case 'podcast':
               return { name: 'Podcast', icon: <Podcast className="h-5 w-5 mr-3 text-primary" /> };
             case 'video':
@@ -262,7 +253,7 @@ export default function DiscoverDetail() {
                   <User className="h-5 w-5 mr-3 text-primary" />
                   <div>
                     <p className="font-medium">Source</p>
-                    <p className="text-muted-foreground">{content.metadata.source}</p>
+                    <p className="text-muted-foreground">{String(content.metadata.source)}</p>
                   </div>
                 </div>
               )}
@@ -280,7 +271,7 @@ export default function DiscoverDetail() {
               <div className="mt-6">
                 <Button 
                   className="w-full"
-                  onClick={() => window.open(content.metadata?.url, '_blank')}
+                  onClick={() => window.open(String(content.metadata?.url), '_blank')}
                 >
                   {content.metadata?.content_subtype === 'podcast' 
                     ? 'Listen to Podcast' 

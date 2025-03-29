@@ -16,6 +16,7 @@ export interface DiscoverFilter {
   contentType?: string;
   sortBy?: 'trending' | 'latest' | 'popular';
   tags?: string[];
+  featured?: boolean; // Added this property
 }
 
 export interface DiscoverContent {

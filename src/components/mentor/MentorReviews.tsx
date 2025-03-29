@@ -50,12 +50,12 @@ const MentorReviews: React.FC<MentorReviewsProps> = ({ mentorId }) => {
   return (
     <div className="space-y-4">
       {reviews.map((review) => {
-        // Safely access reviewer properties with defaults
-        const reviewerName = typeof review.reviewer === 'object' && review.reviewer !== null 
+        // Safely access reviewer properties with robust null checks
+        const reviewerName = review.reviewer && typeof review.reviewer === 'object' 
           ? review.reviewer.full_name || 'Anonymous User' 
           : 'Anonymous User';
         
-        const reviewerAvatar = typeof review.reviewer === 'object' && review.reviewer !== null 
+        const reviewerAvatar = review.reviewer && typeof review.reviewer === 'object' 
           ? review.reviewer.avatar_url 
           : null;
 
