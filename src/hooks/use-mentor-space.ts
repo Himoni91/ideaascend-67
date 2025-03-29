@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +13,7 @@ import {
   MentorProfile
 } from "@/types/mentor";
 import { ProfileType } from "@/types/profile";
-import { formatProfileData } from "@/lib/data-utils";
+import { formatProfileData, formatSessionData } from "@/lib/data-utils";
 
 export interface MentorScheduleParams {
   mentorId: string;
@@ -268,7 +267,8 @@ export function useMentorSpace() {
           throw error;
         }
         
-        return data as MentorSession[];
+        // Format the data using formatSessionData to ensure type safety
+        return data.map(session => formatSessionData(session)) as MentorSession[];
       },
       enabled: !!user?.id,
     });
@@ -301,7 +301,8 @@ export function useMentorSpace() {
           throw error;
         }
         
-        return data as MentorSession[];
+        // Format the data using formatSessionData to ensure type safety
+        return data.map(session => formatSessionData(session)) as MentorSession[];
       },
       enabled: !!user?.id,
     });

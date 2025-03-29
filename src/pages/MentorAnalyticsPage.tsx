@@ -1,139 +1,84 @@
 
-import React from "react";
-import { motion } from "framer-motion";
-import { 
-  BarChart3, 
-  PieChart, 
-  LineChart, 
-  Calendar, 
-  Users, 
-  Star,
-  TrendingUp, 
-  Clock, 
-  DollarSign,
-  Filter,
-  Loader2
-} from "lucide-react";
-import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
-import { useAuth } from "@/contexts/AuthContext";
-import { useMentorSpace } from "@/hooks/use-mentor-space";
-import { Button } from "@/components/ui/button";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { PageTransition } from "@/components/ui/page-transition";
+import React, { useState } from "react";
 import AppLayout from "@/components/layout/AppLayout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { PageTransition } from "@/components/ui/page-transition";
 import { Helmet } from "react-helmet-async";
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  Line,
-  LineChart,
-  Tooltip,
-  CartesianGrid,
-  Pie,
-  PieChart as RePieChart,
-  Cell,
-  Legend
+import { CalendarDateRangePicker } from "@/components/ui/date-range-picker";
+import { 
+  Download, 
+  BarChart2, 
+  ArrowUpRight, 
+  Users, 
+  Calendar, 
+  DollarSign,
+  Star
+} from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useMentorSpace } from "@/hooks/use-mentor-space";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { 
+  LineChart as RechartsLineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  Legend,
+  BarChart as RechartsBarChart,
+  Bar
 } from "recharts";
+import { format, parseISO, subDays } from "date-fns";
 
-// Random data for demonstration
-const generateSessionData = () => {
-  const today = new Date();
-  const days = eachDayOfInterval({
-    start: subDays(today, 30),
-    end: today
+// Sample data for demonstration
+const getLastNDays = (n: number) => {
+  return Array.from({ length: n }).map((_, i) => {
+    const date = subDays(new Date(), n - i - 1);
+    return {
+      date: format(date, "yyyy-MM-dd"),
+      sessions: Math.floor(Math.random() * 5),
+      earnings: Math.floor(Math.random() * 500),
+    };
   });
-  
-  return days.map(day => ({
-    date: format(day, 'MMM dd'),
-    sessions: Math.floor(Math.random() * 3),
-    earnings: Math.floor(Math.random() * 200)
-  }));
 };
 
-const generateRatingData = () => [
-  { name: '5 Stars', value: 15 },
-  { name: '4 Stars', value: 8 },
-  { name: '3 Stars', value: 3 },
-  { name: '2 Stars', value: 1 },
-  { name: '1 Star', value: 0 }
-];
+const sampleSessionData = getLastNDays(30);
 
-const generateExpertiseData = () => [
-  { name: 'Startup Strategy', sessions: 12 },
-  { name: 'Fundraising', sessions: 8 },
-  { name: 'Product Development', sessions: 6 },
-  { name: 'UX Design', sessions: 5 },
-  { name: 'Technical Architecture', sessions: 4 },
-  { name: 'Other', sessions: 7 }
+const sampleRatingData = [
+  { rating: 5, count: 12 },
+  { rating: 4, count: 8 },
+  { rating: 3, count: 3 },
+  { rating: 2, count: 1 },
+  { rating: 1, count: 0 },
 ];
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
 
 const MentorAnalyticsPage = () => {
   const { user } = useAuth();
-  const [timeRange, setTimeRange] = React.useState('30d');
-  const [isLoading, setIsLoading] = React.useState(false);
+  const navigate = useNavigate();
+  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "all">("30d");
   
-  // Generate demo data
-  const sessionData = React.useMemo(() => generateSessionData(), []);
-  const ratingData = React.useMemo(() => generateRatingData(), []);
-  const expertiseData = React.useMemo(() => generateExpertiseData(), []);
-  
-  // Mock mentor analytics
-  const analytics = {
-    total_sessions: 42,
-    completed_sessions: 38,
-    average_rating: 4.7,
-    total_earnings: 1580,
-    session_duration_total: 2520,
-    upcoming_sessions: 4,
-    repeat_mentees: 12,
-    reviews_count: 27,
-    unique_mentees: 22
-  };
-  
-  const formatTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
-  };
-  
-  // If user is not a mentor
-  if (user && !user.is_mentor) {
+  if (!user?.is_mentor) {
     return (
       <AppLayout>
-        <div className="container mx-auto px-4 py-8 text-center">
-          <BarChart3 className="h-16 w-16 mx-auto text-muted-foreground opacity-20 mb-4" />
-          <h1 className="text-2xl font-semibold mb-2">Mentor Analytics</h1>
-          <p className="text-muted-foreground mb-6">
-            You need to be a mentor to access analytics.
-          </p>
-          <Button asChild>
-            <a href="/mentor-space/apply">Apply to Become a Mentor</a>
-          </Button>
+        <div className="container mx-auto py-8 px-4">
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-bold mb-4">Mentor Access Required</h1>
+            <p className="text-muted-foreground max-w-md mx-auto mb-6">
+              You need to be a mentor to access the analytics dashboard. Apply to become a mentor today!
+            </p>
+            <Button onClick={() => navigate("/mentor-space/apply")}>
+              Apply to Become a Mentor
+            </Button>
+          </div>
         </div>
       </AppLayout>
     );
   }
-
+  
   return (
     <AppLayout>
       <Helmet>
@@ -141,370 +86,338 @@ const MentorAnalyticsPage = () => {
       </Helmet>
       
       <PageTransition>
-        <div className="container mx-auto px-4 py-8">
-          {/* Page Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-8"
-          >
-            <h1 className="text-3xl font-bold mb-2 flex items-center">
-              <BarChart3 className="mr-3 h-7 w-7 text-primary" />
-              Mentor Analytics
-            </h1>
-            <p className="text-muted-foreground max-w-3xl">
-              Track your mentorship performance and growth metrics
-            </p>
-          </motion.div>
-          
-          {/* Filter Controls */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="container mx-auto py-8 px-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
             <div>
-              <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="w-[180px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Time Range" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7d">Last 7 days</SelectItem>
-                  <SelectItem value="30d">Last 30 days</SelectItem>
-                  <SelectItem value="90d">Last 3 months</SelectItem>
-                  <SelectItem value="ytd">Year to date</SelectItem>
-                  <SelectItem value="all">All time</SelectItem>
-                </SelectContent>
-              </Select>
+              <h1 className="text-3xl font-bold mb-1">Mentor Analytics</h1>
+              <p className="text-muted-foreground">
+                Track your mentorship performance and earnings
+              </p>
             </div>
             
-            <Button variant="outline">
-              <LineChart className="h-4 w-4 mr-2" />
-              Export Data
-            </Button>
+            <div className="flex gap-2 self-end sm:self-auto">
+              <Tabs
+                value={timeRange}
+                onValueChange={(v) => setTimeRange(v as any)}
+                className="w-fit"
+              >
+                <TabsList>
+                  <TabsTrigger value="7d">Week</TabsTrigger>
+                  <TabsTrigger value="30d">Month</TabsTrigger>
+                  <TabsTrigger value="90d">Quarter</TabsTrigger>
+                  <TabsTrigger value="all">All</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            </div>
           </div>
           
-          {/* Stats Cards */}
+          {/* Overview Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
-                    <h3 className="text-2xl font-bold mt-1">{analytics.total_sessions}</h3>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Calendar className="h-6 w-6 text-primary" />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  <span className="text-green-600">+12%</span> from last period
-                </p>
-              </CardContent>
-            </Card>
+            <StatsCard
+              title="Total Sessions"
+              value={42}
+              change={15}
+              icon={<Calendar className="h-4 w-4 text-muted-foreground" />}
+            />
             
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Average Rating</p>
-                    <h3 className="text-2xl font-bold mt-1">{analytics.average_rating}</h3>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Star className="h-6 w-6 text-primary" />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Based on {analytics.reviews_count} reviews
-                </p>
-              </CardContent>
-            </Card>
+            <StatsCard
+              title="Completion Rate"
+              value="92%"
+              change={3}
+              icon={<BarChart2 className="h-4 w-4 text-muted-foreground" />}
+            />
             
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Earnings</p>
-                    <h3 className="text-2xl font-bold mt-1">${analytics.total_earnings}</h3>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <DollarSign className="h-6 w-6 text-primary" />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  <span className="text-green-600">+8%</span> from last period
-                </p>
-              </CardContent>
-            </Card>
+            <StatsCard
+              title="Total Earnings"
+              value="$2,450"
+              change={22}
+              icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+            />
             
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Unique Mentees</p>
-                    <h3 className="text-2xl font-bold mt-1">{analytics.unique_mentees}</h3>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Users className="h-6 w-6 text-primary" />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {analytics.repeat_mentees} repeat mentees
-                </p>
-              </CardContent>
-            </Card>
+            <StatsCard
+              title="Average Rating"
+              value="4.7"
+              change={5}
+              icon={<Star className="h-4 w-4 text-muted-foreground" />}
+            />
           </div>
           
-          {/* Tabs for different analytics views */}
           <Tabs defaultValue="overview" className="space-y-8">
-            <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto">
+            <TabsList className="grid grid-cols-4 w-full max-w-md">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="sessions">Sessions</TabsTrigger>
+              <TabsTrigger value="earnings">Earnings</TabsTrigger>
               <TabsTrigger value="feedback">Feedback</TabsTrigger>
             </TabsList>
             
-            {/* Overview Tab */}
-            <TabsContent value="overview">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Sessions Over Time */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Sessions Over Time</CardTitle>
-                    <CardDescription>
-                      Number of mentorship sessions completed
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
-                          data={sessionData}
-                          margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" />
-                          <YAxis />
-                          <Tooltip />
-                          <Line 
-                            type="monotone" 
-                            dataKey="sessions" 
-                            stroke="#8884d8" 
-                            strokeWidth={2} 
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                {/* Sessions by Expertise */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Sessions by Expertise</CardTitle>
-                    <CardDescription>
-                      Distribution across different expertise areas
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={expertiseData}
-                          margin={{ top: 20, right: 30, left: 0, bottom: 30 }}
-                          layout="vertical"
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" />
-                          <YAxis 
-                            type="category" 
-                            dataKey="name" 
-                            tickMargin={10}
-                            width={120}
-                          />
-                          <Tooltip />
-                          <Bar dataKey="sessions" fill="#82ca9d" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                {/* Earnings Overview */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Earnings Overview</CardTitle>
-                    <CardDescription>
-                      Revenue from mentorship sessions
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
-                          data={sessionData}
-                          margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" />
-                          <YAxis />
-                          <Tooltip formatter={(value) => [`$${value}`, 'Earnings']} />
-                          <Line 
-                            type="monotone" 
-                            dataKey="earnings" 
-                            stroke="#82ca9d" 
-                            strokeWidth={2} 
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                {/* Ratings Distribution */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Ratings Distribution</CardTitle>
-                    <CardDescription>
-                      Breakdown of mentor ratings
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-0">
-                    <div className="h-[300px] flex items-center justify-center">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RePieChart>
-                          <Pie
-                            data={ratingData}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={90}
-                            fill="#8884d8"
-                            dataKey="value"
-                            label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                          >
-                            {ratingData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            formatter={(value, name) => [`${value} reviews`, name]} 
-                          />
-                          <Legend />
-                        </RePieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+            <TabsContent value="overview" className="space-y-8">
+              {/* Sessions & Earnings Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sessions & Earnings Overview</CardTitle>
+                  <CardDescription>
+                    Track your sessions and earnings over time
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsLineChart
+                      data={sampleSessionData}
+                      margin={{
+                        top: 20,
+                        right: 30,
+                        left: 20,
+                        bottom: 20,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(value) => format(parseISO(value), "MMM dd")}
+                      />
+                      <YAxis yAxisId="left" />
+                      <YAxis yAxisId="right" orientation="right" />
+                      <Tooltip 
+                        formatter={(value, name) => {
+                          if (name === "earnings") return [`$${value}`, "Earnings"];
+                          return [value, "Sessions"];
+                        }}
+                        labelFormatter={(label) => format(parseISO(label), "MMMM d, yyyy")}
+                      />
+                      <Legend />
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="sessions"
+                        stroke="#8884d8"
+                        activeDot={{ r: 8 }}
+                        name="Sessions"
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="earnings"
+                        stroke="#82ca9d"
+                        name="Earnings"
+                      />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
               
-              {/* Additional Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+              {/* Engagement Distribution */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Time Mentoring</p>
-                        <h3 className="text-2xl font-bold mt-1">{formatTime(analytics.session_duration_total)}</h3>
-                      </div>
-                      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Clock className="h-6 w-6 text-primary" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Total time spent mentoring
-                    </p>
+                  <CardHeader>
+                    <CardTitle>Rating Distribution</CardTitle>
+                    <CardDescription>
+                      How your mentees rate your sessions
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsBarChart
+                        data={sampleRatingData}
+                        margin={{
+                          top: 20,
+                          right: 30,
+                          left: 20,
+                          bottom: 5,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="rating" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="count" name="Number of Ratings" fill="#8884d8" />
+                      </RechartsBarChart>
+                    </ResponsiveContainer>
                   </CardContent>
                 </Card>
                 
                 <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Completion Rate</p>
-                        <h3 className="text-2xl font-bold mt-1">{Math.round(analytics.completed_sessions / analytics.total_sessions * 100)}%</h3>
-                      </div>
-                      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <TrendingUp className="h-6 w-6 text-primary" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {analytics.completed_sessions} of {analytics.total_sessions} sessions completed
-                    </p>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Upcoming Sessions</p>
-                        <h3 className="text-2xl font-bold mt-1">{analytics.upcoming_sessions}</h3>
-                      </div>
-                      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Calendar className="h-6 w-6 text-primary" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Scheduled in the next 7 days
-                    </p>
+                  <CardHeader>
+                    <CardTitle>Session Type Performance</CardTitle>
+                    <CardDescription>
+                      Performance metrics by session type
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsBarChart
+                        data={[
+                          { type: "Career Advice", count: 18, earnings: 900 },
+                          { type: "Code Review", count: 12, earnings: 720 },
+                          { type: "Portfolio Review", count: 8, earnings: 560 },
+                          { type: "Interview Prep", count: 4, earnings: 280 },
+                        ]}
+                        margin={{
+                          top: 20,
+                          right: 30,
+                          left: 20,
+                          bottom: 5,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="type" />
+                        <YAxis yAxisId="left" />
+                        <YAxis yAxisId="right" orientation="right" />
+                        <Tooltip />
+                        <Legend />
+                        <Bar yAxisId="left" dataKey="count" name="Sessions" fill="#8884d8" />
+                        <Bar yAxisId="right" dataKey="earnings" name="Earnings ($)" fill="#82ca9d" />
+                      </RechartsBarChart>
+                    </ResponsiveContainer>
                   </CardContent>
                 </Card>
               </div>
             </TabsContent>
             
-            {/* Sessions Tab */}
             <TabsContent value="sessions">
-              <Card className="mb-6">
+              {/* Sessions specific content */}
+              <Card>
                 <CardHeader>
-                  <CardTitle>Sessions Analysis</CardTitle>
-                  <CardDescription>
-                    Detailed breakdown of your mentorship sessions
-                  </CardDescription>
+                  <CardTitle>Session Analytics</CardTitle>
+                  <CardDescription>Detailed session metrics over time</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <p className="mb-4">
-                    This view will include in-depth analysis of your sessions including:
-                  </p>
-                  <ul className="space-y-2 list-disc pl-5 mb-4">
-                    <li>Session frequency by day of week and time of day</li>
-                    <li>Length trends</li>
-                    <li>Cancellation rates</li>
-                    <li>Frequently discussed topics</li>
-                    <li>Specialized session metrics</li>
-                  </ul>
-                  <div className="py-12 text-center text-muted-foreground">
-                    <p className="mb-2">Detailed session analytics coming soon</p>
-                    <p className="text-sm">
-                      We're collecting more data to provide meaningful insights
-                    </p>
-                  </div>
+                <CardContent className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsLineChart
+                      data={sampleSessionData}
+                      margin={{
+                        top: 20,
+                        right: 30,
+                        left: 20,
+                        bottom: 20,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(value) => format(parseISO(value), "MMM dd")}
+                      />
+                      <YAxis />
+                      <Tooltip 
+                        labelFormatter={(label) => format(parseISO(label), "MMMM d, yyyy")}
+                      />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="sessions"
+                        stroke="#8884d8"
+                        activeDot={{ r: 8 }}
+                        name="Sessions"
+                      />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
             </TabsContent>
             
-            {/* Feedback Tab */}
+            <TabsContent value="earnings">
+              {/* Earnings specific content */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Earnings Analytics</CardTitle>
+                  <CardDescription>Revenue and earnings metrics</CardDescription>
+                </CardHeader>
+                <CardContent className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsLineChart
+                      data={sampleSessionData}
+                      margin={{
+                        top: 20,
+                        right: 30,
+                        left: 20,
+                        bottom: 20,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(value) => format(parseISO(value), "MMM dd")}
+                      />
+                      <YAxis />
+                      <Tooltip 
+                        formatter={(value) => [`$${value}`, "Earnings"]}
+                        labelFormatter={(label) => format(parseISO(label), "MMMM d, yyyy")}
+                      />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="earnings"
+                        stroke="#82ca9d"
+                        activeDot={{ r: 8 }}
+                        name="Earnings"
+                      />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
             <TabsContent value="feedback">
-              <Card className="mb-6">
+              {/* Feedback specific analytics */}
+              <Card>
                 <CardHeader>
                   <CardTitle>Feedback Analysis</CardTitle>
-                  <CardDescription>
-                    Insights from your mentee reviews and ratings
-                  </CardDescription>
+                  <CardDescription>Ratings and review metrics</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="mb-4">
-                    This view will include analysis of feedback received from mentees:
-                  </p>
-                  <ul className="space-y-2 list-disc pl-5 mb-4">
-                    <li>Rating trends over time</li>
-                    <li>Sentiment analysis of written reviews</li>
-                    <li>Areas of strength and improvement</li>
-                    <li>Comparison to platform averages</li>
-                    <li>Impact of feedback on future bookings</li>
-                  </ul>
-                  <div className="py-12 text-center text-muted-foreground">
-                    <p className="mb-2">Detailed feedback analytics coming soon</p>
-                    <p className="text-sm">
-                      We're collecting more data to provide meaningful insights
-                    </p>
+                  <div className="space-y-6">
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsBarChart
+                          data={sampleRatingData}
+                          margin={{
+                            top: 20,
+                            right: 30,
+                            left: 20,
+                            bottom: 5,
+                          }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="rating" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="count" name="Number of Ratings" fill="#8884d8" />
+                        </RechartsBarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Recent Feedback</h3>
+                      
+                      <div className="space-y-4">
+                        <FeedbackCard 
+                          rating={5}
+                          comment="Extremely helpful session. The mentor provided clear guidance and actionable advice for my career transition."
+                          date="2023-05-15"
+                          sessionType="Career Advice"
+                        />
+                        
+                        <FeedbackCard 
+                          rating={4}
+                          comment="Good code review session. Found several bugs in my implementation and suggested better approaches."
+                          date="2023-05-10"
+                          sessionType="Code Review"
+                        />
+                        
+                        <FeedbackCard 
+                          rating={5}
+                          comment="Amazing portfolio review! Got detailed feedback on my design work and suggestions for improvement."
+                          date="2023-05-05"
+                          sessionType="Portfolio Review"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -513,6 +426,84 @@ const MentorAnalyticsPage = () => {
         </div>
       </PageTransition>
     </AppLayout>
+  );
+};
+
+// Stats Card Component
+const StatsCard = ({ 
+  title, 
+  value, 
+  change, 
+  icon 
+}: { 
+  title: string; 
+  value?: number | string; 
+  change?: number; 
+  icon: React.ReactNode 
+}) => {
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          {icon}
+        </div>
+        
+        <div className="mt-2">
+          {value !== undefined ? (
+            <h3 className="text-2xl font-bold">{value}</h3>
+          ) : (
+            <Skeleton className="h-8 w-20" />
+          )}
+          
+          {change !== undefined ? (
+            <div className={`flex items-center mt-1 text-sm ${change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <ArrowUpRight className={`h-4 w-4 mr-1 ${change < 0 ? 'rotate-180 transform' : ''}`} />
+              <span>{Math.abs(change)}% {change >= 0 ? 'increase' : 'decrease'}</span>
+            </div>
+          ) : (
+            <Skeleton className="h-4 w-24 mt-1" />
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// Feedback Card Component
+const FeedbackCard = ({
+  rating,
+  comment,
+  date,
+  sessionType
+}: {
+  rating: number;
+  comment: string;
+  date: string;
+  sessionType: string;
+}) => {
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="flex items-center mb-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  className={`h-4 w-4 ${i < rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+                />
+              ))}
+              <span className="ml-2 text-sm text-muted-foreground">
+                {format(parseISO(date), "MMM d, yyyy")}
+              </span>
+            </div>
+            <div className="text-sm mb-1 font-medium">{sessionType} Session</div>
+            <p className="text-muted-foreground text-sm">{comment}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
