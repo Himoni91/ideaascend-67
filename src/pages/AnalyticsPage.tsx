@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAnalytics } from "@/hooks/use-analytics";
@@ -18,14 +17,61 @@ const AnalyticsPage = () => {
     timeRange, 
     setTimeRange,
     trackEvent,
-    getAnalytics, 
     exportAnalytics
   } = useAnalytics();
   
   // Use react-query to fetch analytics data
   const { data, isLoading: loading, refetch } = useQuery({
     queryKey: ['analytics', timeRange],
-    queryFn: () => getAnalytics(timeRange),
+    queryFn: () => {
+      // Dummy function for analytics data - replace with actual implementation
+      return Promise.resolve({
+        profileViews: 540,
+        profileViewsChange: 12,
+        followers: 238,
+        followersChange: 5,
+        pitchViews: 1240,
+        pitchViewsChange: 28,
+        engagementRate: 4.7,
+        engagementRateChange: -0.2,
+        growthData: [
+          { name: 'Jan', views: 400, followers: 150 },
+          { name: 'Feb', views: 500, followers: 190 },
+          { name: 'Mar', views: 600, followers: 220 },
+          { name: 'Apr', views: 540, followers: 238 }
+        ],
+        engagementSourceData: [
+          { name: 'Posts', value: 55 },
+          { name: 'Pitches', value: 25 },
+          { name: 'Mentor Sessions', value: 15 },
+          { name: 'Other', value: 5 }
+        ],
+        contentPerformanceData: [
+          { name: 'Posts', views: 450 },
+          { name: 'Pitches', views: 280 },
+          { name: 'Mentor Content', views: 180 },
+          { name: 'Comments', views: 120 }
+        ],
+        detailedEngagementData: [
+          { name: 'Week 1', likes: 45, comments: 23, shares: 12 },
+          { name: 'Week 2', likes: 58, comments: 29, shares: 18 },
+          { name: 'Week 3', likes: 52, comments: 31, shares: 15 },
+          { name: 'Week 4', likes: 64, comments: 37, shares: 22 }
+        ],
+        audienceGrowthData: [
+          { name: 'Week 1', followers: 180, views: 320 },
+          { name: 'Week 2', followers: 200, views: 380 },
+          { name: 'Week 3', followers: 220, views: 450 },
+          { name: 'Week 4', followers: 238, views: 540 }
+        ],
+        contentAnalyticsData: [
+          { name: 'Post A', views: 128, engagement: 45 },
+          { name: 'Post B', views: 98, engagement: 32 },
+          { name: 'Pitch C', views: 156, engagement: 67 },
+          { name: 'Pitch D', views: 124, engagement: 52 }
+        ],
+      });
+    }
   });
   
   useEffect(() => {

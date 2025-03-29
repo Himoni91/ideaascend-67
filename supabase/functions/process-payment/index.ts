@@ -1,58 +1,84 @@
 
-import { createClient } from '@supabase/supabase-js';
-import { stripe } from './stripe';
+// Import from deno.land standard library
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Import Supabase client
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+// Import shared CORS headers
+import { corsHeaders } from "../_shared/cors.ts";
 
-// Define CORS headers for browser access
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Create Supabase client
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
-
-export const handler = async (req: Request): Promise<Response> => {
+serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get request body
-    const { amount, currency, paymentMethodId, customerId, description } = await req.json();
+    // Parse the request body
+    const { sessionId, paymentMethod, amount, currency = "usd" } = await req.json();
 
-    // Validate inputs
-    if (!amount || !currency || !paymentMethodId) {
+    // Validate required fields
+    if (!sessionId || !paymentMethod || !amount) {
       return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Missing required fields" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Create a payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
+    // Create Supabase client with environment variables
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    
+    if (!supabaseUrl || !supabaseKey) {
+      return new Response(
+        JSON.stringify({ error: "Missing Supabase configuration" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Process payment (mock implementation)
+    const paymentResult = {
+      success: true,
+      paymentId: `pay_${Date.now()}`,
       amount,
       currency,
-      payment_method: paymentMethodId,
-      customer: customerId,
-      description,
-      confirm: true,
-    });
+      createdAt: new Date().toISOString(),
+    };
 
-    // Return the payment intent
+    // Update session with payment information
+    const { error: updateError } = await supabase
+      .from("mentor_sessions")
+      .update({ 
+        payment_status: "paid",
+        payment_id: paymentResult.paymentId,
+        payment_amount: amount,
+        payment_currency: currency,
+        payment_date: paymentResult.createdAt
+      })
+      .eq("id", sessionId);
+
+    if (updateError) {
+      return new Response(
+        JSON.stringify({ error: "Failed to update session with payment information", details: updateError }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Return success response
     return new Response(
-      JSON.stringify({ paymentIntent }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        success: true,
+        paymentId: paymentResult.paymentId,
+        sessionId
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    // Handle errors
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error("Error processing payment:", error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-};
+});
