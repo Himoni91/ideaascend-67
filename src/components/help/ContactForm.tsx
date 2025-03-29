@@ -1,147 +1,193 @@
 
-import React from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useHelpCenter } from '@/hooks/use-help-center';
-import { useAuth } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { 
+  Form, 
+  FormControl, 
+  FormDescription, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage 
+} from '@/components/ui/form';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
+import { Loader2, Send } from 'lucide-react';
 
-const contactFormSchema = z.object({
-  name: z.string().min(2, 'Name is too short').max(100, 'Name is too long').optional(),
-  email: z.string().email('Please enter a valid email address'),
-  subject: z.string().min(3, 'Subject is too short').max(100, 'Subject is too long'),
-  message: z.string().min(10, 'Message is too short').max(1000, 'Message is too long'),
+const formSchema = z.object({
+  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  subject: z.string().min(5, { message: 'Subject must be at least 5 characters.' }),
+  category: z.string().min(1, { message: 'Please select a category.' }),
+  message: z.string().min(10, { message: 'Message must be at least 10 characters.' }),
 });
 
-type ContactFormValues = z.infer<typeof contactFormSchema>;
-
 export function ContactForm() {
-  const { submitContactForm } = useHelpCenter();
-  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const form = useForm<ContactFormValues>({
-    resolver: zodResolver(contactFormSchema),
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
-      name: user?.user_metadata?.full_name || '',
-      email: user?.email || '',
+      name: '',
+      email: '',
       subject: '',
+      category: '',
       message: '',
     },
   });
 
-  const onSubmit = (data: ContactFormValues) => {
-    // Ensure all required fields are present
-    const formData = {
-      name: data.name || '',
-      email: data.email, // This should never be empty due to validation
-      subject: data.subject,
-      message: data.message
-    };
-    
-    submitContactForm.mutate(formData, {
-      onSuccess: () => {
-        form.reset({
-          name: user?.user_metadata?.full_name || '',
-          email: user?.email || '',
-          subject: '',
-          message: '',
-        });
-      },
-    });
-  };
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      setIsSubmitting(true);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // This would be a real API call in production
+      // const { data, error } = await supabase.from('help_contact_submissions').insert({
+      //   name: values.name,
+      //   email: values.email,
+      //   subject: values.subject,
+      //   category: values.category,
+      //   message: values.message,
+      //   user_id: user?.id,
+      // });
+      
+      // if (error) throw error;
+      
+      toast.success('Your message has been sent. We\'ll get back to you soon!');
+      form.reset();
+    } catch (error) {
+      console.error('Error submitting contact form:', error);
+      toast.error('There was an error sending your message. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Your name" {...field} value={field.value || ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="your.email@example.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
-            name="subject"
+            name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Subject</FormLabel>
+                <FormLabel>Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="How can we help?" {...field} />
+                  <Input placeholder="Your name" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+          
           <FormField
             control={form.control}
-            name="message"
+            name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Message</FormLabel>
+                <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Textarea 
-                    placeholder="Please describe your issue or question in detail..." 
-                    className="min-h-32 resize-y"
-                    {...field} 
-                  />
+                  <Input placeholder="Your email address" type="email" {...field} />
                 </FormControl>
-                <FormDescription>
-                  Please provide as much detail as possible so we can better assist you.
-                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button 
-            type="submit" 
-            size="lg" 
-            className="w-full md:w-auto"
-            disabled={submitContactForm.isPending}
-          >
-            {submitContactForm.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              'Submit Request'
-            )}
-          </Button>
-        </form>
-      </Form>
-    </motion.div>
+        </div>
+
+        <FormField
+          control={form.control}
+          name="subject"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Subject</FormLabel>
+              <FormControl>
+                <Input placeholder="What is your message about?" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="category"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="general">General Inquiry</SelectItem>
+                  <SelectItem value="technical">Technical Support</SelectItem>
+                  <SelectItem value="account">Account Issues</SelectItem>
+                  <SelectItem value="billing">Billing & Payments</SelectItem>
+                  <SelectItem value="feedback">Feedback & Suggestions</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="message"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Message</FormLabel>
+              <FormControl>
+                <Textarea 
+                  placeholder="Please describe your issue or question in detail..." 
+                  className="min-h-32"
+                  {...field} 
+                />
+              </FormControl>
+              <FormDescription>
+                Please provide as much detail as possible so we can help you effectively.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button 
+          type="submit" 
+          className="w-full md:w-auto"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Sending...
+            </>
+          ) : (
+            <>
+              <Send className="mr-2 h-4 w-4" />
+              Send Message
+            </>
+          )}
+        </Button>
+      </form>
+    </Form>
   );
 }

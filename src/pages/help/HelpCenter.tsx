@@ -20,7 +20,7 @@ const HelpCenter = () => {
       </Helmet>
       
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <motion.div
+        <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -35,8 +35,8 @@ const HelpCenter = () => {
         <div className="mb-12">
           <SearchBar />
         </div>
-
-        <motion.div
+        
+        <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
@@ -59,15 +59,15 @@ const HelpCenter = () => {
             ))}
           </div>
         </motion.div>
-
-        <motion.div
+        
+        <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
         >
           <h2 className="text-2xl font-semibold mb-6">Featured Articles</h2>
           <FeaturedArticles 
-            articles={featuredArticles || []}
+            articles={featuredArticles || []} 
             isLoading={isFeaturedLoading} 
           />
         </motion.div>

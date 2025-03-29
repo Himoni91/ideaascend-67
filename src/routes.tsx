@@ -26,7 +26,14 @@ const MentorSpacePage = lazy(() => import("@/pages/MentorSpacePage"));
 const MentorProfilePage = lazy(() => import("@/pages/MentorProfilePage"));
 const MentorApplicationPage = lazy(() => import("@/pages/MentorApplicationPage"));
 const MentorSessionsPage = lazy(() => import("@/pages/MentorSessionsPage"));
+const MentorSettingsPage = lazy(() => import("@/pages/MentorSettingsPage"));
 const MentorAnalyticsPage = lazy(() => import("@/pages/MentorAnalyticsPage"));
+
+// Help Center Routes
+const HelpCenter = lazy(() => import("@/pages/help/HelpCenter"));
+const CategoryPage = lazy(() => import("@/pages/help/CategoryPage"));
+const ArticlePage = lazy(() => import("@/pages/help/ArticlePage"));
+const ContactPage = lazy(() => import("@/pages/help/ContactPage"));
 
 // Loading component for suspense fallback
 const Loading = () => (
@@ -176,10 +183,51 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: "/mentor-space/settings",
+    element: (
+      <Suspense fallback={<Loading />}>
+        <MentorSettingsPage />
+      </Suspense>
+    ),
+  },
+  {
     path: "/mentor-space/analytics",
     element: (
       <Suspense fallback={<Loading />}>
         <MentorAnalyticsPage />
+      </Suspense>
+    ),
+  },
+  // Help Center Routes
+  {
+    path: "/help",
+    element: (
+      <Suspense fallback={<Loading />}>
+        <HelpCenter />
+      </Suspense>
+    ),
+  },
+  {
+    path: "/help/category/:slug",
+    element: (
+      <Suspense fallback={<Loading />}>
+        <CategoryPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: "/help/article/:slug",
+    element: (
+      <Suspense fallback={<Loading />}>
+        <ArticlePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: "/help/contact",
+    element: (
+      <Suspense fallback={<Loading />}>
+        <ContactPage />
       </Suspense>
     ),
   },

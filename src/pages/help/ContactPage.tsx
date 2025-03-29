@@ -1,9 +1,16 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
 import { SearchBar } from '@/components/help/SearchBar';
 import { ContactForm } from '@/components/help/ContactForm';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Mail, MessageSquare, LifeBuoy, ChevronLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -18,7 +25,7 @@ const ContactPage = () => {
       <Helmet>
         <title>Contact Support | Idolyst</title>
       </Helmet>
-      
+
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Button 
           variant="ghost" 
@@ -30,7 +37,7 @@ const ContactPage = () => {
           Back to Help Center
         </Button>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -118,7 +125,7 @@ const ContactPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Send a Message</CardTitle>
+            <CardTitle>Send a Message</CardTitle>
             <CardDescription>
               Fill out the form below and we'll get back to you as soon as possible.
             </CardDescription>
