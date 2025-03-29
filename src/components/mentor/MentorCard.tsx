@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Calendar, MessageSquare, Star, ThumbsUp } from "lucide-react";
 import { ProfileType } from "@/types/profile";
-import { MentorProfile, asMentorProfile } from "@/types/mentor";
+import { MentorProfile } from "@/types/mentor";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,8 @@ interface MentorCardProps {
 }
 
 export default function MentorCard({ mentor, hideActions }: MentorCardProps) {
-  const mentorProfile = asMentorProfile(mentor);
+  // Convert ProfileType to MentorProfile using type assertion
+  const mentorProfile = mentor as unknown as MentorProfile;
   
   // Calculate truncated expertise
   const displayExpertise = mentor.expertise?.slice(0, 3) || [];

@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, UseQueryResult } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ProfileType } from '@/types/profile';
@@ -23,13 +24,29 @@ export const useMentor = () => {
           query = query.contains('expertise', filters.expertise);
         }
         
+        // Support for specialties as an alternative field name
+        if (filters?.specialties && filters.specialties.length > 0) {
+          query = query.overlaps('expertise', filters.specialties);
+        }
+        
         if (filters?.priceRange) {
           query = query.gte('mentor_hourly_rate', filters.priceRange[0]);
           query = query.lte('mentor_hourly_rate', filters.priceRange[1]);
         }
         
+        // Support for price_range as alternative name
+        if (filters?.price_range) {
+          query = query.gte('mentor_hourly_rate', filters.price_range[0]);
+          query = query.lte('mentor_hourly_rate', filters.price_range[1]);
+        }
+        
         if (filters?.searchTerm) {
           query = query.ilike('full_name', `%${filters.searchTerm}%`);
+        }
+        
+        // Support for search as an alternative field name
+        if (filters?.search) {
+          query = query.or(`full_name.ilike.%${filters.search}%, username.ilike.%${filters.search}%, bio.ilike.%${filters.search}%, position.ilike.%${filters.search}%, company.ilike.%${filters.search}%`);
         }
         
         const { data, error } = await query;
@@ -71,35 +88,39 @@ export const useMentor = () => {
   
   // Fetch all mentor sessions for the current user
   const useMentorSessions = (status?: string) => {
-    return async (): Promise<MentorSession[]> => {
-      if (!user?.id) {
-        throw new Error("User ID is required");
-      }
-      
-      let query = supabase
-        .from('mentor_sessions')
-        .select(`
-          *,
-          mentor:mentor_id(id, full_name, avatar_url, username),
-          mentee:mentee_id(id, full_name, avatar_url, username)
-        `)
-        .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`)
-        .order('start_time', { ascending: false });
-      
-      if (status === "upcoming") {
-        query = query.in('status', ['scheduled', 'confirmed', 'upcoming']);
-      } else if (status === "past") {
-        query = query.in('status', ['completed', 'cancelled']);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      return data ? data.map(formatSessionData) : [];
-    };
+    return useQuery({
+      queryKey: ['mentor-sessions', status],
+      queryFn: async () => {
+        if (!user?.id) {
+          throw new Error("User ID is required");
+        }
+        
+        let query = supabase
+          .from('mentor_sessions')
+          .select(`
+            *,
+            mentor:mentor_id(id, full_name, avatar_url, username),
+            mentee:mentee_id(id, full_name, avatar_url, username)
+          `)
+          .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`)
+          .order('start_time', { ascending: false });
+        
+        if (status === "upcoming") {
+          query = query.in('status', ['scheduled', 'confirmed', 'upcoming']);
+        } else if (status === "past") {
+          query = query.in('status', ['completed', 'cancelled']);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          throw new Error(error.message);
+        }
+        
+        return data ? data.map(formatSessionData) : [];
+      },
+      enabled: !!user?.id,
+    });
   };
   
   // Fetch a single mentor session by ID
@@ -145,10 +166,10 @@ export const useMentor = () => {
   
   // Mutation to update mentor session status
   const useUpdateMentorSessionStatus = () => {
-    return useMutation(
-      ({ sessionId, status }: { sessionId: string; status: string }) =>
+    return useMutation({
+      mutationFn: ({ sessionId, status }: { sessionId: string; status: string }) =>
         updateMentorSessionStatus(sessionId, status)
-    );
+    });
   };
   
   // Fetch all availability slots for a mentor
@@ -192,10 +213,10 @@ export const useMentor = () => {
   
   // Mutation to create a new availability slot
   const useCreateAvailabilitySlot = () => {
-    return useMutation(
-      (slot: Omit<MentorAvailabilitySlot, 'id' | 'created_at'>) =>
+    return useMutation({
+      mutationFn: (slot: Omit<MentorAvailabilitySlot, 'id' | 'created_at'>) =>
         createAvailabilitySlot(slot)
-    );
+    });
   };
   
   // Update an existing availability slot
@@ -216,10 +237,10 @@ export const useMentor = () => {
   
   // Mutation to update an existing availability slot
   const useUpdateAvailabilitySlot = () => {
-    return useMutation(
-      ({ slotId, updates }: { slotId: string; updates: Partial<MentorAvailabilitySlot> }) =>
+    return useMutation({
+      mutationFn: ({ slotId, updates }: { slotId: string; updates: Partial<MentorAvailabilitySlot> }) =>
         updateAvailabilitySlot(slotId, updates)
-    );
+    });
   };
   
   // Delete an availability slot
@@ -236,10 +257,10 @@ export const useMentor = () => {
   
   // Mutation to delete an availability slot
   const useDeleteAvailabilitySlot = () => {
-    return useMutation(
-      (slotId: string) =>
+    return useMutation({
+      mutationFn: (slotId: string) =>
         deleteAvailabilitySlot(slotId)
-    );
+    });
   };
   
   // Book a mentor session
@@ -257,8 +278,8 @@ export const useMentor = () => {
           {
             mentor_id: mentorId,
             mentee_id: user.id,
-            start_time: '', // Placeholder, will be updated
-            end_time: '', // Placeholder, will be updated
+            start_time: sessionData.start_time || '', // Will be updated from the slot
+            end_time: sessionData.end_time || '', // Will be updated from the slot
             title: sessionData.title || 'Mentoring Session',
             description: sessionData.description,
             session_type: sessionData.session_type || 'standard',
@@ -309,10 +330,10 @@ export const useMentor = () => {
   
   // Mutation to book a mentor session
   const useBookMentorSession = () => {
-    return useMutation(
-      ({ mentorId, slotId, sessionData }: { mentorId: string; slotId: string; sessionData: Partial<MentorSession> }) =>
+    return useMutation({
+      mutationFn: ({ mentorId, slotId, sessionData }: { mentorId: string; slotId: string; sessionData: Partial<MentorSession> }) =>
         bookMentorSession({ mentorId, slotId, sessionData })
-    );
+    });
   };
   
   // Apply to become a mentor
@@ -345,10 +366,10 @@ export const useMentor = () => {
   
   // Mutation to apply to become a mentor
   const useApplyToBecomeMentor = () => {
-    return useMutation(
-      (applicationData: Omit<MentorApplication, 'id' | 'user_id' | 'status' | 'created_at' | 'updated_at' | 'approved_at' | 'reviewed_by'>) =>
+    return useMutation({
+      mutationFn: (applicationData: Omit<MentorApplication, 'id' | 'user_id' | 'status' | 'created_at' | 'updated_at' | 'approved_at' | 'reviewed_by'>) =>
         applyToBecomeMentor(applicationData)
-    );
+    });
   };
   
   // Get mentor application for the current user
@@ -380,256 +401,214 @@ export const useMentor = () => {
     });
   };
 
-// Add the useMentorSessionTypes function
-const useMentorSessionTypes = (mentorId?: string) => {
-  return useQuery({
-    queryKey: ['mentor-session-types', mentorId],
-    queryFn: async () => {
-      if (!mentorId) return [];
-      
-      const { data, error } = await supabase
-        .from('mentor_session_types')
-        .select('*')
-        .eq('mentor_id', mentorId);
+  // Modified useMentorSessionTypes function
+  const useMentorSessionTypes = (mentorId?: string) => {
+    return useQuery({
+      queryKey: ['mentor-session-types', mentorId],
+      queryFn: async () => {
+        if (!mentorId) return [];
         
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!mentorId
-  });
-};
+        const { data, error } = await supabase
+          .from('mentor_session_types')
+          .select('*')
+          .eq('mentor_id', mentorId);
+          
+        if (error) throw error;
+        return data || [];
+      },
+      enabled: !!mentorId
+    });
+  };
 
-// Add useMentorAvailability function that accepts objects
-const useMentorAvailability = (params: { mentorId?: string; startDate?: Date; endDate?: Date }) => {
-  const { mentorId, startDate, endDate } = params;
-  
-  return useQuery({
-    queryKey: ['mentor-availability', mentorId, startDate, endDate],
-    queryFn: async () => {
-      if (!mentorId) return [];
-      
-      let query = supabase
-        .from('mentor_availability_slots')
-        .select('*')
-        .eq('mentor_id', mentorId)
-        .eq('is_booked', false);
+  // Modified useMentorAvailability to accept params object
+  const useMentorAvailability = (params: { mentorId?: string; startDate?: Date; endDate?: Date }) => {
+    const { mentorId, startDate, endDate } = params;
+    
+    return useQuery({
+      queryKey: ['mentor-availability', mentorId, startDate, endDate],
+      queryFn: async () => {
+        if (!mentorId) return [];
         
-      // Add date filters if provided
-      if (startDate) {
-        query = query.gte('start_time', startDate.toISOString());
-      }
-      
-      if (endDate) {
-        query = query.lte('end_time', endDate.toISOString());
-      }
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!mentorId
-  });
-};
+        let query = supabase
+          .from('mentor_availability_slots')
+          .select('*')
+          .eq('mentor_id', mentorId)
+          .eq('is_booked', false);
+          
+        // Add date filters if provided
+        if (startDate) {
+          query = query.gte('start_time', startDate.toISOString());
+        }
+        
+        if (endDate) {
+          query = query.lte('end_time', endDate.toISOString());
+        }
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+      },
+      enabled: !!mentorId
+    });
+  };
 
-// Fetch mentor reviews
-const useMentorReviews = (mentorId?: string) => {
-  return useQuery({
-    queryKey: ['mentor-reviews', mentorId],
-    queryFn: async () => {
-      if (!mentorId) return [];
+  // Fetch mentor reviews
+  const useMentorReviews = (mentorId?: string) => {
+    return useQuery({
+      queryKey: ['mentor-reviews', mentorId],
+      queryFn: async () => {
+        if (!mentorId) return [];
 
-      const { data, error } = await supabase
-        .from('session_reviews')
-        .select(`
-          *,
-          reviewer:profiles!reviewer_id(id, full_name, avatar_url, username)
-        `)
-        .eq('mentor_id', mentorId)
-        .order('created_at', { ascending: false });
+        const { data, error } = await supabase
+          .from('session_reviews')
+          .select(`
+            *,
+            reviewer:profiles!reviewer_id(id, full_name, avatar_url, username)
+          `)
+          .eq('mentor_id', mentorId)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data ? data.map(formatReviewData) : [];
-    },
-    enabled: !!mentorId,
-  });
-};
+        if (error) throw error;
+        return data ? data.map(formatReviewData) : [];
+      },
+      enabled: !!mentorId,
+    });
+  };
 
-// Create a mentor review
-const createMentorReview = async (reviewData: Omit<MentorReviewExtended, 'id' | 'created_at' | 'reviewer'>): Promise<MentorReviewExtended> => {
-  const { data, error } = await supabase
-    .from('session_reviews')
-    .insert([reviewData])
-    .select(`
-      *,
-      reviewer:profiles!reviewer_id(id, full_name, avatar_url, username)
-    `)
-    .single();
+  // Create a mentor review
+  const createMentorReview = async (reviewData: Omit<MentorReviewExtended, 'id' | 'created_at' | 'reviewer'>): Promise<MentorReviewExtended> => {
+    const { data, error } = await supabase
+      .from('session_reviews')
+      .insert([reviewData])
+      .select(`
+        *,
+        reviewer:profiles!reviewer_id(id, full_name, avatar_url, username)
+      `)
+      .single();
 
-  if (error) throw error;
-  return formatReviewData(data);
-};
+    if (error) throw error;
+    return formatReviewData(data);
+  };
 
-// Mutation to create a mentor review
-const useCreateMentorReview = () => {
-  return useMutation(
-    (reviewData: Omit<MentorReviewExtended, 'id' | 'created_at' | 'reviewer'>) =>
-      createMentorReview(reviewData)
-  );
-};
+  // Mutation to create a mentor review
+  const useCreateMentorReview = () => {
+    return useMutation({
+      mutationFn: (reviewData: Omit<MentorReviewExtended, 'id' | 'created_at' | 'reviewer'>) =>
+        createMentorReview(reviewData)
+    });
+  };
 
-// Fetch mentor analytics
-export const useMentorAnalytics = () => {
-  const { user } = useAuth();
-  
-  return useQuery({
-    queryKey: ['mentor-analytics', user?.id],
-    queryFn: async () => {
-      if (!user?.id) {
-        return null;
-      }
-      
-      // Fetch total sessions
-      const { count: totalSessions, error: totalSessionsError } = await supabase
-        .from('mentor_sessions')
-        .select('*', { count: 'exact' })
-        .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`);
-      
-      if (totalSessionsError) {
-        console.error("Error fetching total sessions:", totalSessionsError);
-      }
-      
-      // Fetch completed sessions
-      const { count: completedSessions, error: completedSessionsError } = await supabase
-        .from('mentor_sessions')
-        .select('*', { count: 'exact' })
-        .eq('status', 'completed')
-        .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`);
-      
-      if (completedSessionsError) {
-        console.error("Error fetching completed sessions:", completedSessionsError);
-      }
-      
-      // Fetch cancelled sessions
-      const { count: cancelledSessions, error: cancelledSessionsError } = await supabase
-        .from('mentor_sessions')
-        .select('*', { count: 'exact' })
-        .eq('status', 'cancelled')
-        .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`);
-      
-      if (cancelledSessionsError) {
-        console.error("Error fetching cancelled sessions:", cancelledSessionsError);
-      }
-      
-      // Fetch average rating
-      const { data: avgRatingData, error: avgRatingError } = await supabase
-        .from('session_reviews')
-        .select('rating')
-        .eq('mentor_id', user.id);
-      
-      let averageRating = 0;
-      if (avgRatingData && avgRatingData.length > 0) {
-        const totalRating = avgRatingData.reduce((sum, review) => sum + review.rating, 0);
-        averageRating = totalRating / avgRatingData.length;
-      }
-      
-      if (avgRatingError) {
-        console.error("Error fetching average rating:", avgRatingError);
-      }
-      
-      // Fetch total earnings (example, adjust based on your actual payment tracking)
-      const { data: earningsData, error: earningsError } = await supabase
-        .from('mentor_sessions')
-        .select('payment_amount')
-        .eq('mentor_id', user.id)
-        .eq('payment_status', 'completed');
-      
-      let totalEarnings = 0;
-      if (earningsData && earningsData.length > 0) {
-        totalEarnings = earningsData.reduce((sum, session) => sum + (session.payment_amount || 0), 0);
-      }
-      
-      if (earningsError) {
-        console.error("Error fetching total earnings:", earningsError);
-      }
-      
-      // Fetch earnings by month (example)
-      const { data: earningsByMonthData, error: earningsByMonthError } = await supabase.rpc(
-        'get_mentor_earnings_by_month',
-        { mentor_id_arg: user.id }
-      );
-      
-      const earningsByMonth: Record<string, number> = {};
-      if (earningsByMonthData) {
-        earningsByMonthData.forEach(item => {
-          earningsByMonth[item.month] = item.total_earnings;
-        });
-      }
-      
-      if (earningsByMonthError) {
-        console.error("Error fetching earnings by month:", earningsByMonthError);
-      }
-      
-      // Fetch sessions by month (example)
-      const { data: sessionsByMonthData, error: sessionsByMonthError } = await supabase.rpc(
-        'get_mentor_sessions_by_month',
-        { mentor_id_arg: user.id }
-      );
-      
-      const sessionsByMonth: Record<string, number> = {};
-      if (sessionsByMonthData) {
-        sessionsByMonthData.forEach(item => {
-          sessionsByMonth[item.month] = item.total_sessions;
-        });
-      }
-      
-      if (sessionsByMonthError) {
-        console.error("Error fetching sessions by month:", sessionsByMonthError);
-      }
+  // Fetch mentor analytics
+  const useMentorAnalytics = () => {
+    const { user } = useAuth();
+    
+    return useQuery({
+      queryKey: ['mentor-analytics', user?.id],
+      queryFn: async () => {
+        if (!user?.id) {
+          return null;
+        }
+        
+        // Fetch total sessions
+        const { count: totalSessions, error: totalSessionsError } = await supabase
+          .from('mentor_sessions')
+          .select('*', { count: 'exact' })
+          .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`);
+        
+        if (totalSessionsError) {
+          console.error("Error fetching total sessions:", totalSessionsError);
+        }
+        
+        // Fetch completed sessions
+        const { count: completedSessions, error: completedSessionsError } = await supabase
+          .from('mentor_sessions')
+          .select('*', { count: 'exact' })
+          .eq('status', 'completed')
+          .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`);
+        
+        if (completedSessionsError) {
+          console.error("Error fetching completed sessions:", completedSessionsError);
+        }
+        
+        // Fetch cancelled sessions
+        const { count: cancelledSessions, error: cancelledSessionsError } = await supabase
+          .from('mentor_sessions')
+          .select('*', { count: 'exact' })
+          .eq('status', 'cancelled')
+          .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`);
+        
+        if (cancelledSessionsError) {
+          console.error("Error fetching cancelled sessions:", cancelledSessionsError);
+        }
+        
+        // Fetch average rating
+        const { data: avgRatingData, error: avgRatingError } = await supabase
+          .from('session_reviews')
+          .select('rating')
+          .eq('mentor_id', user.id);
+        
+        let averageRating = 0;
+        if (avgRatingData && avgRatingData.length > 0) {
+          const totalRating = avgRatingData.reduce((sum, review) => sum + review.rating, 0);
+          averageRating = totalRating / avgRatingData.length;
+        }
+        
+        if (avgRatingError) {
+          console.error("Error fetching average rating:", avgRatingError);
+        }
+        
+        // Fetch total earnings (example, adjust based on your actual payment tracking)
+        const { data: earningsData, error: earningsError } = await supabase
+          .from('mentor_sessions')
+          .select('payment_amount')
+          .eq('mentor_id', user.id)
+          .eq('payment_status', 'completed');
+        
+        let totalEarnings = 0;
+        if (earningsData && earningsData.length > 0) {
+          totalEarnings = earningsData.reduce((sum, session) => sum + (session.payment_amount || 0), 0);
+        }
+        
+        if (earningsError) {
+          console.error("Error fetching total earnings:", earningsError);
+        }
+        
+        // Fetch earnings by month (handled client-side since these are custom functions)
+        const earningsByMonth: Record<string, number> = {};
+        
+        // Fetch sessions by month
+        const sessionsByMonth: Record<string, number> = {};
+        
+        // Fetch upcoming sessions
+        const { count: upcomingSessions, error: upcomingSessionsError } = await supabase
+          .from('mentor_sessions')
+          .select('*', { count: 'exact' })
+          .in('status', ['scheduled', 'confirmed', 'upcoming'])
+          .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`);
 
-      // Fetch upcoming sessions
-      const { count: upcomingSessions, error: upcomingSessionsError } = await supabase
-        .from('mentor_sessions')
-        .select('*', { count: 'exact' })
-        .in('status', ['scheduled', 'confirmed', 'upcoming'])
-        .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`);
-
-      if (upcomingSessionsError) {
-        console.error("Error fetching upcoming sessions:", upcomingSessionsError);
-      }
-      
-      // Fetch popular session types (example)
-      const { data: popularSessionTypesData, error: popularSessionTypesError } = await supabase.rpc(
-        'get_popular_mentor_session_types',
-        { mentor_id_arg: user.id }
-      );
-      
-      const popularSessionTypes: Array<{ name: string; count: number }> = [];
-      if (popularSessionTypesData) {
-        popularSessionTypesData.forEach(item => {
-          popularSessionTypes.push({ name: item.session_type, count: item.session_count });
-        });
-      }
-      
-      if (popularSessionTypesError) {
-        console.error("Error fetching popular session types:", popularSessionTypesError);
-      }
-      
-      // Make sure we're returning a valid MentorAnalytics object
-      return {
-        total_sessions: totalSessions || 0,
-        completed_sessions: completedSessions || 0,
-        cancelled_sessions: cancelledSessions || 0,
-        average_rating: averageRating || 0,
-        total_earnings: totalEarnings || 0,
-        earnings_by_month: earningsByMonth || {},
-        sessions_by_month: sessionsByMonth || {},
-        upcoming_sessions: upcomingSessions || 0, // Added this field
-        popular_session_types: popularSessionTypes || []
-      };
-    },
-    enabled: !!user?.id
-  });
-};
+        if (upcomingSessionsError) {
+          console.error("Error fetching upcoming sessions:", upcomingSessionsError);
+        }
+        
+        // Fetch popular session types (handled client-side)
+        const popularSessionTypes: Array<{ name: string; count: number }> = [];
+        
+        // Make sure we're returning a valid MentorAnalytics object
+        return {
+          total_sessions: totalSessions || 0,
+          completed_sessions: completedSessions || 0,
+          cancelled_sessions: cancelledSessions || 0,
+          average_rating: averageRating || 0,
+          total_earnings: totalEarnings || 0,
+          earnings_by_month: earningsByMonth || {},
+          sessions_by_month: sessionsByMonth || {},
+          upcoming_sessions: upcomingSessions || 0,
+          popular_session_types: popularSessionTypes || []
+        };
+      },
+      enabled: !!user?.id
+    });
+  };
 
   return {
     useMentors,

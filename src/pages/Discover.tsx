@@ -10,22 +10,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DiscoverContent, DiscoverCategory } from "@/types/discover";
 import { useDiscover } from "@/hooks/use-discover";
+import { DiscoverContent, DiscoverCategory, DiscoverFilter } from "@/types/discover";
 import AppLayout from "@/components/layout/AppLayout";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Discover() {
   const { user } = useAuth();
-  const { fetchDiscoverContent, checkIsFollowing, isLoading, error } = useDiscover();
+  const { fetchDiscoverContent, checkIsFollowing, isLoading, error, toggleLike, toggleSave, toggleFollow } = useDiscover();
   
-  // Create local state variables to replace missing properties
-  const [localFilters, setLocalFilters] = useState({});
-  const { data: content, isLoading: isContentLoading } = useQuery({
+  const [activeTab, setActiveTab] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"latest" | "trending" | "popular">("trending");
+  
+  const { data: fetchedContent, isLoading: isContentLoading } = useQuery({
     queryKey: ['discover-content'],
     queryFn: fetchDiscoverContent
   });
+  
   const { data: categories, isLoading: isCategoriesLoading } = useQuery({
     queryKey: ['discover-categories'],
     queryFn: async () => {
@@ -34,38 +39,39 @@ export default function Discover() {
     }
   });
 
-  // Create handle functions for actions
   const handleLike = async (contentId: string) => {
-    // Implementation
+    if (user) {
+      toggleLike.mutate({ contentId, userId: user.id });
+    } else {
+      // Show a toast or redirect to login
+    }
   };
 
   const handleSave = async (contentId: string) => {
-    // Implementation
+    if (user) {
+      toggleSave.mutate({ contentId, userId: user.id });
+    } else {
+      // Show a toast or redirect to login
+    }
   };
 
   const handleFollow = async (creatorId: string) => {
-    // Implementation
+    if (user) {
+      toggleFollow.mutate({ creatorId, userId: user.id });
+    } else {
+      // Show a toast or redirect to login
+    }
   };
   
-  const [activeTab, setActiveTab] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"latest" | "trending" | "popular">("trending");
-  
-  // Filter content based on active tab and search term
-  const filteredContent = content?.filter((item) => {
-    // Filter by content type (tab)
+  const filteredContent = fetchedContent?.filter((item) => {
     if (activeTab !== "all" && item.content_type !== activeTab) {
       return false;
     }
     
-    // Filter by search term
     if (searchTerm && !item.title.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
     
-    // Filter by category
     if (selectedCategory && (!item.tags || !item.tags.includes(selectedCategory))) {
       return false;
     }
@@ -73,7 +79,6 @@ export default function Discover() {
     return true;
   });
   
-  // Sort content
   const sortedContent = filteredContent?.sort((a, b) => {
     if (sortBy === "latest") {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -84,18 +89,41 @@ export default function Discover() {
     }
   });
   
-  // Reset filters
   const resetFilters = () => {
     setSearchTerm("");
     setSelectedCategory(null);
     setSortBy("trending");
   };
   
-  // Render content card
-  const renderContentCard = (item: DiscoverContent) => {
+  const renderContentCard = (item: any) => {
+    const safeItem: DiscoverContent = {
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      content_type: item.content_type,
+      image_url: item.image_url,
+      tags: item.tags || [],
+      view_count: item.view_count,
+      created_at: item.created_at,
+      trending_score: item.trending_score,
+      is_featured: item.is_featured,
+      created_by: item.created_by,
+      profile: item.profile || {
+        id: '',
+        username: 'Unknown',
+        full_name: 'Unknown User',
+        avatar_url: '',
+        is_verified: false
+      },
+      metadata: typeof item.metadata === 'object' ? item.metadata : {},
+      likes_count: item.likes_count || 0,
+      user_has_liked: item.user_has_liked || false,
+      user_has_saved: item.user_has_saved || false
+    };
+    
     return (
       <motion.div
-        key={item.id}
+        key={safeItem.id}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -106,26 +134,26 @@ export default function Discover() {
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-2">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={item.profile?.avatar_url || undefined} />
-                  <AvatarFallback>{item.profile?.full_name?.charAt(0) || item.profile?.username?.charAt(0) || "U"}</AvatarFallback>
+                  <AvatarImage src={safeItem.profile?.avatar_url} />
+                  <AvatarFallback>{safeItem.profile?.full_name?.charAt(0) || safeItem.profile?.username?.charAt(0) || "U"}</AvatarFallback>
                 </Avatar>
                 <div>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-medium">{item.profile?.full_name || item.profile?.username}</span>
-                    {item.profile?.is_verified && (
+                    <span className="text-sm font-medium">{safeItem.profile?.full_name || safeItem.profile?.username}</span>
+                    {safeItem.profile?.is_verified && (
                       <svg className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}</p>
+                  <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(safeItem.created_at), { addSuffix: true })}</p>
                 </div>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
-                onClick={() => handleFollow(item.profile?.id || "")}
+                onClick={() => handleFollow(safeItem.created_by)}
               >
                 <span className="sr-only">Follow</span>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -135,29 +163,29 @@ export default function Discover() {
             </div>
           </CardHeader>
           <CardContent className="pb-2">
-            <CardTitle className="text-lg mb-2">{item.title}</CardTitle>
-            <CardDescription className="line-clamp-2">{item.description}</CardDescription>
+            <CardTitle className="text-lg mb-2">{safeItem.title}</CardTitle>
+            <CardDescription className="line-clamp-2">{safeItem.description}</CardDescription>
             
-            {item.image_url && (
+            {safeItem.image_url && (
               <div className="mt-3 rounded-md overflow-hidden">
                 <img
-                  src={item.image_url}
-                  alt={item.title}
+                  src={safeItem.image_url}
+                  alt={safeItem.title}
                   className="w-full h-48 object-cover"
                 />
               </div>
             )}
             
-            {item.tags && item.tags.length > 0 && (
+            {safeItem.tags && safeItem.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-3">
-                {item.tags.slice(0, 3).map((tag) => (
+                {safeItem.tags.slice(0, 3).map((tag) => (
                   <Badge key={tag} variant="outline" className="text-xs">
                     {tag}
                   </Badge>
                 ))}
-                {item.tags.length > 3 && (
+                {safeItem.tags.length > 3 && (
                   <Badge variant="outline" className="text-xs">
-                    +{item.tags.length - 3} more
+                    +{safeItem.tags.length - 3} more
                   </Badge>
                 )}
               </div>
@@ -169,18 +197,18 @@ export default function Discover() {
                 variant="ghost"
                 size="sm"
                 className="h-8 px-2"
-                onClick={() => handleLike(item.id)}
+                onClick={() => handleLike(safeItem.id)}
               >
-                <Heart className={`h-4 w-4 mr-1 ${item.user_has_liked ? "fill-red-500 text-red-500" : ""}`} />
-                <span>{item.likes_count || 0}</span>
+                <Heart className={`h-4 w-4 mr-1 ${safeItem.user_has_liked ? "fill-red-500 text-red-500" : ""}`} />
+                <span>{safeItem.likes_count || 0}</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-8 px-2"
-                onClick={() => handleSave(item.id)}
+                onClick={() => handleSave(safeItem.id)}
               >
-                <Bookmark className={`h-4 w-4 mr-1 ${item.user_has_saved ? "fill-current" : ""}`} />
+                <Bookmark className={`h-4 w-4 mr-1 ${safeItem.user_has_saved ? "fill-current" : ""}`} />
                 <span>Save</span>
               </Button>
             </div>
@@ -188,7 +216,7 @@ export default function Discover() {
               variant="ghost"
               size="sm"
               className="h-8 px-2"
-              onClick={() => window.location.href = `/discover/${item.id}`}
+              onClick={() => window.location.href = `/discover/${safeItem.id}`}
             >
               View
             </Button>
@@ -345,7 +373,7 @@ export default function Discover() {
               </div>
             ) : sortedContent && sortedContent.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {content && content.map((item) => renderContentCard(item))}
+                {sortedContent.map((item) => renderContentCard(item))}
               </div>
             ) : (
               <div className="text-center py-10">
@@ -358,7 +386,6 @@ export default function Discover() {
           </TabsContent>
           
           <TabsContent value="article" className="mt-0">
-            {/* Same content as "all" tab but filtered for articles */}
             {isContentLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -405,7 +432,6 @@ export default function Discover() {
           </TabsContent>
           
           <TabsContent value="event" className="mt-0">
-            {/* Event content */}
             {isContentLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -452,7 +478,6 @@ export default function Discover() {
           </TabsContent>
           
           <TabsContent value="resource" className="mt-0">
-            {/* Resource content */}
             {isContentLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -499,7 +524,6 @@ export default function Discover() {
           </TabsContent>
           
           <TabsContent value="question" className="mt-0">
-            {/* Question content */}
             {isContentLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Array.from({ length: 3 }).map((_, i) => (

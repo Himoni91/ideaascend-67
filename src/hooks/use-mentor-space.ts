@@ -61,10 +61,21 @@ export function useMentorSpace() {
           .eq("is_mentor", true);
 
         // Apply filters
+        if (filters?.expertise && filters.expertise.length > 0) {
+          query = query.overlaps("expertise", filters.expertise);
+        }
+
+        // Check if filters.specialties exists and has items
         if (filters?.specialties && filters.specialties.length > 0) {
           query = query.overlaps("expertise", filters.specialties);
         }
 
+        if (filters?.priceRange) {
+          query = query.gte("mentor_hourly_rate", filters.priceRange[0])
+            .lte("mentor_hourly_rate", filters.priceRange[1]);
+        }
+
+        // Support for price_range as an alternative name
         if (filters?.price_range) {
           query = query.gte("mentor_hourly_rate", filters.price_range[0])
             .lte("mentor_hourly_rate", filters.price_range[1]);
@@ -74,6 +85,11 @@ export function useMentorSpace() {
           // We'll filter by rating client-side as it's not a direct column
         }
 
+        if (filters?.searchTerm) {
+          query = query.or(`full_name.ilike.%${filters.searchTerm}%, username.ilike.%${filters.searchTerm}%`);
+        }
+
+        // Support for search as an alternative name
         if (filters?.search) {
           query = query.or(`full_name.ilike.%${filters.search}%, username.ilike.%${filters.search}%, bio.ilike.%${filters.search}%, position.ilike.%${filters.search}%, company.ilike.%${filters.search}%`);
         }
@@ -85,8 +101,8 @@ export function useMentorSpace() {
           throw error;
         }
 
-        // Format mentors data to match MentorProfile type
-        return data?.map(mentor => formatProfileData(mentor) as MentorProfile) || [];
+        // Use type assertion instead of conversion
+        return data?.map(mentor => formatProfileData(mentor) as unknown as MentorProfile) || [];
       },
       enabled: true,
     });
@@ -111,7 +127,7 @@ export function useMentorSpace() {
           throw error;
         }
         
-        return formatProfileData(data) as MentorProfile;
+        return formatProfileData(data) as unknown as MentorProfile;
       },
       enabled: !!mentorId,
     });
@@ -741,7 +757,6 @@ export function useMentorSpace() {
   }, [user?.id, queryClient]);
 
   return {
-    // Queries
     getMentors,
     getMentorProfile,
     getMentorSessionTypes,
@@ -750,7 +765,6 @@ export function useMentorSpace() {
     getMentorSessions,
     getMenteeSessions,
     
-    // Mutations
     applyToBecomeMentor,
     addAvailabilitySlot,
     upsertSessionType,

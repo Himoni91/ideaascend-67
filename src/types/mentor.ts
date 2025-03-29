@@ -1,3 +1,4 @@
+
 export type MentorSessionStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'upcoming' | 'past' | 'in-progress' | 'rescheduled';
 
 export interface MentorAvailabilitySlot {
@@ -162,31 +163,42 @@ export interface MentorAnalytics {
   }>;
 }
 
-export enum MentorSpecialty {
-  BUSINESS_STRATEGY = "Business Strategy",
-  MARKETING = "Marketing",
-  PRODUCT_DEVELOPMENT = "Product Development",
-  FUNDING = "Funding & Investment",
-  TECHNOLOGY = "Technology & Engineering",
-  DESIGN = "Design & UX",
-  LEADERSHIP = "Leadership & Management",
-  SALES = "Sales & Business Development",
-  FINANCE = "Finance & Accounting",
-  LEGAL = "Legal & Compliance",
-  STARTUP_STRATEGY = "Startup Strategy",
-  FUNDRAISING = "Fundraising",
-  USER_ACQUISITION = "User Acquisition",
-  TECHNICAL_ARCHITECTURE = "Technical Architecture",
-  UX_DESIGN = "UX Design",
-  BUSINESS_MODEL = "Business Model",
-  TEAM_BUILDING = "Team Building",
-  PITCH_DECK = "Pitch Deck",
-  FINANCIAL_MODELING = "Financial Modeling",
-  GROWTH_HACKING = "Growth Hacking",
-  CUSTOMER_DEVELOPMENT = "Customer Development",
-  OTHER = "Other"
+// Change from enum to string literal type for MentorSpecialty
+export type MentorSpecialty = 
+  | "Startup Strategy"
+  | "Business Strategy"
+  | "Marketing"
+  | "Product Development"
+  | "Funding"
+  | "Funding & Investment"
+  | "Technology"
+  | "Technology & Engineering"
+  | "Design"
+  | "Design & UX"
+  | "Leadership"
+  | "Leadership & Management"
+  | "Sales"
+  | "Sales & Business Development"
+  | "Finance"
+  | "Finance & Accounting"
+  | "Legal"
+  | "Legal & Compliance"
+  | "Fundraising"
+  | "User Acquisition"
+  | "Technical Architecture"
+  | "UX Design"
+  | "Business Model"
+  | "Team Building"
+  | "Pitch Deck"
+  | "Financial Modeling"
+  | "Growth Hacking"
+  | "Customer Development"
+  | "Other";
+
+// Helper function to convert ProfileType to MentorProfile
+export function asMentorProfile(profile: any): MentorProfile {
+  return profile as MentorProfile;
 }
 
-export function asMentorProfile(profile: ProfileType): MentorProfile {
-  return profile as unknown as MentorProfile;
-}
+// Add missing import for ProfileType
+import { ProfileType } from "@/types/profile";

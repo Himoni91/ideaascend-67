@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { 
@@ -29,7 +28,7 @@ import { MentorSpecialty } from "@/types/mentor";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 
-const specialties: MentorSpecialty[] = [
+const specialties: string[] = [
   'Startup Strategy',
   'Product Development',
   'Fundraising',
@@ -54,7 +53,6 @@ const MentorApplicationForm = () => {
   
   const { data: application, isLoading: isLoadingApplication } = getMentorApplication();
   
-  // Form state
   const [step, setStep] = useState(1);
   const [bio, setBio] = useState("");
   const [experience, setExperience] = useState("");
@@ -62,14 +60,12 @@ const MentorApplicationForm = () => {
   const [hourlyRate, setHourlyRate] = useState<string>("");
   const [isPriceNegotiable, setIsPriceNegotiable] = useState(false);
   
-  // Validation state
   const [bioError, setBioError] = useState(false);
   const [experienceError, setExperienceError] = useState(false);
   const [expertiseError, setExpertiseError] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Toggle specialty selection
   const toggleSpecialty = (specialty: string) => {
     if (expertise.includes(specialty)) {
       setExpertise(expertise.filter(s => s !== specialty));
@@ -82,7 +78,6 @@ const MentorApplicationForm = () => {
     }
   };
   
-  // Validate current step
   const validateStep = () => {
     if (step === 1) {
       const bioValid = bio.trim().length >= 50;
@@ -108,14 +103,12 @@ const MentorApplicationForm = () => {
     }
   };
   
-  // Go back to previous step
   const goBack = () => {
     if (step > 1) {
       setStep(step - 1);
     }
   };
   
-  // Submit the application
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -141,7 +134,6 @@ const MentorApplicationForm = () => {
       
       toast.success("Your mentor application has been submitted successfully! We'll review it shortly.");
       
-      // Navigate to mentor space
       navigate("/mentor-space");
     } catch (error) {
       console.error("Error submitting application:", error);
@@ -151,7 +143,6 @@ const MentorApplicationForm = () => {
     }
   };
   
-  // Function to render the application status
   const renderApplicationStatus = () => {
     if (!application) return null;
     
@@ -222,10 +213,8 @@ const MentorApplicationForm = () => {
 
   return (
     <div className="w-full">
-      {/* Application Status */}
       {renderApplicationStatus()}
       
-      {/* New Application Form */}
       {(!application || application.status === 'rejected' || application.status === 'more_info') && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -246,7 +235,6 @@ const MentorApplicationForm = () => {
             
             <form onSubmit={handleSubmit}>
               <CardContent className="space-y-6">
-                {/* Step 1: Bio */}
                 {step === 1 && (
                   <div className="space-y-2">
                     <div className="flex justify-between">
@@ -281,7 +269,6 @@ const MentorApplicationForm = () => {
                   </div>
                 )}
                 
-                {/* Step 2: Experience */}
                 {step === 2 && (
                   <div className="space-y-2">
                     <div className="flex justify-between">
@@ -316,7 +303,6 @@ const MentorApplicationForm = () => {
                   </div>
                 )}
                 
-                {/* Step 3: Expertise */}
                 {step === 3 && (
                   <div className="space-y-4">
                     <div className="flex justify-between">
@@ -359,7 +345,6 @@ const MentorApplicationForm = () => {
                   </div>
                 )}
                 
-                {/* Step 4: Rates */}
                 {step === 4 && (
                   <div className="space-y-6">
                     <div className="flex justify-between">

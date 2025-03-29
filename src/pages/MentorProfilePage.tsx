@@ -1,454 +1,399 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarDateRangePicker } from "@/components/ui/date-range-picker";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMentor } from "@/hooks/use-mentor";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { formatDate } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
-import { DateRange } from "react-day-picker";
-import { startOfDay, addDays } from "date-fns";
-import { toast } from "sonner";
-import { MentorAvailabilitySlot, MentorSessionTypeInfo } from "@/types/mentor";
-import MentorReviews from "@/components/mentor/MentorReviews";
-import { MentorProfile } from "@/types/mentor";
-import { motion } from "framer-motion";
+import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { format } from 'date-fns';
+import { motion } from 'framer-motion';
+import { DateRange } from 'react-day-picker';
+import { CalendarDateRangePicker } from '@/components/ui/calendar-date-range-picker';
+import { useToast } from '@/components/ui/use-toast';
+import { useMentor } from '@/hooks/use-mentor';
+import { Calendar, Clock, DollarSign, Grid3X3, CheckCircle2, Zap, Star, MessageSquare, Tag, PanelRight, Clock8, Files } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { MentorReviews } from '@/components/mentor';
+import { useAuth } from '@/contexts/AuthContext';
+import AppLayout from '@/components/layout/AppLayout';
+import { PageTransition } from '@/components/ui/page-transition';
 
-const MentorProfilePage: React.FC = () => {
+const MentorProfilePage = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
+  
   const { 
-    useMentorProfile, 
-    useMentorSessionTypes, 
+    useMentorProfile,
+    useMentorSessionTypes,
     useMentorAvailability,
-    bookMentorSession
+    useBookMentorSession,
+    useMentorReviews
   } = useMentor();
-
-  const [activeTab, setActiveTab] = useState("about");
-  const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [selectedSessionType, setSelectedSessionType] = useState<string>("");
-  const [selectedSlot, setSelectedSlot] = useState<MentorAvailabilitySlot | null>(null);
+  
+  // State for date range
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfDay(new Date()),
-    to: addDays(startOfDay(new Date()), 7)
+    from: new Date(),
+    to: new Date(new Date().setDate(new Date().getDate() + 14))  // 2 weeks from now
   });
-  const [bookingNote, setBookingNote] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Queries
-  const { data: mentor, isLoading: isMentorLoading, error: mentorError } = 
-    useMentorProfile(id);
   
-  const { data: sessionTypes, isLoading: isSessionTypesLoading } = 
-    useMentorSessionTypes(id);
+  // Get mentor profile
+  const { data: mentor, isLoading: isLoadingMentor } = useMentorProfile(id);
   
-  const { data: availabilitySlots, isLoading: isAvailabilityLoading } = 
-    useMentorAvailability({
-      mentorId: id || '', 
-      startDate: dateRange?.from, 
-      endDate: dateRange?.to
-    });
-
-  const handleBookingSubmit = async () => {
-    if (!user || !mentor || !selectedSessionType || !selectedSlot) {
-      toast.error("Please fill in all required fields");
+  // Get mentor session types
+  const { data: sessionTypes, isLoading: isLoadingSessionTypes } = useMentorSessionTypes(id);
+  
+  // Get mentor availability with the correct params object
+  const { data: availabilitySlots, isLoading: isLoadingAvailability } = useMentorAvailability({
+    mentorId: id,
+    startDate: dateRange?.from,
+    endDate: dateRange?.to
+  });
+  
+  // Get mentor reviews
+  const { data: reviews } = useMentorReviews(id);
+  
+  // Session booking mutation
+  const bookSession = useBookMentorSession();
+  
+  // State for selected session type and slot
+  const [selectedSessionType, setSelectedSessionType] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [bookingTitle, setBookingTitle] = useState('');
+  const [bookingDescription, setBookingDescription] = useState('');
+  
+  // Handle date range change
+  const handleDateRangeChange = (range?: DateRange) => {
+    setDateRange(range);
+    
+    // Reset selected slot when date range changes
+    setSelectedSlot(null);
+  };
+  
+  // Group availability slots by date
+  const groupedSlots = availabilitySlots?.reduce((groups: Record<string, any[]>, slot) => {
+    const date = format(new Date(slot.start_time), 'yyyy-MM-dd');
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(slot);
+    return groups;
+  }, {});
+  
+  // Handle slot selection
+  const handleSlotSelect = (slotId: string) => {
+    setSelectedSlot(slotId === selectedSlot ? null : slotId);
+  };
+  
+  // Handle session type selection
+  const handleSessionTypeSelect = (typeId: string) => {
+    setSelectedSessionType(typeId === selectedSessionType ? null : typeId);
+  };
+  
+  // Handle booking submission
+  const handleBookSession = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to book a session",
+        variant: "destructive"
+      });
       return;
     }
-
+    
+    if (!selectedSlot || !selectedSessionType) {
+      toast({
+        title: "Incomplete Selection",
+        description: "Please select a session type and time slot",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
-      setIsSubmitting(true);
-      
-      const selectedType = sessionTypes?.find(type => type.id === selectedSessionType);
-      
-      if (!selectedType) {
-        toast.error("Invalid session type selected");
-        return;
-      }
-
-      await bookMentorSession({
-        mentorId: mentor.id,
-        slotId: selectedSlot.id,
+      await bookSession.mutateAsync({
+        mentorId: id!, 
+        slotId: selectedSlot,
         sessionData: {
-          title: `Session with ${mentor.full_name}`,
-          session_type: selectedType.name,
-          description: bookingNote
+          title: bookingTitle || "Mentorship Session",
+          description: bookingDescription,
+          sessionType: selectedSessionType,
         }
       });
-
-      toast.success("Booking successful!");
-      setIsBookingOpen(false);
       
-      // Refresh availability
-      useMentorAvailability({
-        mentorId: id || '', 
-        startDate: dateRange?.from, 
-        endDate: dateRange?.to
+      toast({
+        title: "Session Booked",
+        description: "Your mentorship session has been booked successfully!",
+        variant: "default"
       });
       
+      // Reset form
+      setSelectedSlot(null);
+      setBookingTitle('');
+      setBookingDescription('');
     } catch (error) {
-      console.error("Booking error:", error);
-      toast.error("Failed to book session. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+      console.error("Error booking session:", error);
+      toast({
+        title: "Booking Failed",
+        description: "There was an error booking your session. Please try again.",
+        variant: "destructive"
+      });
     }
   };
-
-  if (isMentorLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="animate-spin h-12 w-12 border-4 border-idolyst-blue border-t-transparent rounded-full"></div>
-      </div>
-    );
-  }
-
-  if (mentorError || !mentor) {
-    return (
-      <div className="text-center py-10">
-        <h2 className="text-2xl font-bold text-gray-800">Mentor not found</h2>
-        <p className="text-gray-600 mt-2">The mentor profile you're looking for doesn't exist or has been removed.</p>
-        <Button 
-          onClick={() => navigate("/mentor-space")}
-          className="mt-4"
-        >
-          Back to Mentor Space
-        </Button>
-      </div>
-    );
-  }
-
+  
   return (
-    <div className="container max-w-7xl mx-auto px-4 py-8">
-      {/* Profile Header */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex flex-col md:flex-row gap-6 mb-8 items-start"
-      >
-        <div className="relative">
-          <Avatar className="h-32 w-32 border-4 border-background shadow-lg">
-            <AvatarImage src={mentor.avatar_url || ''} alt={mentor.full_name || 'Mentor'} />
-            <AvatarFallback>{mentor.full_name?.charAt(0) || 'M'}</AvatarFallback>
-          </Avatar>
-          {mentor.is_verified && (
-            <div className="absolute -bottom-2 -right-2 bg-idolyst-blue text-white p-1 rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-            </div>
-          )}
-        </div>
-        
-        <div className="flex-1">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
-            <div>
-              <h1 className="text-3xl font-bold">{mentor.full_name}</h1>
-              <p className="text-lg text-gray-600">{mentor.professional_headline || mentor.position}</p>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {mentor.expertise?.map((skill, index) => (
-                  <Badge key={index} variant="outline" className="bg-idolyst-purple/10">
-                    {skill}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            
-            <div className="mt-4 sm:mt-0">
-              <Button 
-                onClick={() => setIsBookingOpen(true)}
-                size="lg"
-                className="bg-idolyst-blue hover:bg-idolyst-blue/90"
-              >
-                Book a Session
-              </Button>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-            <Card className="bg-idolyst-blue/5">
-              <CardContent className="pt-4 text-center">
-                <p className="text-3xl font-bold">{mentor.stats?.mentorRating || '4.8'}</p>
-                <p className="text-sm text-gray-600">Average Rating</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-idolyst-purple/5">
-              <CardContent className="pt-4 text-center">
-                <p className="text-3xl font-bold">{mentor.stats?.mentorReviews || '0'}</p>
-                <p className="text-sm text-gray-600">Reviews</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-idolyst-orange/5">
-              <CardContent className="pt-4 text-center">
-                <p className="text-3xl font-bold">{mentor.mentor_session_types?.length || '0'}</p>
-                <p className="text-sm text-gray-600">Session Types</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </motion.div>
-      
-      {/* Tabs Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="about">About</TabsTrigger>
-          <TabsTrigger value="sessions">Session Types</TabsTrigger>
-          <TabsTrigger value="reviews">Reviews</TabsTrigger>
-          <TabsTrigger value="availability">Availability</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="about" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>About {mentor.full_name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="prose max-w-none">
-                <p>{mentor.mentor_bio || mentor.bio || 'No bio available'}</p>
-              </div>
-              
-              {mentor.work_experience && mentor.work_experience.length > 0 && (
-                <div className="mt-8">
-                  <h3 className="text-xl font-semibold mb-4">Work Experience</h3>
-                  <div className="space-y-4">
-                    {mentor.work_experience.map((exp: any, index: number) => (
-                      <div key={index} className="border-l-2 border-idolyst-blue pl-4 py-2">
-                        <h4 className="font-medium">{exp.title} at {exp.company}</h4>
-                        <p className="text-sm text-gray-600">{exp.startDate} - {exp.endDate || 'Present'}</p>
-                        <p className="mt-2">{exp.description}</p>
-                      </div>
-                    ))}
-                  </div>
+    <AppLayout>
+      <PageTransition>
+        <div className="container max-w-7xl mx-auto px-4 py-8">
+          {/* Profile Header */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              {isLoadingMentor ? (
+                <div className="animate-pulse">
+                  <div className="h-8 w-48 bg-secondary rounded mb-2"></div>
+                  <div className="h-4 w-32 bg-secondary rounded"></div>
                 </div>
-              )}
-              
-              {mentor.education && mentor.education.length > 0 && (
-                <div className="mt-8">
-                  <h3 className="text-xl font-semibold mb-4">Education</h3>
-                  <div className="space-y-4">
-                    {mentor.education.map((edu: any, index: number) => (
-                      <div key={index} className="border-l-2 border-idolyst-purple pl-4 py-2">
-                        <h4 className="font-medium">{edu.degree} from {edu.institution}</h4>
-                        <p className="text-sm text-gray-600">{edu.startYear} - {edu.endYear || 'Present'}</p>
-                        <p className="mt-2">{edu.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="sessions" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Session Types</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isSessionTypesLoading ? (
-                <div className="py-10 text-center">Loading session types...</div>
-              ) : !sessionTypes || sessionTypes.length === 0 ? (
-                <div className="py-10 text-center">No session types available</div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sessionTypes.map((type) => (
-                    <Card key={type.id} className="overflow-hidden border-2 hover:border-idolyst-blue/60 transition-all">
-                      <div className={`h-2 ${type.color || 'bg-idolyst-blue'}`}></div>
-                      <CardHeader>
-                        <CardTitle>{type.name}</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="mb-4">{type.description}</p>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">{type.duration} minutes</span>
-                          <span className="font-semibold">
-                            {type.is_free ? 'Free' : `$${type.price}`}
-                          </span>
-                        </div>
-                        <Button 
-                          className="w-full mt-4"
-                          onClick={() => {
-                            setSelectedSessionType(type.id);
-                            setIsBookingOpen(true);
-                          }}
-                        >
-                          Book This Session
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <div className="flex items-start gap-4">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={mentor?.avatar_url || undefined} />
+                      <AvatarFallback>{mentor?.full_name?.charAt(0) || mentor?.username?.charAt(0) || "M"}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h1 className="text-3xl font-bold">{mentor?.full_name || mentor?.username}</h1>
+                        {mentor?.is_verified && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-900">
+                            <CheckCircle2 className="h-3 w-3 mr-1" /> Verified
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground text-lg">
+                        {mentor?.professional_headline || (mentor?.position && mentor?.company ? `${mentor.position} at ${mentor.company}` : 'Mentor')}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="secondary" className="rounded-md">
+                          <Star className="h-3.5 w-3.5 mr-1 text-yellow-500 fill-yellow-500" />
+                          {mentor?.stats?.mentorRating || '4.9'} ({mentor?.stats?.mentorReviews || '0'} reviews)
+                        </Badge>
+                        <Badge variant="secondary" className="rounded-md">
+                          <Zap className="h-3.5 w-3.5 mr-1 text-amber-500" />
+                          {mentor?.stats?.sessionCount || '0'} sessions
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <h2 className="text-xl font-semibold mb-2">About Me</h2>
+                    <p className="text-muted-foreground whitespace-pre-wrap">
+                      {mentor?.mentor_bio || mentor?.bio || "No bio provided yet."}
+                    </p>
+                  </div>
+
+                  {mentor?.expertise && mentor.expertise.length > 0 && (
+                    <div className="mt-6">
+                      <h2 className="text-xl font-semibold mb-2">Areas of Expertise</h2>
+                      <div className="flex flex-wrap gap-2">
+                        {mentor.expertise.map((expertise, index) => (
+                          <Badge key={index} variant="outline" className="bg-primary/5 px-2.5 py-1">
+                            {expertise}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="reviews" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Reviews</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <MentorReviews mentorId={mentor.id} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="availability" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Availability</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4">
-                <CalendarDateRangePicker
-                  date={dateRange}
-                  onDateChange={setDateRange}
-                />
-              </div>
               
-              {isAvailabilityLoading ? (
-                <div className="py-10 text-center">Loading availability...</div>
-              ) : !availabilitySlots || availabilitySlots.length === 0 ? (
-                <div className="py-10 text-center">No available slots for the selected dates</div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-6">
-                  {availabilitySlots.map((slot) => {
-                    const startDate = new Date(slot.start_time);
-                    const endDate = new Date(slot.end_time);
-                    
-                    return (
-                      <Button
-                        key={slot.id}
-                        variant={selectedSlot?.id === slot.id ? "default" : "outline"}
-                        className={`h-auto py-3 px-4 justify-start ${slot.is_booked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={slot.is_booked}
-                        onClick={() => setSelectedSlot(slot.is_booked ? null : slot)}
-                      >
-                        <div className="text-left">
-                          <div className="font-medium">
-                            {formatDate(startDate)}
+              <Separator className="my-8" />
+              
+              <Tabs defaultValue="about">
+                <TabsList className="mb-6">
+                  <TabsTrigger value="about">About</TabsTrigger>
+                  <TabsTrigger value="experience">Experience</TabsTrigger>
+                  <TabsTrigger value="reviews">Reviews</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="about" className="space-y-6">
+                  {mentor?.work_experience && mentor.work_experience.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">Work Experience</h3>
+                      <div className="space-y-4">
+                        {mentor.work_experience.map((exp, index) => (
+                          <div key={index}>
+                            <div className="flex justify-between">
+                              <div>
+                                <h4 className="font-medium">{exp.title}</h4>
+                                <p className="text-muted-foreground">{exp.company}</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {exp.startDate} - {exp.endDate || 'Present'}
+                              </p>
+                            </div>
+                            {exp.description && <p className="text-sm mt-1">{exp.description}</p>}
                           </div>
-                          <div className="text-sm opacity-90">
-                            {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                            {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {mentor?.education && mentor.education.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">Education</h3>
+                      <div className="space-y-4">
+                        {mentor.education.map((edu, index) => (
+                          <div key={index}>
+                            <div className="flex justify-between">
+                              <div>
+                                <h4 className="font-medium">{edu.degree}</h4>
+                                <p className="text-muted-foreground">{edu.institution}</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {edu.startYear} - {edu.endYear || 'Present'}
+                              </p>
+                            </div>
+                            {edu.description && <p className="text-sm mt-1">{edu.description}</p>}
                           </div>
-                        </div>
-                      </Button>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-      
-      {/* Booking Dialog */}
-      <Dialog open={isBookingOpen} onOpenChange={setIsBookingOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Book a Session with {mentor.full_name}</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label htmlFor="session-type" className="text-sm font-medium">Session Type</label>
-              <Select
-                value={selectedSessionType}
-                onValueChange={setSelectedSessionType}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select session type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sessionTypes?.map((type) => (
-                    <SelectItem key={type.id} value={type.id}>
-                      {type.name} ({type.duration} min) - {type.price ? `$${type.price}` : 'Free'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="experience" className="space-y-6">
+                  {/* Another view of work experience possibly with more details */}
+                  <p>More detailed work history and achievements...</p>
+                </TabsContent>
+                
+                <TabsContent value="reviews">
+                  <MentorReviews mentorId={id || ''} />
+                </TabsContent>
+              </Tabs>
             </div>
             
-            <div className="space-y-2">
-              <label htmlFor="date-range" className="text-sm font-medium">Date Range</label>
-              <CalendarDateRangePicker
-                date={dateRange}
-                onDateChange={setDateRange}
-              />
-            </div>
-            
-            <div className="space-y-2 mt-4">
-              <label className="text-sm font-medium">Available Slots</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[200px] overflow-y-auto p-2">
-                {isAvailabilityLoading ? (
-                  <div className="col-span-2 text-center py-4">Loading slots...</div>
-                ) : !availabilitySlots || availabilitySlots.length === 0 ? (
-                  <div className="col-span-2 text-center py-4">No available slots for the selected dates</div>
-                ) : (
-                  availabilitySlots.map((slot) => {
-                    const startDate = new Date(slot.start_time);
-                    
-                    return (
-                      <Button
-                        key={slot.id}
-                        variant={selectedSlot?.id === slot.id ? "default" : "outline"}
-                        className={`h-auto py-2 justify-start text-left ${slot.is_booked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={slot.is_booked}
-                        onClick={() => setSelectedSlot(slot.is_booked ? null : slot)}
-                        size="sm"
-                      >
-                        <div>
-                          <div className="font-medium text-xs">
-                            {formatDate(startDate)}
+            {/* Booking sidebar */}
+            <div className="lg:col-span-1">
+              <Card className="sticky top-4">
+                <CardHeader>
+                  <CardTitle>Book a Session</CardTitle>
+                  <CardDescription>Schedule time with {mentor?.full_name || 'this mentor'}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Session Types */}
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Session Types</h3>
+                    <div className="space-y-3">
+                      {isLoadingSessionTypes ? (
+                        Array.from({ length: 2 }).map((_, i) => (
+                          <div key={i} className="animate-pulse">
+                            <div className="h-12 bg-muted rounded-md"></div>
                           </div>
-                          <div className="text-xs">
-                            {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        ))
+                      ) : sessionTypes && sessionTypes.length > 0 ? (
+                        sessionTypes.map((type) => (
+                          <div 
+                            key={type.id} 
+                            className={`p-3 border rounded-lg cursor-pointer transition-colors ${selectedSessionType === type.id ? 'bg-primary/5 border-primary/20' : 'hover:bg-muted/50'}`}
+                            onClick={() => handleSessionTypeSelect(type.id)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center">
+                                <Grid3X3 className={`h-4 w-4 mr-2 ${type.color ? `text-${type.color}-500` : 'text-primary'}`} />
+                                <span className="font-medium">{type.name}</span>
+                              </div>
+                              <div className="flex items-center">
+                                <Clock className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">{type.duration} min</span>
+                              </div>
+                            </div>
+                            {selectedSessionType === type.id && (
+                              <div className="mt-2">
+                                <p className="text-sm text-muted-foreground">{type.description}</p>
+                                <div className="flex items-center mt-2">
+                                  <DollarSign className="h-3.5 w-3.5 mr-0.5 text-muted-foreground" />
+                                  <span className="font-medium">
+                                    {type.is_free ? 'Free' : `$${type.price} ${type.currency || 'USD'}`}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      </Button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <label htmlFor="note" className="text-sm font-medium">Note (Optional)</label>
-              <textarea
-                id="note"
-                value={bookingNote}
-                onChange={(e) => setBookingNote(e.target.value)}
-                className="w-full min-h-[100px] p-2 border rounded-md"
-                placeholder="Add any notes or questions for the mentor..."
-              />
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No session types available</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Date Range Picker */}
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Select Date Range</h3>
+                    <CalendarDateRangePicker 
+                      date={dateRange} 
+                      onDateChange={handleDateRangeChange} 
+                    />
+                  </div>
+                  
+                  {/* Available Time Slots */}
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Available Time Slots</h3>
+                    {isLoadingAvailability ? (
+                      <div className="animate-pulse space-y-2">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <div key={i} className="h-10 bg-muted rounded-md"></div>
+                        ))}
+                      </div>
+                    ) : groupedSlots && Object.keys(groupedSlots).length > 0 ? (
+                      <div className="space-y-4">
+                        {Object.entries(groupedSlots).map(([date, slots]) => (
+                          <div key={date}>
+                            <h4 className="text-sm font-medium mb-2">{format(new Date(date), 'EEEE, MMMM d')}</h4>
+                            <div className="grid grid-cols-2 gap-2">
+                              {slots.map((slot) => (
+                                <Button
+                                  key={slot.id}
+                                  variant={selectedSlot === slot.id ? "default" : "outline"}
+                                  className="justify-start"
+                                  onClick={() => handleSlotSelect(slot.id)}
+                                >
+                                  <Clock8 className="h-3.5 w-3.5 mr-2" />
+                                  {format(new Date(slot.start_time), 'h:mm a')}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-2">No available slots in the selected date range</p>
+                    )}
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    className="w-full" 
+                    disabled={!selectedSessionType || !selectedSlot || bookSession.isPending}
+                    onClick={handleBookSession}
+                  >
+                    {bookSession.isPending ? (
+                      <>Processing...</>
+                    ) : (
+                      <>Book Session</>
+                    )}
+                  </Button>
+                </CardFooter>
+              </Card>
             </div>
           </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsBookingOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleBookingSubmit} 
-              disabled={!selectedSessionType || !selectedSlot || isSubmitting}
-              className={isSubmitting ? 'opacity-70' : ''}
-            >
-              {isSubmitting ? 'Booking...' : 'Confirm Booking'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        </div>
+      </PageTransition>
+    </AppLayout>
   );
 };
 

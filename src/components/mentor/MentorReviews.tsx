@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { StarIcon } from 'lucide-react';
+import { formatReviewData } from '@/lib/data-utils';
 
 export interface MentorReviewsProps {
   mentorId: string;
@@ -18,7 +19,7 @@ const MentorReviews: React.FC<MentorReviewsProps> = ({ mentorId }) => {
         .from('session_reviews')
         .select(`
           *,
-          reviewer:reviewer_id(id, full_name, avatar_url, username)
+          reviewer:profiles!reviewer_id(id, full_name, avatar_url, username)
         `)
         .eq('mentor_id', mentorId)
         .order('created_at', { ascending: false });
@@ -49,10 +50,16 @@ const MentorReviews: React.FC<MentorReviewsProps> = ({ mentorId }) => {
   return (
     <div className="space-y-4">
       {reviews.map((review) => {
-        // Safely access reviewer properties
-        const reviewer = review.reviewer && typeof review.reviewer !== 'string' 
-          ? review.reviewer 
-          : { full_name: 'Anonymous User', avatar_url: null };
+        // Safely access reviewer properties with defaults
+        const reviewerName = typeof review.reviewer === 'object' && review.reviewer !== null 
+          ? review.reviewer.full_name || 'Anonymous User' 
+          : 'Anonymous User';
+        
+        const reviewerAvatar = typeof review.reviewer === 'object' && review.reviewer !== null 
+          ? review.reviewer.avatar_url 
+          : null;
+
+        const reviewerInitial = reviewerName.charAt(0);
           
         return (
           <Card key={review.id} className="hover:shadow-md transition-shadow">
@@ -60,16 +67,16 @@ const MentorReviews: React.FC<MentorReviewsProps> = ({ mentorId }) => {
               <div className="flex items-start gap-4">
                 <Avatar className="h-10 w-10">
                   <AvatarImage 
-                    src={reviewer?.avatar_url || undefined} 
-                    alt={reviewer?.full_name || "User"} 
+                    src={reviewerAvatar || undefined} 
+                    alt={reviewerName} 
                   />
                   <AvatarFallback>
-                    {reviewer?.full_name?.charAt(0) || "U"}
+                    {reviewerInitial || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
                   <div className="flex justify-between items-center mb-1">
-                    <h4 className="font-medium">{reviewer?.full_name || "Anonymous User"}</h4>
+                    <h4 className="font-medium">{reviewerName}</h4>
                     <span className="text-xs text-muted-foreground">{formatDate(review.created_at)}</span>
                   </div>
                   <div className="flex items-center mb-2">
