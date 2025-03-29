@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -41,14 +40,14 @@ export default function MentorSessionsPage() {
   
   // Update state when data changes
   useEffect(() => {
-    if (upcomingSessionsData) {
-      setUpcomingSessions(upcomingSessionsData as MentorSession[]);
+    if (upcomingSessionsData && Array.isArray(upcomingSessionsData)) {
+      setUpcomingSessions(upcomingSessionsData);
     }
   }, [upcomingSessionsData]);
   
   useEffect(() => {
-    if (pastSessionsData) {
-      setPastSessions(pastSessionsData as MentorSession[]);
+    if (pastSessionsData && Array.isArray(pastSessionsData)) {
+      setPastSessions(pastSessionsData);
     }
   }, [pastSessionsData]);
   

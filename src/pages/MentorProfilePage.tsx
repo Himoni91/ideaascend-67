@@ -51,7 +51,7 @@ const MentorProfilePage: React.FC = () => {
   
   const { data: availabilitySlots, isLoading: isAvailabilityLoading } = 
     useMentorAvailability({
-      mentorId: id, 
+      mentorId: id || '', 
       startDate: dateRange?.from, 
       endDate: dateRange?.to
     });
@@ -87,7 +87,7 @@ const MentorProfilePage: React.FC = () => {
       
       // Refresh availability
       useMentorAvailability({
-        mentorId: id, 
+        mentorId: id || '', 
         startDate: dateRange?.from, 
         endDate: dateRange?.to
       });

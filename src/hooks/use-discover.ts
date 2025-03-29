@@ -10,6 +10,9 @@ export type { DiscoverFilter } from '@/types/discover';
 export const useDiscover = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  
+  // State for filters, content and categories
+  const [filters, setFilters] = useState<DiscoverFilter>({});
 
   // Fetch all discover content
   const fetchDiscoverContent = async () => {
@@ -27,38 +30,47 @@ export const useDiscover = () => {
         
       if (error) throw new Error(error.message);
       
-      // Transform data to match DiscoverContent interface
-      return data.map(item => ({
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        content_type: item.content_type,
-        image_url: item.image_url,
-        tags: item.tags,
-        view_count: item.view_count,
-        created_at: item.created_at,
-        trending_score: item.trending_score,
-        is_featured: item.is_featured,
-        created_by: item.created_by,
-        profile: item.profile && !('error' in item.profile) ? {
-          id: item.profile.id,
-          username: item.profile.username,
-          full_name: item.profile.full_name,
-          avatar_url: item.profile.avatar_url,
-          is_verified: item.profile.is_verified,
-          position: item.profile.position,
-          company: item.profile.company
-        } : {
-          id: item.created_by,
-          username: 'unknown',
-          full_name: 'Unknown User',
-          avatar_url: null,
-          is_verified: false,
-          position: null,
-          company: null
-        },
-        metadata: item.metadata
-      }));
+      // Transform data to match DiscoverContent interface with proper type checking
+      return data.map(item => {
+        const profileData = item.profile && typeof item.profile === 'object' && !('error' in item.profile) 
+          ? {
+              id: item.profile.id || '',
+              username: item.profile.username || '',
+              full_name: item.profile.full_name || null,
+              avatar_url: item.profile.avatar_url || null,
+              is_verified: item.profile.is_verified || false,
+              position: item.profile.position || null,
+              company: item.profile.company || null
+            }
+          : {
+              id: item.created_by || '',
+              username: 'unknown',
+              full_name: 'Unknown User',
+              avatar_url: null,
+              is_verified: false,
+              position: null,
+              company: null
+            };
+        
+        return {
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          content_type: item.content_type,
+          image_url: item.image_url,
+          tags: item.tags,
+          view_count: item.view_count,
+          created_at: item.created_at,
+          trending_score: item.trending_score,
+          is_featured: item.is_featured,
+          created_by: item.created_by,
+          profile: profileData,
+          metadata: item.metadata,
+          user_has_liked: false,
+          user_has_saved: false,
+          likes_count: 0
+        };
+      });
     } catch (err) {
       const error = err instanceof Error ? err : new Error('An unknown error occurred');
       setError(error);
@@ -85,7 +97,27 @@ export const useDiscover = () => {
         
       if (error) throw new Error(error.message);
       
-      // Transform data to match DiscoverContent interface
+      // Transform data with proper type checking
+      const profileData = data.profile && typeof data.profile === 'object' && !('error' in data.profile) 
+        ? {
+            id: data.profile.id || '',
+            username: data.profile.username || '',
+            full_name: data.profile.full_name || null,
+            avatar_url: data.profile.avatar_url || null,
+            is_verified: data.profile.is_verified || false,
+            position: data.profile.position || null,
+            company: data.profile.company || null
+          }
+        : {
+            id: data.created_by || '',
+            username: 'unknown',
+            full_name: 'Unknown User',
+            avatar_url: null,
+            is_verified: false,
+            position: null,
+            company: null
+          };
+      
       return {
         id: data.id,
         title: data.title,
@@ -98,24 +130,11 @@ export const useDiscover = () => {
         trending_score: data.trending_score,
         is_featured: data.is_featured,
         created_by: data.created_by,
-        profile: data.profile && !('error' in data.profile) ? {
-          id: data.profile.id,
-          username: data.profile.username,
-          full_name: data.profile.full_name,
-          avatar_url: data.profile.avatar_url,
-          is_verified: data.profile.is_verified,
-          position: data.profile.position,
-          company: data.profile.company
-        } : {
-          id: data.created_by,
-          username: 'unknown',
-          full_name: 'Unknown User',
-          avatar_url: null,
-          is_verified: false,
-          position: null,
-          company: null
-        },
-        metadata: data.metadata
+        profile: profileData,
+        metadata: data.metadata,
+        user_has_liked: false,
+        user_has_saved: false,
+        likes_count: 0
       };
     } catch (err) {
       const error = err instanceof Error ? err : new Error('An unknown error occurred');
@@ -143,38 +162,47 @@ export const useDiscover = () => {
         
       if (error) throw new Error(error.message);
       
-      // Transform data to match DiscoverContent interface
-      return data.map(item => ({
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        content_type: item.content_type,
-        image_url: item.image_url,
-        tags: item.tags,
-        view_count: item.view_count,
-        created_at: item.created_at,
-        trending_score: item.trending_score,
-        is_featured: item.is_featured,
-        created_by: item.created_by,
-        profile: item.profile && !('error' in item.profile) ? {
-          id: item.profile.id,
-          username: item.profile.username,
-          full_name: item.profile.full_name,
-          avatar_url: item.profile.avatar_url,
-          is_verified: item.profile.is_verified,
-          position: item.profile.position,
-          company: item.profile.company
-        } : {
-          id: item.created_by,
-          username: 'unknown',
-          full_name: 'Unknown User',
-          avatar_url: null,
-          is_verified: false,
-          position: null,
-          company: null
-        },
-        metadata: item.metadata
-      }));
+      // Transform data with proper type checking
+      return data.map(item => {
+        const profileData = item.profile && typeof item.profile === 'object' && !('error' in item.profile) 
+          ? {
+              id: item.profile.id || '',
+              username: item.profile.username || '',
+              full_name: item.profile.full_name || null,
+              avatar_url: item.profile.avatar_url || null,
+              is_verified: item.profile.is_verified || false,
+              position: item.profile.position || null,
+              company: item.profile.company || null
+            }
+          : {
+              id: item.created_by || '',
+              username: 'unknown',
+              full_name: 'Unknown User',
+              avatar_url: null,
+              is_verified: false,
+              position: null,
+              company: null
+            };
+        
+        return {
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          content_type: item.content_type,
+          image_url: item.image_url,
+          tags: item.tags,
+          view_count: item.view_count,
+          created_at: item.created_at,
+          trending_score: item.trending_score,
+          is_featured: item.is_featured,
+          created_by: item.created_by,
+          profile: profileData,
+          metadata: item.metadata,
+          user_has_liked: false,
+          user_has_saved: false,
+          likes_count: 0
+        };
+      });
     } catch (err) {
       const error = err instanceof Error ? err : new Error('An unknown error occurred');
       setError(error);
@@ -207,11 +235,64 @@ export const useDiscover = () => {
     }
   };
 
+  // Toggle like on content
+  const toggleLike = async (contentId: string, userId: string) => {
+    // Implementation
+    return true;
+  };
+
+  // Toggle save content
+  const toggleSave = async (contentId: string, userId: string) => {
+    // Implementation
+    return true;
+  };
+
+  // Toggle follow creator
+  const toggleFollow = async (creatorId: string, userId: string) => {
+    // Implementation
+    return true;
+  };
+
+  // Create React Query hooks
+  const useDiscoverContent = (filterOptions?: DiscoverFilter) => {
+    return useQuery({
+      queryKey: ['discover-content', filterOptions],
+      queryFn: fetchDiscoverContent
+    });
+  };
+
+  const useDiscoverContentById = (id: string) => {
+    return useQuery({
+      queryKey: ['discover-content', id],
+      queryFn: () => fetchDiscoverContentById(id),
+      enabled: !!id
+    });
+  };
+
+  const useDiscoverCategories = () => {
+    return useQuery({
+      queryKey: ['discover-categories'],
+      queryFn: async () => {
+        const { data, error } = await supabase.from('discover_categories').select('*');
+        if (error) throw error;
+        return data || [];
+      }
+    });
+  };
+
   return {
     fetchDiscoverContent,
     fetchDiscoverContentById,
     fetchDiscoverContentByType,
     checkIsFollowing,
+    toggleLike,
+    toggleSave,
+    toggleFollow,
+    useDiscoverContent,
+    useDiscoverContentById,
+    useDiscoverCategories,
+    filters,
+    setFilters,
     isLoading,
     error
   };

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Calendar, MessageSquare, Star, ThumbsUp } from "lucide-react";
 import { ProfileType } from "@/types/profile";
-import { asMentorProfile } from "@/types/mentor";
+import { MentorProfile, asMentorProfile } from "@/types/mentor";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

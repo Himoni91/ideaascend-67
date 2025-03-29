@@ -1,4 +1,3 @@
-
 export type MentorSessionStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'upcoming' | 'past' | 'in-progress' | 'rescheduled';
 
 export interface MentorAvailabilitySlot {
@@ -55,7 +54,6 @@ export interface MentorSession {
   metadata?: {
     [key: string]: any;
   };
-  // Adding mentor and mentee fields for compatibility
   mentor?: {
     id: string;
     full_name?: string;
@@ -113,13 +111,11 @@ export interface MentorFilter {
   rating?: number;
   availability?: string[];
   searchTerm?: string;
-  // Adding fields referenced in hooks
   specialties?: string[];
   price_range?: [number, number];
   search?: string;
 }
 
-// Add missing types
 export interface MentorApplication {
   id: string;
   user_id: string;
@@ -132,6 +128,7 @@ export interface MentorApplication {
   updated_at?: string;
   approved_at?: string;
   reviewed_by?: string;
+  feedback?: string;
 }
 
 export interface MentorReviewExtended {
@@ -158,6 +155,7 @@ export interface MentorAnalytics {
   total_earnings: number;
   earnings_by_month: Record<string, number>;
   sessions_by_month: Record<string, number>;
+  upcoming_sessions?: number;
   popular_session_types: Array<{
     name: string;
     count: number;
@@ -174,5 +172,21 @@ export enum MentorSpecialty {
   LEADERSHIP = "Leadership & Management",
   SALES = "Sales & Business Development",
   FINANCE = "Finance & Accounting",
-  LEGAL = "Legal & Compliance"
+  LEGAL = "Legal & Compliance",
+  STARTUP_STRATEGY = "Startup Strategy",
+  FUNDRAISING = "Fundraising",
+  USER_ACQUISITION = "User Acquisition",
+  TECHNICAL_ARCHITECTURE = "Technical Architecture",
+  UX_DESIGN = "UX Design",
+  BUSINESS_MODEL = "Business Model",
+  TEAM_BUILDING = "Team Building",
+  PITCH_DECK = "Pitch Deck",
+  FINANCIAL_MODELING = "Financial Modeling",
+  GROWTH_HACKING = "Growth Hacking",
+  CUSTOMER_DEVELOPMENT = "Customer Development",
+  OTHER = "Other"
+}
+
+export function asMentorProfile(profile: ProfileType): MentorProfile {
+  return profile as unknown as MentorProfile;
 }

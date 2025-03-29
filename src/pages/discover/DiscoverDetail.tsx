@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -26,6 +25,8 @@ import AppLayout from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useDiscover } from "@/hooks/use-discover";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 
 export default function DiscoverDetail() {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +38,24 @@ export default function DiscoverDetail() {
     toggleFollow
   } = useDiscover();
   
-  const { data: content, isLoading, error } = useDiscoverContentById(id);
+  const { data: content, isLoading } = useQuery({
+    queryKey: ['discover-content', id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from('discover_content')
+        .select(`
+          *,
+          profile:created_by(id, username, full_name, avatar_url, is_verified, position, company)
+        `)
+        .eq('id', id)
+        .single();
+        
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id
+  });
   
   useEffect(() => {
     // Scroll to top on page load
@@ -63,7 +81,7 @@ export default function DiscoverDetail() {
   }
   
   // Handle like/unlike
-  const handleLike = () => {
+  const handleLike = async () => {
     if (!content) return;
     
     toggleLike.mutate({
@@ -73,7 +91,7 @@ export default function DiscoverDetail() {
   };
   
   // Handle save/unsave
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!content) return;
     
     toggleSave.mutate({
@@ -83,12 +101,12 @@ export default function DiscoverDetail() {
   };
   
   // Handle follow/unfollow
-  const handleFollow = () => {
+  const handleFollow = async (creatorId: string) => {
     if (!content) return;
     
     toggleFollow.mutate({
       contentId: content.id,
-      createdBy: content.created_by,
+      createdBy: creatorId,
       isFollowing: false // This should be dynamic based on user's follow status
     });
   };
@@ -373,7 +391,7 @@ export default function DiscoverDetail() {
                 </div>
                 
                 {content.content_type === 'people' && (
-                  <Button onClick={handleFollow}>
+                  <Button onClick={() => handleFollow(content.created_by)}>
                     Follow
                   </Button>
                 )}

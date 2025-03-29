@@ -1,4 +1,3 @@
-
 import { Json } from "@/integrations/supabase/types";
 import { MentorAvailabilitySlot, MentorSession, MentorReviewExtended } from "@/types/mentor";
 import { ProfileType } from "@/types/profile";
@@ -91,10 +90,11 @@ export const formatSessionData = (data: any): MentorSession => {
     session_type: data.session_type || 'standard',
     created_at: data.created_at,
     metadata: data.metadata,
-    mentor_name: data.mentor_name || data.mentor?.full_name,
-    mentee_name: data.mentee_name || data.mentee?.full_name,
-    mentor_avatar_url: data.mentor_avatar_url || data.mentor?.avatar_url,
-    mentee_avatar_url: data.mentee_avatar_url || data.mentee?.avatar_url
+    mentor_name: data.mentor_name,
+    mentee_name: data.mentee_name,
+    mentor_avatar_url: data.mentor_avatar_url,
+    mentee_avatar_url: data.mentee_avatar_url,
+    location: data.location
   };
 };
 

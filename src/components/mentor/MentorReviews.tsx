@@ -18,7 +18,7 @@ const MentorReviews: React.FC<MentorReviewsProps> = ({ mentorId }) => {
         .from('session_reviews')
         .select(`
           *,
-          reviewer:profiles!reviewer_id(id, full_name, avatar_url, username)
+          reviewer:reviewer_id(id, full_name, avatar_url, username)
         `)
         .eq('mentor_id', mentorId)
         .order('created_at', { ascending: false });
@@ -48,38 +48,45 @@ const MentorReviews: React.FC<MentorReviewsProps> = ({ mentorId }) => {
 
   return (
     <div className="space-y-4">
-      {reviews.map((review) => (
-        <Card key={review.id} className="hover:shadow-md transition-shadow">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <Avatar className="h-10 w-10">
-                <AvatarImage 
-                  src={review.reviewer?.avatar_url || undefined} 
-                  alt={review.reviewer?.full_name || "User"} 
-                />
-                <AvatarFallback>
-                  {review.reviewer?.full_name?.charAt(0) || "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <h4 className="font-medium">{review.reviewer?.full_name || "Anonymous User"}</h4>
-                  <span className="text-xs text-muted-foreground">{formatDate(review.created_at)}</span>
+      {reviews.map((review) => {
+        // Safely access reviewer properties
+        const reviewer = review.reviewer && typeof review.reviewer !== 'string' 
+          ? review.reviewer 
+          : { full_name: 'Anonymous User', avatar_url: null };
+          
+        return (
+          <Card key={review.id} className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-4">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage 
+                    src={reviewer?.avatar_url || undefined} 
+                    alt={reviewer?.full_name || "User"} 
+                  />
+                  <AvatarFallback>
+                    {reviewer?.full_name?.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <h4 className="font-medium">{reviewer?.full_name || "Anonymous User"}</h4>
+                    <span className="text-xs text-muted-foreground">{formatDate(review.created_at)}</span>
+                  </div>
+                  <div className="flex items-center mb-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <StarIcon
+                        key={i}
+                        className={`h-4 w-4 ${i < review.rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'}`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-sm">{review.content}</p>
                 </div>
-                <div className="flex items-center mb-2">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <StarIcon
-                      key={i}
-                      className={`h-4 w-4 ${i < review.rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'}`}
-                    />
-                  ))}
-                </div>
-                <p className="text-sm">{review.content}</p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 };
